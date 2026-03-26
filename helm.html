@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SV-Esperanza — Helm</title>
+<link rel="stylesheet" href="css/sbs-theme.css">
+<link rel="stylesheet" href="css/helm.css">
+</head>
+<body>
+<div class="helm-app">
+
+  <alert-banner></alert-banner>
+
+  <div class="helm-topbar">
+    <a href="index.html" class="back-btn">← Portal</a>
+    <span class="helm-title">⚓ Helm</span>
+    <span class="spacer"></span>
+    <connection-status></connection-status>
+    <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary);margin-left:var(--sp-sm)"></span>
+    <night-toggle></night-toggle>
+  </div>
+
+  <div class="helm-tabs">
+    <button class="helm-tab active" data-tab="instruments">Instruments</button>
+    <button class="helm-tab" data-tab="chart">Chart</button>
+    <button class="helm-tab" data-tab="passage" id="htab-passage">Passage</button>
+    <button class="helm-tab" data-tab="weather">Weather</button>
+  </div>
+
+  <div class="helm-panel active" data-panel="instruments">
+    <div class="inst-layout">
+      <div class="helm-tile amber" id="tile-sog">
+        <span class="h-label">SOG</span>
+        <span class="h-value" id="v-sog">---</span>
+        <span class="h-unit">KN</span>
+      </div>
+      <div class="helm-tile" id="tile-cog">
+        <span class="h-label">COG</span>
+        <span class="h-value" id="v-cog">---</span>
+        <span class="h-unit">°T</span>
+      </div>
+      <div class="helm-tile depth-tile" id="tile-depth">
+        <span class="h-label">DEPTH</span>
+        <span class="h-value" id="v-depth">---</span>
+        <span class="h-unit">M</span>
+      </div>
+      <div class="helm-tile wide" id="tile-ap">
+        <span class="h-label">AUTOPILOT</span>
+        <div class="ap-tile">
+          <div class="ap-heading" id="v-ap-hdg">---°</div>
+          <div class="ap-controls">
+            <button class="ap-btn" onclick="apAdjust(-10)">-10°</button>
+            <button class="ap-btn" onclick="apAdjust(-1)">-1°</button>
+            <button class="ap-btn engage" id="ap-engage-btn" onclick="apToggle()">STBY</button>
+            <button class="ap-btn" onclick="apAdjust(1)">+1°</button>
+            <button class="ap-btn" onclick="apAdjust(10)">+10°</button>
+          </div>
+          <div class="ap-status" id="ap-status">STANDBY</div>
+        </div>
+      </div>
+      <div class="helm-tile" id="tile-tws">
+        <span class="h-label">TWS</span>
+        <span class="h-value" id="v-tws">---</span>
+        <span class="h-unit">KN</span>
+      </div>
+      <div class="helm-tile" id="tile-twd">
+        <span class="h-label">TWD</span>
+        <span class="h-value" id="v-twd">---</span>
+        <span class="h-unit">°T</span>
+      </div>
+      <div class="helm-tile cyan" id="tile-stw">
+        <span class="h-label">STW</span>
+        <span class="h-value" id="v-stw">---</span>
+        <span class="h-unit">KN</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="helm-panel" data-panel="chart">
+    <div class="chart-container">
+      <div class="chart-overlay-tl">
+        <div class="chart-pill" id="chart-sog">SOG — kn</div>
+        <div class="chart-pill" id="chart-cog">COG — °</div>
+        <div class="chart-pill" id="chart-depth">DEPTH — m</div>
+      </div>
+      <div class="chart-overlay-tr">
+        <div class="chart-pill" id="chart-tws">TWS — kn</div>
+        <div class="chart-pill" id="chart-twd">TWD — °</div>
+        <div class="chart-pill" id="chart-pos">--- ---</div>
+      </div>
+      <div class="chart-placeholder">
+        <div class="cp-label">Chart View</div>
+        <div class="cp-sub">OpenCPN integration pending<br>Connect via VNC or tile server</div>
+        <div class="cp-coord" id="chart-coord">Waiting for GPS…</div>
+      </div>
+      <div class="chart-compass">
+        <compass-rose mode="cog" size="120"></compass-rose>
+      </div>
+    </div>
+  </div>
+
+  <div class="helm-panel" data-panel="passage">
+    <div class="passage-layout">
+      <div class="passage-card">
+        <div class="passage-card-title">Next Waypoint</div>
+        <div id="nw-no-passage" style="color:var(--t-muted);font-family:var(--font-display);
+          font-size:var(--s-sm);flex:1;display:flex;align-items:center;justify-content:center">
+          No active passage — plan in Portal
+        </div>
+        <div id="nw-content" style="display:none;flex:1;flex-direction:column">
+          <div class="nw-name" id="nw-name">—</div>
+          <div class="nw-grid">
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-brg">---</div>
+              <div class="nw-lbl">Bearing °T</div>
+            </div>
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-dist">---</div>
+              <div class="nw-lbl">Dist nm</div>
+            </div>
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-eta">---</div>
+              <div class="nw-lbl">ETA</div>
+            </div>
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-vmg">---</div>
+              <div class="nw-lbl">VMG kn</div>
+            </div>
+          </div>
+          <div style="margin-top:var(--sp-sm)">
+            <div style="display:flex;justify-content:space-between;
+              font-family:var(--font-display);font-size:9px;letter-spacing:0.08em;
+              text-transform:uppercase;color:var(--t-muted);margin-bottom:4px">
+              <span id="prog-from">—</span>
+              <span id="prog-pct">0%</span>
+              <span id="prog-to">—</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <button class="sbs-btn primary" style="margin-top:var(--sp-sm);font-size:11px"
+            onclick="helmAdvanceWP()">Mark Reached →</button>
+        </div>
+      </div>
+
+      <div class="passage-card">
+        <div class="passage-card-title">Route</div>
+        <div class="wp-list" id="helm-wp-list">
+          <div style="color:var(--t-muted);font-family:var(--font-display);
+            font-size:var(--s-xs);letter-spacing:0.06em;padding:var(--sp-sm)">
+            No waypoints
+          </div>
+        </div>
+      </div>
+
+      <div class="passage-card">
+        <div class="passage-card-title">Situation Alerts</div>
+        <div class="alerts-list" id="helm-alerts">
+          <div style="color:var(--t-muted);font-family:var(--font-display);
+            font-size:var(--s-xs);letter-spacing:0.06em;padding:var(--sp-sm)">
+            No alerts
+          </div>
+        </div>
+        <a href="index.html#plan" class="replan-btn" id="replan-btn" style="display:none">
+          ↻ Replan in Portal
+        </a>
+      </div>
+
+      <div class="passage-card">
+        <div class="passage-card-title">Performance</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:var(--sp-sm)">
+          <div class="nw-cell">
+            <div class="nw-val" id="perf-sog">---</div>
+            <div class="nw-lbl">Current SOG kn</div>
+          </div>
+          <div class="nw-cell">
+            <div class="nw-val" id="perf-plan">---</div>
+            <div class="nw-lbl">Plan SOG kn</div>
+          </div>
+          <div id="perf-delta" style="text-align:center;font-family:var(--font-display);
+            font-size:clamp(11px,2.2vw,14px);font-weight:700;letter-spacing:0.08em;
+            text-transform:uppercase;color:var(--t-muted)">—</div>
+          <div class="nw-cell" style="margin-top:auto">
+            <div class="nw-val" id="perf-eta">---</div>
+            <div class="nw-lbl">Revised ETA</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="helm-panel" data-panel="weather">
+    <div class="weather-layout">
+      <div class="wx-card">
+        <div class="wx-card-title">Wind — True</div>
+        <div class="wx-hero">
+          <div>
+            <div class="wx-speed" id="wx-tws">---</div>
+            <div class="wx-speed-unit">KN TWS</div>
+          </div>
+          <div class="wx-meta">
+            <div class="wx-dir" id="wx-twd">---°</div>
+            <div class="wx-label">Direction</div>
+            <div style="height:var(--sp-sm)"></div>
+            <div class="wx-dir" style="font-size:clamp(14px,3vw,22px)" id="wx-aws">---</div>
+            <div class="wx-label">AWS kn</div>
+          </div>
+        </div>
+        <div style="margin-top:var(--sp-sm)">
+          <wind-gauge mode="true" size="120"></wind-gauge>
+        </div>
+        <div class="wx-freshness" id="wx-fresh">Live from SignalK</div>
+      </div>
+
+      <div class="wx-card">
+        <div class="wx-card-title">Barometer &amp; Environment</div>
+        <div class="baro-grid">
+          <div class="baro-cell">
+            <div class="baro-val" id="wx-baro">---</div>
+            <div class="baro-lbl">hPa</div>
+          </div>
+          <div class="baro-cell">
+            <div class="trend-arrow" id="baro-trend">→</div>
+            <div class="baro-lbl" id="baro-trend-lbl">Steady</div>
+          </div>
+          <div class="baro-cell">
+            <div class="baro-val" id="wx-temp">---</div>
+            <div class="baro-lbl">°C Air</div>
+          </div>
+          <div class="baro-cell">
+            <div class="baro-val" id="wx-hum">---</div>
+            <div class="baro-lbl">% RH</div>
+          </div>
+        </div>
+        <div class="wx-canvas-wrap" style="margin-top:var(--sp-sm)">
+          <canvas id="baro-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="wx-card" style="grid-column:1/-1;grid-row:2">
+        <div class="wx-card-title">24hr Forecast Strip
+          <span style="color:var(--t-muted);font-weight:400;text-transform:none;
+            letter-spacing:0"> — connect GRIB source for live data</span>
+        </div>
+        <div class="wx-strip" id="wx-strip"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<button class="mob-btn" onclick="mobActivate()">
+  <span class="mob-icon">⚠</span>
+  <span>MOB</span>
+</button>
+
+<div class="mob-overlay" id="mob-overlay">
+  <div class="mob-header">⚠ MAN OVERBOARD ⚠</div>
+  <div class="mob-coord" id="mob-coord">Position at activation:<br>---</div>
+  <div class="mob-timer" id="mob-timer">00:00</div>
+  <ul class="mob-checklist" id="mob-checklist">
+    <li onclick="this.classList.toggle('checked')">Shout MAN OVERBOARD</li>
+    <li onclick="this.classList.toggle('checked')">Throw lifebuoy / Dan buoy</li>
+    <li onclick="this.classList.toggle('checked')">Assign spotter — keep eyes on victim</li>
+    <li onclick="this.classList.toggle('checked')">Start engine if sailing</li>
+    <li onclick="this.classList.toggle('checked')">Press MOB on chartplotter</li>
+    <li onclick="this.classList.toggle('checked')">Radio MAYDAY if victim not recovered quickly</li>
+  </ul>
+  <div class="mob-actions">
+    <button class="mob-action-btn mayday"    onclick="mobMayday()">📡 MAYDAY</button>
+    <button class="mob-action-btn recovered" onclick="mobClear()">✓ RECOVERED</button>
+    <button class="mob-action-btn false-al"  onclick="mobFalse()">False Alarm</button>
+  </div>
+</div>
+
+<script src="js/sbs-data.js"></script>
+<script src="js/sbs-components.js"></script>
+<script src="js/helm.js"></script>
+</body>
+</html>

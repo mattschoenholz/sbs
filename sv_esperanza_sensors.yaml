@@ -1,0 +1,508 @@
+# ============================================================
+# SV-Esperanza Sensor Node
+# Device: ESP32-WROOM
+#
+# ALL CONFIGURABLE VALUES ARE IN THE SUBSTITUTIONS BLOCK BELOW
+# Edit only that section for your installation.
+#
+# SENSORS ACTIVE NOW:
+#   - Paddlewheel speed       (GPIO4)
+#   - BME280 weather          (I2C GPIO21/22)
+#   - Bilge water sensor      (GPIO26)
+#
+# SENSORS — WAITING FOR PARTS (uncomment blocks below):
+#   - Engine RPM              (GPIO25)  — needs optocoupler module
+#   - Fuel sender             (I2C)     — needs INA219 module
+#   - AC shore power          (GPIO32)  — needs ZMPT101B module
+#
+# NMEA0183 OUTPUT → SignalK TCP port 10110:
+#   $IIVHW  — speed through water
+#   $IIMDA  — barometric pressure, air temp, humidity
+#   $IIXDR  — air temperature (OpenCPN reads temp from XDR)
+#   $IIXDR  — humidity
+#   $IIRPM  — engine RPM       (when optocoupler added)
+#   $IIXDR  — fuel level       (when INA219 added)
+#
+# WIRING SUMMARY:
+#   Paddlewheel:
+#     Wire 1  → GPIO4  (internal pull-up enabled)
+#     Wire 2  → GND
+#
+#   BME280:
+#     VCC     → 3.3V
+#     GND     → GND
+#     SDA     → GPIO21
+#     SCL     → GPIO22
+#
+#   Bilge water sensor (binary float/contact):
+#     Wire 1  → GPIO26  (internal pull-up enabled)
+#     Wire 2  → GND
+#
+#   [FUTURE] INA219 fuel sender:
+#     VCC     → 3.3V
+#     GND     → GND
+#     SDA     → GPIO21  (shared I2C bus)
+#     SCL     → GPIO22  (shared I2C bus)
+#     3.3V → 240Ω resistor → INA219 V+ → fuel sender (190Ω) → GND
+#
+#   [FUTURE] Optocoupler RPM:
+#     Signal  → GPIO25  (internal pull-up enabled)
+#     GND     → GND
+#     Input+  → alternator W terminal (via 1kΩ series resistor)
+#     Input-  → GND
+#
+#   [FUTURE] ZMPT101B AC voltage:
+#     VCC     → 3.3V
+#     GND     → GND
+#     OUT     → GPIO32
+#     AC in   → shore power hot + neutral (fused, use caution)
+# ============================================================
+
+substitutions:
+
+  # ── DEVICE IDENTITY ────────────────────────────────────────
+  device_name:                  "sv-esperanza-sensors"
+  friendly_name:                "SV-Esperanza Sensor Node"
+  device_comment:               "Boat sensor node — speed, weather, bilge, engine, fuel, shore power"
+
+  # ── WIFI ───────────────────────────────────────────────────
+  wifi_ssid:                    "SV-Esperanza"
+  wifi_password:                "REDACTED_WIFI_PASSWORD"
+  fallback_ssid:                "SBS-Sensor-Fallback"
+  fallback_password:            "sbs12345"
+
+  # ── NETWORK ────────────────────────────────────────────────
+  # Static IP for this ESP32 on the SV-Esperanza network
+  # Must be outside the DHCP range assigned by GL.iNet router
+  device_ip:                    "192.168.8.50"
+  gateway_ip:                   "192.168.8.1"
+  subnet_mask:                  "255.255.255.0"
+
+  # ── SIGNALK SERVER ─────────────────────────────────────────
+  # Use IP address not hostname — more reliable for TCP
+  # Update to Pi 5 actual IP after first boot
+  signalk_host:                 "192.168.8.201"
+  signalk_port:                 "10110"
+
+  # ── OTA UPDATE PASSWORD ────────────────────────────────────
+  ota_password:                 "REDACTED_OTA_PASSWORD"
+
+  # ── GPIO PIN ASSIGNMENTS ───────────────────────────────────
+  # NOTE: ADC2 pins (GPIO0,2,4,12-15,25-27) cannot be used for
+  # ANALOG reads when Wi-Fi is active — safe for digital only.
+  # All analog sensors must use ADC1: GPIO32-39.
+  # GPIO6-11 are reserved for internal SPI flash — never use.
+  pin_paddlewheel:              "GPIO4"   # digital interrupt — ADC2 safe for digital
+  pin_i2c_sda:                  "GPIO21"
+  pin_i2c_scl:                  "GPIO22"
+  pin_rpm:                      "GPIO25"  # digital interrupt
+  pin_bilge:                    "GPIO26"  # digital input
+  pin_shore_power:              "GPIO32"  # ADC1 ✅ safe with Wi-Fi
+  pin_fuel_adc:                 "GPIO34"  # ADC1 ✅ input-only, ideal for analog
+  pin_spare_adc_1:              "GPIO36"  # ADC1 ✅ reserved
+  pin_spare_adc_2:              "GPIO39"  # ADC1 ✅ reserved
+
+  # ── BME280 ─────────────────────────────────────────────────
+  # I2C address: 0x76 (SDO pin → GND) or 0x77 (SDO pin → VCC)
+  # Run with logger level DEBUG on first boot to confirm address
+  bme280_address:               "0x76"
+  # Temperature offset in °C — adjust if reading high due to
+  # self-heating. Typical correction: -2.0 to -4.0
+  bme280_temp_offset:           "0.0"
+  # How often to sample weather data
+  bme280_update_interval:       "60s"
+
+  # ── PADDLEWHEEL CALIBRATION ────────────────────────────────
+  # Pulses per nautical mile — tune against GPS SOG in flat water
+  # Calibration procedure:
+  #   1. Motor in flat calm with no current
+  #   2. Hold steady speed, note GPS SOG (knots)
+  #   3. Check ESPHome logs for pulses/sec count
+  #   4. pulses_per_nm = (pulses_per_sec / GPS_SOG) * 3600
+  #   5. Repeat at 2-3 speeds and average the results
+  #   6. Update this value and reflash via OTA
+  paddle_pulses_per_nm:         "20000.0"
+  # Debounce in ms — increase if you see erratic high readings
+  paddle_debounce_ms:           "2"
+
+  # ── ENGINE RPM CALIBRATION ─────────────────────────────────
+  # The M18 alternator W terminal outputs pulses proportional
+  # to RPM. Typical 6-pole alternator = 3 pulses per revolution.
+  # Start with 0.5, compare against existing tachometer,
+  # then switch to calibrate_linear pairs for accuracy.
+  rpm_multiplier:               "0.5"
+  # RPM threshold — above this the engine is considered running
+  rpm_running_threshold:        "200.0"
+  # M18 max rated RPM — used to calculate RPM percentage
+  rpm_max:                      "3600.0"
+
+  # ── FUEL SENDER CALIBRATION ────────────────────────────────
+  # Standard US marine sender: 33Ω = full, 240Ω = empty
+  # With 240Ω fixed pull-up resistor from 3.3V:
+  #   Full  (33Ω sender):  V+ ≈ 2.93V → 100%
+  #   Empty (240Ω sender): V+ ≈ 1.65V → 0%
+  # Verify against your actual tank at a known fuel level
+  fuel_voltage_full:            "2.93"
+  fuel_voltage_empty:           "1.65"
+  # INA219 I2C address — default 0x40 with no address pins bridged
+  ina219_address:               "0x40"
+
+  # ── SHORE POWER CALIBRATION ────────────────────────────────
+  # ZMPT101B scaling multiplier — tune against a known AC voltmeter
+  # US standard shore power is 120V AC
+  shore_power_multiplier:       "117.0"
+  # Alert threshold — warn if shore power drops below this voltage
+  shore_power_low_threshold:    "90.0"
+
+
+# ════════════════════════════════════════════════════════════
+# NOTHING BELOW THIS LINE SHOULD NEED EDITING
+# ════════════════════════════════════════════════════════════
+
+esphome:
+  name:           "${device_name}"
+  friendly_name:  "${friendly_name}"
+  comment:        "${device_comment}"
+  includes:
+    - nmea_client.h
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+  # Uncomment for troubleshooting:
+  # level: DEBUG
+
+wifi:
+  ssid:     "${wifi_ssid}"
+  password: "${wifi_password}"
+  ap:
+    ssid:     "${fallback_ssid}"
+    password: "${fallback_password}"
+  manual_ip:
+    static_ip: "${device_ip}"
+    gateway:   "${gateway_ip}"
+    subnet:    "${subnet_mask}"
+
+captive_portal:
+
+ota:
+  platform: esphome
+  password: "${ota_password}"
+
+i2c:
+  sda: "${pin_i2c_sda}"
+  scl: "${pin_i2c_scl}"
+  scan: true
+  frequency: 100khz
+
+globals:
+  - id: pulse_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_speed
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: pulses_per_nm
+    type: float
+    restore_value: yes
+    initial_value: "${paddle_pulses_per_nm}"
+  - id: g_pressure
+    type: float
+    restore_value: no
+    initial_value: '1013.25'
+  - id: g_temp
+    type: float
+    restore_value: no
+    initial_value: '20.0'
+  - id: g_humidity
+    type: float
+    restore_value: no
+    initial_value: '50.0'
+  - id: g_rpm
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_engine_hours
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
+  - id: g_fuel_pct
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+
+binary_sensor:
+
+  # ── PADDLEWHEEL PULSE ──────────────────────────────────────
+  - platform: gpio
+    pin:
+      number: "${pin_paddlewheel}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: paddle_pulse
+    name: "Paddle Pulse"
+    internal: true
+    filters:
+      - delayed_on: !lambda 'return ${paddle_debounce_ms};'
+    on_press:
+      then:
+        - lambda: 'id(pulse_count) += 1;'
+
+  # ── BILGE WATER ────────────────────────────────────────────
+  - platform: gpio
+    pin:
+      number: "${pin_bilge}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: bilge_water
+    name: "Bilge Water Detected"
+    device_class: moisture
+    on_press:
+      then:
+        - logger.log:
+            level: WARN
+            format: "⚠ BILGE WATER DETECTED — check bilge pump"
+    on_release:
+      then:
+        - logger.log:
+            level: INFO
+            format: "Bilge water sensor clear"
+
+sensor:
+
+  # ── BME280 WEATHER ──────────────────────────────────────────
+  - platform: bme280_i2c
+    address: "${bme280_address}"
+    update_interval: "${bme280_update_interval}"
+    temperature:
+      name: "Air Temperature"
+      id: bme_temp
+      accuracy_decimals: 1
+      filters:
+        - offset: !lambda 'return ${bme280_temp_offset};'
+      on_value:
+        then:
+          - lambda: 'id(g_temp) = x;'
+    pressure:
+      name: "Barometric Pressure"
+      id: bme_pressure
+      accuracy_decimals: 1
+      on_value:
+        then:
+          - lambda: 'id(g_pressure) = x;'
+    humidity:
+      name: "Relative Humidity"
+      id: bme_humidity
+      accuracy_decimals: 0
+      on_value:
+        then:
+          - lambda: 'id(g_humidity) = x;'
+
+  # ── SPEED THROUGH WATER ─────────────────────────────────────
+  - platform: template
+    name: "Speed Through Water"
+    id: speed_stw
+    unit_of_measurement: "kn"
+    icon: "mdi:speedometer"
+    accuracy_decimals: 2
+    update_interval: 1s
+    lambda: |-
+      float spd = (id(pulse_count) / id(pulses_per_nm)) * 3600.0;
+      id(pulse_count) = 0;
+      id(g_speed) = spd;
+      return spd;
+
+  # ── ENGINE RPM ──────────────────────────────────────────────
+  # WAITING FOR PARTS — remove comment markers when optocoupler arrives
+  #
+  # - platform: pulse_counter
+  #   pin:
+  #     number: "${pin_rpm}"
+  #     mode:
+  #       input: true
+  #       pullup: true
+  #   id: engine_rpm
+  #   name: "Engine RPM"
+  #   unit_of_measurement: "RPM"
+  #   icon: "mdi:engine"
+  #   accuracy_decimals: 0
+  #   update_interval: 2s
+  #   filters:
+  #     - multiply: !lambda 'return ${rpm_multiplier};'
+  #     # After calibration against your tachometer, replace
+  #     # the multiply filter with calibrate_linear pairs:
+  #     # - calibrate_linear:
+  #     #     - 0    -> 0
+  #     #     - 1500 -> 1500
+  #     #     - 3000 -> 3000
+  #   on_value:
+  #     then:
+  #       - lambda: 'id(g_rpm) = x;'
+
+  # ── ENGINE HOURS ────────────────────────────────────────────
+  # WAITING FOR PARTS — uncomment with RPM sensor above
+  #
+  # - platform: template
+  #   name: "Engine Hours"
+  #   id: engine_hours
+  #   unit_of_measurement: "h"
+  #   icon: "mdi:timer"
+  #   accuracy_decimals: 1
+  #   update_interval: 60s
+  #   lambda: |-
+  #     if (id(g_rpm) > ${rpm_running_threshold}) {
+  #       id(g_engine_hours) += (1.0 / 60.0);
+  #     }
+  #     return id(g_engine_hours);
+
+  # ── FUEL LEVEL via INA219 ────────────────────────────────────
+  # WAITING FOR PARTS — uncomment when INA219 arrives
+  #
+  # - platform: ina219
+  #   address: "${ina219_address}"
+  #   update_interval: 30s
+  #   bus_voltage:
+  #     name: "Fuel Sender Voltage"
+  #     id: fuel_voltage
+  #     internal: true
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             float empty_v = ${fuel_voltage_empty};
+  #             float full_v  = ${fuel_voltage_full};
+  #             float pct = ((x - empty_v) / (full_v - empty_v)) * 100.0;
+  #             if (pct < 0)   pct = 0;
+  #             if (pct > 100) pct = 100;
+  #             id(g_fuel_pct) = pct;
+  #
+  # - platform: template
+  #   name: "Fuel Level"
+  #   id: fuel_level
+  #   unit_of_measurement: "%"
+  #   icon: "mdi:fuel"
+  #   accuracy_decimals: 0
+  #   update_interval: 30s
+  #   lambda: 'return id(g_fuel_pct);'
+
+  # ── AC SHORE POWER via ZMPT101B ──────────────────────────────
+  # WAITING FOR PARTS — uncomment when ZMPT101B arrives
+  # GPIO32 is ADC1 — safe for analog reads with Wi-Fi active
+  #
+  # - platform: adc
+  #   pin: "${pin_shore_power}"
+  #   name: "Shore Power Voltage"
+  #   id: shore_power
+  #   unit_of_measurement: "V"
+  #   icon: "mdi:power-plug"
+  #   accuracy_decimals: 0
+  #   attenuation: 11db
+  #   update_interval: 5s
+  #   filters:
+  #     - multiply: !lambda 'return ${shore_power_multiplier};'
+  #   on_value:
+  #     then:
+  #       - if:
+  #           condition:
+  #             lambda: 'return x < ${shore_power_low_threshold};'
+  #           then:
+  #             - logger.log:
+  #                 level: WARN
+  #                 format: "⚠ SHORE POWER LOW OR LOST: %.0fV"
+  #                 args: ['x']
+
+# ── NMEA0183 OUTPUT ───────────────────────────────────────────
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+
+          // ── VHW: Speed Through Water ──────────────────────
+          // $IIVHW,,T,,M,S.SS,N,,K*cs
+          {
+            char s[64];
+            snprintf(s, sizeof(s),
+              "IIVHW,,T,,M,%.2f,N,,K", id(g_speed));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[80];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+          // ── MDA: Meteorological Composite ─────────────────
+          // Pressure in BARS (hPa / 1000)
+          // OpenCPN only accepts 0.8–1.1 bar
+          {
+            float p_bar = id(g_pressure) / 1000.0;
+            char s[128];
+            snprintf(s, sizeof(s),
+              "IIMDA,,I,%.4f,B,%.1f,C,,C,%.0f,,,,C,,,,,",
+              p_bar, id(g_temp), id(g_humidity));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[148];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+          // ── XDR: Air Temperature ──────────────────────────
+          // OpenCPN reads air temp from XDR not MDA
+          {
+            char s[64];
+            snprintf(s, sizeof(s),
+              "IIXDR,C,%.1f,C,TempAir", id(g_temp));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[80];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+          // ── XDR: Humidity ─────────────────────────────────
+          {
+            char s[64];
+            snprintf(s, sizeof(s),
+              "IIXDR,H,%.0f,P,Humidity", id(g_humidity));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[80];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+          // ── RPM: Engine RPM ───────────────────────────────
+          // Uncomment when optocoupler arrives
+          // {
+          //   float pct = (id(g_rpm) / ${rpm_max}) * 100.0;
+          //   char s[64];
+          //   snprintf(s, sizeof(s),
+          //     "IIRPM,E,1,%.0f,%.0f,A", id(g_rpm), pct);
+          //   uint8_t cs = 0;
+          //   for (int i = 0; s[i]; i++) cs ^= s[i];
+          //   char f[80];
+          //   snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+          //   nmea_push(f);
+          // }
+
+          // ── XDR: Fuel Level ───────────────────────────────
+          // Uncomment when INA219 arrives
+          // {
+          //   char s[64];
+          //   snprintf(s, sizeof(s),
+          //     "IIXDR,V,%.0f,P,Fuel", id(g_fuel_pct));
+          //   uint8_t cs = 0;
+          //   for (int i = 0; s[i]; i++) cs ^= s[i];
+          //   char f[80];
+          //   snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+          //   nmea_push(f);
+          // }

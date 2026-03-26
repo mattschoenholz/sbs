@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chart Cache Warmer — SailboatServer</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+           background: #0d2136; color: #a8c8e8; margin: 0; padding: 24px; }
+    h1   { color: #56b4d3; margin: 0 0 4px; font-size: 1.4em; }
+    .sub { color: #5a8aaa; font-size: 0.85em; margin-bottom: 20px; }
+
+    .bar-wrap { background: #1a3050; border-radius: 8px; height: 22px;
+                overflow: hidden; margin: 12px 0; }
+    .bar      { background: linear-gradient(90deg,#1e7899,#56b4d3);
+                height: 100%; width: 0; transition: width 0.3s; border-radius: 8px; }
+
+    .stats  { display: flex; gap: 28px; font-size: 0.9em; margin: 8px 0 16px; flex-wrap: wrap; }
+    .stat   { display: flex; flex-direction: column; }
+    .stat .val { font-size: 1.5em; font-weight: 600; color: #c8e8f8; }
+    .stat .lbl { font-size: 0.75em; color: #5a8aaa; }
+
+    .hit  { color: #40c060; }
+    .miss { color: #56b4d3; }
+    .err  { color: #e06060; }
+
+    button { background: #1e5070; color: #a8d8f8; border: 1px solid #2a6888;
+             border-radius: 6px; padding: 8px 20px; cursor: pointer; font-size: 1em;
+             margin-right: 10px; }
+    button:hover { background: #2a6888; }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    #log { margin-top: 16px; background: #111e2a; border-radius: 6px; padding: 12px 16px;
+           font-size: 0.78em; max-height: 280px; overflow-y: auto; line-height: 1.7; }
+    .zoom-row { display: flex; align-items: center; gap: 10px; margin: 3px 0; }
+    .zoom-label { width: 120px; color: #4a7a9a; }
+    .zoom-bar-wrap { flex: 1; background: #1a3050; border-radius: 4px; height: 8px; overflow: hidden; }
+    .zoom-bar { background: #2a7090; height: 100%; width: 0; transition: width 0.5s; }
+    .zoom-count { width: 80px; text-align: right; font-size: 0.85em; }
+
+    #coverage { margin-top: 14px; font-size: 0.82em; color: #5a8aaa; }
+  </style>
+</head>
+<body>
+<h1>⚓ Chart Cache Warmer</h1>
+<div class="sub">Pre-renders all nautical chart tiles into the nginx cache so the map loads instantly.
+Run this once while on the boat's WiFi. Keep this tab open until complete.</div>
+
+<div>
+  <button id="btn-start" onclick="startWarm()">Start Warming</button>
+  <button id="btn-stop"  onclick="stopWarm()" disabled>Stop</button>
+</div>
+
+<div class="bar-wrap"><div class="bar" id="bar"></div></div>
+
+<div class="stats">
+  <div class="stat"><span class="val" id="s-done">0</span><span class="lbl">Tiles processed</span></div>
+  <div class="stat"><span class="val hit" id="s-hit">0</span><span class="lbl">Cache HITs (instant)</span></div>
+  <div class="stat"><span class="val miss" id="s-miss">0</span><span class="lbl">Cache MISSes (rendered)</span></div>
+  <div class="stat"><span class="val err" id="s-err">0</span><span class="lbl">Errors</span></div>
+  <div class="stat"><span class="val" id="s-rate">–</span><span class="lbl">Tiles/sec</span></div>
+  <div class="stat"><span class="val" id="s-eta">–</span><span class="lbl">ETA</span></div>
+</div>
+
+<div id="zoom-progress"></div>
+<div id="coverage"></div>
+<div id="log"></div>
+
+<script>
+// ── WMS parameters (must match sbs-chart.js exactly) ─────────────────────────
+const LAYERS =
+  'DEPARE_verydeep,DEPARE_deep,DEPARE_mid,DEPARE_shallow,DEPARE_vshallow,' +
+  'DEPARE_drying,DEPARE_neg,SBDARE,LNDARE,DRGARE,DEPCNT,COALNE,SLCONS,' +
+  'WRECKS,OBSTRN,UWTROC,SOUNDG';
+
+const LAYERS_ENC = LAYERS.replace(/,/g, '%2C');
+
+// Use the same host the page was loaded from
+const WMS_BASE = `${location.protocol}//${location.hostname}/cgi-bin/mapserv`;
+
+const URL_PREFIX =
+  `${WMS_BASE}` +
+  '?service=WMS&request=GetMap' +
+  `&layers=${LAYERS_ENC}` +
+  '&styles=&format=image%2Fpng&transparent=true&version=1.1.1' +
+  '&width=256&height=256&srs=EPSG%3A3857&bbox=';
+
+// ── Leaflet EPSG:3857 transformation (EXACT same code as Leaflet source) ─────
+// transformation: ht(lt=0.5/(Math.PI*R), 0.5, -lt, 0.5)
+// untransform: x=(px/scale-_b)/_a, y=(py/scale-_d)/_c
+const R  = 6378137.0;
+const _a =  0.5 / (Math.PI * R);
+const _c = -0.5 / (Math.PI * R);
+
+function tileBbox(z, x, y) {
+  const scale = 256 * Math.pow(2, z);
+  const xmin = (x     * 256 / scale - 0.5) / _a;
+  const xmax = ((x+1) * 256 / scale - 0.5) / _a;
+  const ymax = (y     * 256 / scale - 0.5) / _c;
+  const ymin = ((y+1) * 256 / scale - 0.5) / _c;
+  return [xmin, ymin, xmax, ymax];
+}
+
+function tileUrl(z, x, y) {
+  const [xmin, ymin, xmax, ymax] = tileBbox(z, x, y);
+  return `${URL_PREFIX}${xmin},${ymin},${xmax},${ymax}`;
+}
+
+// ── Tile enumeration ─────────────────────────────────────────────────────────
+function lonToX(lon, z) { return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+function latToY(lat, z) {
+  const r = lat * Math.PI / 180;
+  const n = Math.pow(2, z);
+  return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
+}
+
+// Geographic bounds
+const WIDE = { lon0: -138, lat0: 36, lon1: -120, lat1: 58 };  // wide PNW area
+const ENC  = { lon0: -124.656917, lat0: 45.861477, lon1: -122.292914, lat1: 49.004167 };
+const WIDE_MAX_ZOOM = 12;
+const MAX_ZOOM = 15;  // user can override in JS console: MAX_ZOOM = 14
+
+function* enumTiles(z) {
+  const b = z <= WIDE_MAX_ZOOM ? WIDE : ENC;
+  const x0 = lonToX(b.lon0, z), x1 = lonToX(b.lon1, z);
+  const y0 = latToY(b.lat1, z), y1 = latToY(b.lat0, z);
+  for (let x = x0; x <= x1; x++)
+    for (let y = y0; y <= y1; y++)
+      yield [z, x, y];
+}
+
+// ── Run warming ──────────────────────────────────────────────────────────────
+let running = false;
+let abort   = false;
+
+async function startWarm() {
+  if (running) return;
+  running = true; abort = false;
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-stop').disabled  = false;
+
+  // Count tiles first
+  const zoomData = [];
+  let total = 0;
+  for (let z = 1; z <= MAX_ZOOM; z++) {
+    const tiles = [...enumTiles(z)];
+    zoomData.push({ z, tiles, done: 0 });
+    total += tiles.length;
+  }
+
+  // Build zoom progress rows
+  const zp = document.getElementById('zoom-progress');
+  zp.innerHTML = zoomData.map(({ z, tiles }) =>
+    `<div class="zoom-row">
+      <span class="zoom-label">Zoom ${z} (${tiles.length.toLocaleString()})</span>
+      <div class="zoom-bar-wrap"><div class="zoom-bar" id="zb-${z}"></div></div>
+      <span class="zoom-count" id="zc-${z}">0 / ${tiles.length.toLocaleString()}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('coverage').textContent =
+    `Wide area (zoom 1-${WIDE_MAX_ZOOM}): lon ${WIDE.lon0}..${WIDE.lon1}, lat ${WIDE.lat0}..${WIDE.lat1} | ` +
+    `ENC area (zoom ${WIDE_MAX_ZOOM+1}-${MAX_ZOOM}): lon ${ENC.lon0}..${ENC.lon1}, lat ${ENC.lat0}..${ENC.lat1}`;
+
+  addLog(`Starting: ${total.toLocaleString()} tiles across zoom 1-${MAX_ZOOM}`);
+
+  let done = 0, hit = 0, miss = 0, err = 0;
+  const startTime = Date.now();
+  const CONCURRENCY = 6;  // 6 parallel requests (matches fcgiwrap concurrency)
+
+  async function fetchOne(z, x, y, zd) {
+    if (abort) return;
+    const url = tileUrl(z, x, y);
+    try {
+      const resp = await fetch(url, { cache: 'no-store' });
+      const cacheStatus = resp.headers.get('x-cache-status') || '?';
+      if (cacheStatus.includes('HIT')) hit++;
+      else miss++;
+    } catch (e) {
+      err++;
+    }
+    done++;
+    zd.done++;
+
+    // Update UI every 20 tiles
+    if (done % 20 === 0 || done === total) {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const rate = done / elapsed;
+      const eta  = (total - done) / rate;
+
+      document.getElementById('bar').style.width = (100 * done / total) + '%';
+      document.getElementById('s-done').textContent = done.toLocaleString();
+      document.getElementById('s-hit').textContent  = hit.toLocaleString();
+      document.getElementById('s-miss').textContent = miss.toLocaleString();
+      document.getElementById('s-err').textContent  = err;
+      document.getElementById('s-rate').textContent = rate.toFixed(1);
+      document.getElementById('s-eta').textContent  =
+        eta < 60 ? `${Math.round(eta)}s` : `${(eta/60).toFixed(0)}m ${Math.round(eta%60)}s`;
+    }
+
+    const zBar = document.getElementById(`zb-${z}`);
+    if (zBar) zBar.style.width = (100 * zd.done / zd.tiles.length) + '%';
+    const zCnt = document.getElementById(`zc-${z}`);
+    if (zCnt) zCnt.textContent = `${zd.done.toLocaleString()} / ${zd.tiles.length.toLocaleString()}`;
+  }
+
+  // Process each zoom level sequentially, tiles within a zoom in parallel
+  for (const zd of zoomData) {
+    if (abort) break;
+    addLog(`  z${zd.z}: ${zd.tiles.length.toLocaleString()} tiles...`);
+
+    // Run with limited concurrency
+    let i = 0;
+    async function worker() {
+      while (i < zd.tiles.length && !abort) {
+        const [z, x, y] = zd.tiles[i++];
+        await fetchOne(z, x, y, zd);
+      }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    if (!abort) addLog(`  z${zd.z}: done (HIT=${hit}, MISS=${miss}, ERR=${err})`);
+  }
+
+  const elapsed = (Date.now() - startTime) / 1000;
+  addLog(abort
+    ? `⚠ Stopped at ${done.toLocaleString()}/${total.toLocaleString()} tiles.`
+    : `✓ Complete! ${done.toLocaleString()} tiles in ${(elapsed/60).toFixed(1)} min. HIT=${hit.toLocaleString()} MISS=${miss.toLocaleString()} ERR=${err}`
+  );
+
+  running = false;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled  = true;
+}
+
+function stopWarm() {
+  abort = true;
+  addLog('Stopping after current batch...');
+}
+
+function addLog(msg) {
+  const el = document.getElementById('log');
+  const div = document.createElement('div');
+  div.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Claude Code internal state
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+
+# Node
+node_modules/
+
+# macOS
+.DS_Store
+
+# Large chart data — lives on the Pi, not in this repo
+/data/
+*.mbtiles
+*.gpkg
+
+# Logs
+*.log
