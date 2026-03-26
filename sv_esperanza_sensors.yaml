@@ -66,10 +66,11 @@ substitutions:
   device_comment:               "Boat sensor node — speed, weather, bilge, engine, fuel, shore power"
 
   # ── WIFI ───────────────────────────────────────────────────
-  wifi_ssid:                    "SV-Esperanza"
-  wifi_password:                "REDACTED_WIFI_PASSWORD"
-  fallback_ssid:                "SBS-Sensor-Fallback"
-  fallback_password:            "sbs12345"
+  wifi_ssid:                    !secret wifi_ssid
+  # Credentials live in secrets.yaml (git-ignored) — never hardcode here
+  wifi_password:                !secret wifi_password
+  fallback_ssid:                !secret fallback_ssid
+  fallback_password:            !secret fallback_password
 
   # ── NETWORK ────────────────────────────────────────────────
   # Static IP for this ESP32 on the SV-Esperanza network
@@ -85,7 +86,8 @@ substitutions:
   signalk_port:                 "10110"
 
   # ── OTA UPDATE PASSWORD ────────────────────────────────────
-  ota_password:                 "REDACTED_OTA_PASSWORD"
+  # Password lives in secrets.yaml (git-ignored)
+  ota_password:                 !secret ota_password
 
   # ── GPIO PIN ASSIGNMENTS ───────────────────────────────────
   # NOTE: ADC2 pins (GPIO0,2,4,12-15,25-27) cannot be used for

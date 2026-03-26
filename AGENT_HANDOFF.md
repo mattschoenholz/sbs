@@ -196,7 +196,7 @@ OpenWeatherMap ─────→ sbs-chart.js (selectWxLayer) ──→ map ove
 
 | Service | Key/Value | Location |
 |---|---|---|
-| OpenWeatherMap | `REDACTED_OWM_KEY` | Stored in browser localStorage (`sbs-owm-key`) — entered via UI prompt |
+| OpenWeatherMap | *(user-entered via UI — never hardcode)* | Stored in browser localStorage (`sbs-owm-key`) — entered via UI prompt |
 | Open-Meteo | None (free, no key) | — |
 | NOAA APIs | None (free, no key) | — |
 | Tailscale | Account: matt.schoenholz@ | tailscale.com/admin |
