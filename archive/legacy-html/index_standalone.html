@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SV-Esperanza — Portal</title>
+<style>
+/* ============================================================
+   SBS THEME — Sailboat Server Design System
+   Nautical instrument aesthetic: dark, precise, readable
+   Inspired by chart plotters and marine electronics
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500&display=swap');
+
+/* ── DESIGN TOKENS ─────────────────────────────────────────── */
+:root {
+  /* Core palette — deep water + amber instruments */
+  --c-void:        #080c10;   /* absolute black — backgrounds */
+  --c-deep:        #0d1318;   /* deep nav panel bg */
+  --c-surface:     #111920;   /* card / panel surface */
+  --c-raised:      #16222d;   /* elevated element */
+  --c-border:      #1e2e3a;   /* subtle borders */
+  --c-border-hi:   #2a3f50;   /* highlighted borders */
+
+  /* Amber — primary instrument color */
+  --c-amber:       #e8940a;   /* primary amber */
+  --c-amber-hi:    #f5a820;   /* bright amber / active */
+  --c-amber-dim:   #a06208;   /* dim amber */
+  --c-amber-glow:  rgba(232, 148, 10, 0.15);
+
+  /* Status colors */
+  --c-green:       #22c55e;
+  --c-green-dim:   #166534;
+  --c-green-glow:  rgba(34, 197, 94, 0.15);
+  --c-red:         #ef4444;
+  --c-red-dim:     #7f1d1d;
+  --c-red-glow:    rgba(239, 68, 68, 0.2);
+  --c-yellow:      #eab308;
+  --c-yellow-dim:  #713f12;
+  --c-blue:        #3b82f6;
+  --c-blue-dim:    #1e3a5f;
+  --c-blue-glow:   rgba(59, 130, 246, 0.15);
+  --c-cyan:        #06b6d4;
+
+  /* Text hierarchy */
+  --t-primary:     #e8edf2;   /* primary text */
+  --t-secondary:   #8fa3b3;   /* secondary / labels */
+  --t-muted:       #4a6070;   /* muted / disabled */
+  --t-amber:       var(--c-amber-hi);
+  --t-value:       #f0f4f8;   /* instrument values — slightly warm white */
+
+  /* Typography */
+  --font-display:  'Barlow Condensed', sans-serif;  /* headings, labels, nav */
+  --font-mono:     'Share Tech Mono', monospace;    /* instrument values */
+  --font-body:     'Barlow', sans-serif;            /* body text */
+
+  /* Fluid type scale */
+  --s-xs:   clamp(9px,  1.6vw, 11px);
+  --s-sm:   clamp(11px, 2vw,   13px);
+  --s-md:   clamp(13px, 2.4vw, 15px);
+  --s-lg:   clamp(15px, 2.8vw, 18px);
+  --s-xl:   clamp(18px, 3.5vw, 24px);
+  --s-2xl:  clamp(24px, 5vw,   36px);
+  --s-3xl:  clamp(32px, 7vw,   52px);
+  --s-4xl:  clamp(44px, 10vw,  72px);
+
+  /* Spacing */
+  --sp-xs:  4px;
+  --sp-sm:  8px;
+  --sp-md:  12px;
+  --sp-lg:  16px;
+  --sp-xl:  24px;
+  --sp-2xl: 32px;
+
+  /* Radii */
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   12px;
+
+  /* Transitions */
+  --tx-fast:   120ms ease;
+  --tx-normal: 220ms ease;
+  --tx-slow:   400ms ease;
+
+  /* Shadows */
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg:   0 8px 24px rgba(0,0,0,0.6);
+  --shadow-amber: 0 0 12px var(--c-amber-glow);
+  --shadow-green: 0 0 12px var(--c-green-glow);
+  --shadow-red:   0 0 16px var(--c-red-glow);
+}
+
+/* Night mode — full amber, no white light */
+:root.night {
+  --t-primary:   #d4820a;
+  --t-secondary: #8a5506;
+  --t-muted:     #4a3002;
+  --t-value:     #e8940a;
+  --c-green:     #c47a00;
+  --c-blue:      #b36a00;
+  --c-cyan:      #c47a00;
+  --c-red:       #cc3300;
+}
+
+/* ── RESET & BASE ───────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--c-void);
+  color: var(--t-primary);
+  font-family: var(--font-body);
+  font-size: var(--s-md);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* full screen app */
+}
+
+/* ── SHARED LAYOUT ──────────────────────────────────────────── */
+.sbs-app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--c-void);
+}
+
+/* ── STATUS BAR ─────────────────────────────────────────────── */
+.sbs-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  padding: var(--sp-sm) var(--sp-lg);
+  background: var(--c-deep);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+  height: 36px;
+}
+
+.sbs-statusbar .sbs-title {
+  font-family: var(--font-display);
+  font-size: var(--s-md);
+  font-weight: 600;
+  color: var(--c-amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+
+.sbs-statusbar .sbs-clock {
+  font-family: var(--font-mono);
+  font-size: var(--s-sm);
+  color: var(--t-secondary);
+}
+
+/* Status dots */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+}
+
+.status-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--t-muted);
+  transition: background var(--tx-normal), box-shadow var(--tx-normal);
+}
+
+.status-dot.ok::before   { background: var(--c-green); box-shadow: 0 0 6px var(--c-green); }
+.status-dot.warn::before { background: var(--c-yellow); box-shadow: 0 0 6px var(--c-yellow); }
+.status-dot.err::before  { background: var(--c-red); box-shadow: 0 0 6px var(--c-red); }
+
+/* ── TAB NAV ────────────────────────────────────────────────── */
+.sbs-tabs {
+  display: flex;
+  background: var(--c-deep);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+
+.sbs-tab {
+  flex: 1;
+  padding: var(--sp-sm) var(--sp-md);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--t-muted);
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--tx-fast), border-color var(--tx-fast);
+  position: relative;
+}
+
+.sbs-tab:hover { color: var(--t-secondary); }
+
+.sbs-tab.active {
+  color: var(--c-amber-hi);
+  border-bottom-color: var(--c-amber);
+}
+
+/* Alert badge on tab */
+.sbs-tab .badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--c-red);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ── TAB PANELS ─────────────────────────────────────────────── */
+.sbs-panel {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--sp-lg);
+  gap: var(--sp-md);
+}
+
+.sbs-panel.active { display: flex; flex-direction: column; }
+
+/* ── CARDS ──────────────────────────────────────────────────── */
+.sbs-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.sbs-card-header {
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-secondary);
+  margin-bottom: var(--sp-md);
+  padding-bottom: var(--sp-sm);
+  border-bottom: 1px solid var(--c-border);
+}
+
+/* ── INSTRUMENT CELLS ───────────────────────────────────────── */
+.inst-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-sm);
+}
+
+.inst-cell {
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.inst-cell .label {
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+}
+
+.inst-cell .value {
+  font-family: var(--font-mono);
+  font-size: var(--s-2xl);
+  color: var(--t-value);
+  line-height: 1;
+}
+
+.inst-cell .unit {
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  color: var(--t-secondary);
+}
+
+.inst-cell.highlight .value { color: var(--c-amber-hi); }
+.inst-cell.alert .value     { color: var(--c-red); }
+
+/* ── BUTTONS ────────────────────────────────────────────────── */
+.sbs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm) var(--sp-lg);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border-hi);
+  border-radius: var(--r-md);
+  color: var(--t-primary);
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--tx-fast);
+  text-decoration: none;
+}
+
+.sbs-btn:hover {
+  background: var(--c-border-hi);
+  color: var(--t-primary);
+}
+
+.sbs-btn.primary {
+  background: var(--c-amber-dim);
+  border-color: var(--c-amber);
+  color: var(--c-amber-hi);
+}
+
+.sbs-btn.primary:hover {
+  background: var(--c-amber);
+  color: var(--c-void);
+}
+
+.sbs-btn.danger {
+  background: var(--c-red-dim);
+  border-color: var(--c-red);
+  color: var(--c-red);
+}
+
+.sbs-btn.danger:hover {
+  background: var(--c-red);
+  color: white;
+}
+
+.sbs-btn.large {
+  padding: var(--sp-md) var(--sp-xl);
+  font-size: var(--s-lg);
+  border-radius: var(--r-lg);
+}
+
+/* ── RELAY BUTTONS ──────────────────────────────────────────── */
+.relay-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-xs);
+  padding: var(--sp-md);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all var(--tx-fast);
+  min-height: 80px;
+  position: relative;
+}
+
+.relay-btn .icon  { font-size: var(--s-xl); }
+.relay-btn .name  {
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t-secondary);
+  text-align: center;
+}
+
+.relay-btn.on {
+  background: rgba(14, 40, 20, 0.8);
+  border-color: var(--c-green);
+  box-shadow: var(--shadow-green);
+}
+
+.relay-btn.on .name { color: var(--c-green); }
+
+.relay-btn.on::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-green);
+  box-shadow: 0 0 6px var(--c-green);
+}
+
+/* ── ALERT BANNER ───────────────────────────────────────────── */
+.alert-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: var(--sp-md) var(--sp-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  font-family: var(--font-display);
+  font-size: var(--s-md);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  transform: translateY(-100%);
+  transition: transform var(--tx-normal);
+}
+
+.alert-banner.show { transform: translateY(0); }
+
+.alert-banner.urgent {
+  background: var(--c-red-dim);
+  border-bottom: 2px solid var(--c-red);
+  color: var(--c-red);
+  box-shadow: var(--shadow-red);
+}
+
+.alert-banner.advisory {
+  background: var(--c-yellow-dim);
+  border-bottom: 2px solid var(--c-yellow);
+  color: var(--c-yellow);
+}
+
+.alert-banner .dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--s-lg);
+  opacity: 0.7;
+}
+
+/* ── HELM BUTTON ────────────────────────────────────────────── */
+.helm-launch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-md) var(--sp-xl);
+  background: linear-gradient(135deg, #0d2440, #1a3a5c);
+  border: 1px solid #2a5080;
+  border-radius: var(--r-lg);
+  color: #60a8d0;
+  font-family: var(--font-display);
+  font-size: var(--s-lg);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--tx-normal);
+  box-shadow: 0 0 20px rgba(42, 80, 128, 0.3);
+}
+
+.helm-launch:hover {
+  background: linear-gradient(135deg, #1a3a5c, #2a5080);
+  color: #90c8f0;
+  box-shadow: 0 0 30px rgba(42, 80, 128, 0.5);
+}
+
+/* ── SCROLLBARS ─────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: var(--c-void); }
+::-webkit-scrollbar-thumb { background: var(--c-border-hi); border-radius: 2px; }
+
+/* ── UTILITY ────────────────────────────────────────────────── */
+.flex-row   { display: flex; flex-direction: row; align-items: center; }
+.flex-col   { display: flex; flex-direction: column; }
+.gap-sm     { gap: var(--sp-sm); }
+.gap-md     { gap: var(--sp-md); }
+.gap-lg     { gap: var(--sp-lg); }
+.text-amber { color: var(--c-amber-hi); }
+.text-muted { color: var(--t-muted); }
+.text-mono  { font-family: var(--font-mono); }
+.text-display { font-family: var(--font-display); }
+.hidden     { display: none !important; }
+
+</style>
+<style>
+.inst-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-sm);
+}
+@media (max-width: 500px) { .inst-row { grid-template-columns: repeat(2, 1fr); } }
+
+.relay-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-sm);
+}
+@media (max-width: 500px) { .relay-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.gauges-row {
+  display: flex;
+  gap: var(--sp-md);
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.sys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-sm);
+}
+.sys-btn {
+  display: flex; align-items: center; gap: var(--sp-sm);
+  padding: var(--sp-md); background: var(--c-raised);
+  border: 1px solid var(--c-border); border-radius: var(--r-md);
+  color: var(--t-primary); font-family: var(--font-body);
+  font-size: var(--s-sm); cursor: pointer;
+  transition: all var(--tx-fast); text-align: left;
+}
+.sys-btn:hover  { background: var(--c-border); }
+.sys-btn .sys-ico { font-size: 20px; flex-shrink: 0; }
+.sys-btn .sys-lbl { font-weight: 500; }
+.sys-btn .sys-sub { font-size: var(--s-xs); color: var(--t-muted); }
+.sys-btn.warn   { border-color: var(--c-yellow); }
+.sys-btn.danger { border-color: var(--c-red); }
+.sys-btn.warn:hover   { background: var(--c-yellow-dim); }
+.sys-btn.danger:hover { background: var(--c-red-dim); }
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-sm);
+}
+.resource-link {
+  display: flex; align-items: center; gap: var(--sp-sm);
+  padding: var(--sp-md); background: var(--c-raised);
+  border: 1px solid var(--c-border); border-radius: var(--r-md);
+  color: var(--t-secondary); font-family: var(--font-display);
+  font-size: var(--s-sm); font-weight: 600; letter-spacing: 0.05em;
+  text-decoration: none; transition: all var(--tx-fast);
+}
+.resource-link:hover { border-color: var(--c-border-hi); color: var(--t-primary); }
+.resource-link .r-ico { font-size: 18px; }
+
+/* ── PASSAGE PLANNING ─────────────────────── */
+.plan-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-sm);
+}
+@media (max-width: 500px) { .plan-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.kpi-cell {
+  background: var(--c-raised); border: 1px solid var(--c-border);
+  border-radius: var(--r-md); padding: var(--sp-md); text-align: center;
+}
+.kpi-cell .kpi-val {
+  font-family: var(--font-mono); font-size: var(--s-xl);
+  color: var(--c-amber-hi); line-height: 1;
+}
+.kpi-cell .kpi-lbl {
+  font-family: var(--font-display); font-size: var(--s-xs);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--t-muted); margin-top: 4px;
+}
+
+.wp-table { width: 100%; border-collapse: collapse; font-size: var(--s-sm); }
+.wp-table th {
+  font-family: var(--font-display); font-size: var(--s-xs);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--t-muted); padding: var(--sp-sm);
+  border-bottom: 1px solid var(--c-border); text-align: left;
+}
+.wp-table td {
+  padding: var(--sp-sm); border-bottom: 1px solid var(--c-border);
+  color: var(--t-primary); vertical-align: middle;
+}
+.wp-num { font-family: var(--font-mono); font-size: var(--s-xs); color: var(--t-muted); width: 28px; }
+
+.window-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-sm);
+}
+@media (min-width: 600px) { .window-grid { grid-template-columns: repeat(4, 1fr); } }
+
+.dep-window {
+  background: var(--c-raised); border: 1px solid var(--c-border);
+  border-radius: var(--r-md); padding: var(--sp-md);
+  cursor: pointer; transition: all var(--tx-fast); text-align: center;
+}
+.dep-window:hover    { border-color: var(--c-border-hi); }
+.dep-window.selected { border-color: var(--c-amber); background: rgba(232,148,10,0.08); }
+.dep-window .dw-time { font-family: var(--font-mono); font-size: var(--s-md); color: var(--t-primary); }
+.dep-window .dw-score {
+  font-family: var(--font-display); font-size: var(--s-2xl);
+  font-weight: 700; line-height: 1; margin: 4px 0;
+}
+.dw-score.good     { color: var(--c-green); }
+.dw-score.ok       { color: var(--c-amber-hi); }
+.dw-score.marginal { color: var(--c-yellow); }
+.dw-score.bad      { color: var(--c-red); }
+.dep-window .dw-wind { font-family: var(--font-display); font-size: var(--s-xs); color: var(--t-secondary); letter-spacing: 0.05em; }
+
+.safety-bars { display: flex; flex-direction: column; gap: var(--sp-sm); }
+.safety-row  { display: flex; align-items: center; gap: var(--sp-md); }
+.safety-row .s-label {
+  font-family: var(--font-display); font-size: var(--s-xs);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--t-muted); width: 80px; flex-shrink: 0;
+}
+.safety-bar  { flex: 1; height: 8px; background: var(--c-border); border-radius: 4px; overflow: hidden; }
+.safety-fill { height: 100%; border-radius: 4px; transition: width var(--tx-slow); }
+.safety-fill.good     { background: var(--c-green); }
+.safety-fill.ok       { background: var(--c-amber); }
+.safety-fill.marginal { background: var(--c-yellow); }
+.safety-fill.bad      { background: var(--c-red); }
+.safety-row .s-verdict {
+  font-family: var(--font-display); font-size: var(--s-xs);
+  font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; width: 72px; text-align: right;
+}
+
+.wp-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--sp-sm);
+  align-items: end;
+}
+@media (max-width: 480px) { .wp-form { grid-template-columns: 1fr; } }
+
+.sbs-input {
+  background: var(--c-raised); border: 1px solid var(--c-border);
+  border-radius: var(--r-md); padding: var(--sp-sm) var(--sp-md);
+  color: var(--t-primary); font-family: var(--font-body);
+  font-size: var(--s-sm); width: 100%;
+}
+.sbs-input:focus { outline: none; border-color: var(--c-amber-dim); }
+.sbs-label {
+  font-family: var(--font-display); font-size: var(--s-xs);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--t-muted); display: block; margin-bottom: 4px;
+}
+
+.watch-grid { display: flex; gap: 3px; overflow-x: auto; padding-bottom: var(--sp-sm); }
+.watch-block {
+  flex-shrink: 0; width: 48px; height: 56px;
+  border-radius: var(--r-sm); display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 9px;
+  font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.watch-block .wb-time { color: rgba(255,255,255,0.5); font-size: 8px; }
+.watch-block .wb-name { margin-top: 2px; }
+
+#toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--c-raised); border: 1px solid var(--c-border-hi);
+  border-radius: var(--r-md); padding: var(--sp-sm) var(--sp-xl);
+  font-family: var(--font-display); font-size: var(--s-sm);
+  letter-spacing: 0.05em; color: var(--t-primary);
+  opacity: 0; transition: all var(--tx-normal);
+  pointer-events: none; z-index: 500; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="sbs-app">
+
+  <alert-banner></alert-banner>
+
+  <div class="sbs-statusbar">
+    <span class="sbs-title">⚓ SV-Esperanza</span>
+    <connection-status></connection-status>
+    <span class="sbs-clock"></span>
+    <night-toggle></night-toggle>
+  </div>
+
+  <div class="sbs-tabs">
+    <button class="sbs-tab active" data-tab="manage">Manage</button>
+    <button class="sbs-tab" data-tab="plan" id="tab-plan">Plan</button>
+    <button class="sbs-tab" data-tab="helm"
+      style="max-width:100px;color:#60a8d0">⎋ Helm</button>
+  </div>
+
+  <!-- MANAGE TAB -->
+  <div class="sbs-panel active" data-panel="manage">
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">Navigation</div>
+      <div class="inst-row">
+        <instrument-cell key="sog" label="SOG" unit="kn" size="lg" decimals="1"></instrument-cell>
+        <instrument-cell key="cog" label="COG" unit="" size="lg" decimals="0" bearing></instrument-cell>
+        <instrument-cell key="stw" label="STW" unit="kn" size="lg" decimals="1"></instrument-cell>
+        <depth-display shallow="3" critical="1"></depth-display>
+      </div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">Wind &amp; Heading</div>
+      <div class="gauges-row">
+        <wind-gauge mode="true" size="160"></wind-gauge>
+        <wind-gauge mode="apparent" size="160"></wind-gauge>
+        <compass-rose mode="cog" size="160"></compass-rose>
+      </div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">Environment</div>
+      <div class="inst-row">
+        <instrument-cell key="pressure" label="BARO"     unit="hPa" size="md" decimals="1"></instrument-cell>
+        <instrument-cell key="temp"     label="TEMP"     unit="°C"  size="md" decimals="1"></instrument-cell>
+        <instrument-cell key="humidity" label="HUMIDITY" unit="%"   size="md" decimals="0"></instrument-cell>
+        <bilge-status></bilge-status>
+      </div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Electrical</span>
+        <button class="sbs-btn" style="padding:4px 10px;font-size:11px" onclick="allRelaysOff()">All Off</button>
+      </div>
+      <div class="relay-grid" id="relay-grid"></div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">Network</div>
+      <div style="display:flex;gap:var(--sp-sm);flex-wrap:wrap;align-items:center">
+        <button class="sbs-btn" id="hotspot-btn" onclick="toggleHotspot()">
+          📡 Hotspot: <span id="hotspot-state">checking…</span>
+        </button>
+        <a class="resource-link" href="http://192.168.8.201:3000" target="_blank"><span class="r-ico">🗂</span>SignalK</a>
+        <a class="resource-link" href="http://192.168.8.201:8080" target="_blank"><span class="r-ico">📚</span>Library</a>
+        <a class="resource-link" href="http://192.168.8.1"        target="_blank"><span class="r-ico">🌐</span>Router</a>
+      </div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">System</div>
+      <div class="sys-grid">
+        <button class="sys-btn warn"   onclick="confirmAction('reboot')">
+          <span class="sys-ico">🔄</span>
+          <div><div class="sys-lbl">Reboot</div><div class="sys-sub">sailboatserver</div></div>
+        </button>
+        <button class="sys-btn danger" onclick="confirmAction('shutdown')">
+          <span class="sys-ico">⏻</span>
+          <div><div class="sys-lbl">Shutdown</div><div class="sys-sub">power off</div></div>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PLAN TAB -->
+  <div class="sbs-panel" data-panel="plan">
+
+    <div class="sbs-card">
+      <div style="display:flex;align-items:center;gap:var(--sp-md);flex-wrap:wrap">
+        <div style="flex:1">
+          <div style="font-family:var(--font-display);font-size:var(--s-xs);
+            letter-spacing:0.1em;text-transform:uppercase;color:var(--t-muted);margin-bottom:4px">
+            Active Passage</div>
+          <div style="font-family:var(--font-display);font-size:var(--s-xl);
+            font-weight:700;color:var(--t-primary)" id="route-title">No passage planned</div>
+        </div>
+        <button class="sbs-btn primary" onclick="newPassage()">+ New</button>
+        <button class="sbs-btn" onclick="clearPassage()" id="clear-btn" style="display:none">Clear</button>
+      </div>
+      <div class="plan-kpi-grid" style="margin-top:var(--sp-md)">
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-dist">---</div><div class="kpi-lbl">Total nm</div></div>
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-time">---</div><div class="kpi-lbl">Est. Hours</div></div>
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-sog">---</div> <div class="kpi-lbl">Plan SOG kn</div></div>
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-eta">---</div> <div class="kpi-lbl">ETA</div></div>
+      </div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">Departure Windows</div>
+      <div class="window-grid" id="dep-windows"></div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Waypoints</span>
+        <button class="sbs-btn" style="padding:4px 10px;font-size:11px" onclick="toggleWPForm()">+ Add</button>
+      </div>
+      <div id="add-wp-form" style="display:none;margin-bottom:var(--sp-md)">
+        <div class="wp-form">
+          <div>
+            <label class="sbs-label">Name</label>
+            <input class="sbs-input" id="wp-name" placeholder="Cape Flattery">
+          </div>
+          <div>
+            <label class="sbs-label">Lat, Lon</label>
+            <input class="sbs-input" id="wp-coord" placeholder="48.384, -124.721">
+          </div>
+          <button class="sbs-btn primary" onclick="addWaypoint()" style="align-self:flex-end">Add</button>
+        </div>
+      </div>
+      <table class="wp-table">
+        <thead><tr>
+          <th class="wp-num">#</th><th>Name</th><th>Coordinates</th>
+          <th>Dist nm</th><th>ETA</th><th></th>
+        </tr></thead>
+        <tbody id="wp-tbody">
+          <tr><td colspan="6" style="color:var(--t-muted);text-align:center;padding:var(--sp-xl)">
+            No waypoints</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">Safety Assessment</div>
+      <div class="safety-bars" id="safety-bars"></div>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Watch Schedule</span>
+        <button class="sbs-btn" style="padding:4px 10px;font-size:11px" onclick="buildWatchSchedule()">Regenerate</button>
+      </div>
+      <div class="watch-grid" id="watch-grid"></div>
+      <div style="font-family:var(--font-display);font-size:var(--s-xs);
+        letter-spacing:0.06em;color:var(--t-muted);margin-top:var(--sp-sm)"
+        id="watch-summary"></div>
+    </div>
+
+  </div>
+
+  <!-- HELM TAB -->
+  <div class="sbs-panel" data-panel="helm"
+    style="align-items:center;justify-content:center;gap:var(--sp-xl)">
+    <div style="text-align:center">
+      <div style="font-family:var(--font-display);font-size:var(--s-xl);
+        letter-spacing:0.1em;text-transform:uppercase;
+        color:var(--t-secondary);margin-bottom:var(--sp-md)">Helm Display</div>
+      <div style="font-family:var(--font-body);font-size:var(--s-sm);
+        color:var(--t-muted);max-width:300px;margin:0 auto var(--sp-xl)">
+        Full-screen instrument view optimised for cockpit use.</div>
+      <a href="/helm.html" class="helm-launch">⎋&nbsp;&nbsp;Launch Helm Display</a>
+    </div>
+    <div style="display:flex;gap:var(--sp-md);flex-wrap:wrap;justify-content:center">
+      <instrument-cell key="sog" label="SOG" unit="kn" size="xl" decimals="1"></instrument-cell>
+      <instrument-cell key="cog" label="COG" unit=""   size="xl" decimals="0" bearing></instrument-cell>
+      <instrument-cell key="tws" label="TWS" unit="kn" size="xl" decimals="1"></instrument-cell>
+      <depth-display shallow="3" critical="1"></depth-display>
+    </div>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   SBS-DATA.JS — SignalK WebSocket Data Layer
+   Single source of truth for all instrument data.
+   Both index.html and helm.html include this file.
+
+   Usage:
+     SBSData.sog          → current speed over ground (knots)
+     SBSData.on('update', fn)     → called every time data arrives
+     SBSData.on('alert:urgent', fn)  → bilge, AIS, gate closing
+     SBSData.on('alert:advisory', fn) → SOG below plan, ETA slip
+   ============================================================ */
+
+const SBSData = (() => {
+
+  // ── SIGNALK CONFIG ────────────────────────────────────────
+  const SK_HOST     = window.location.hostname || '192.168.8.201';
+  const SK_WS_PORT  = 3000;
+  const SK_API_PORT = 3000;
+  const RELAY_PORT  = 5000;
+
+  // SignalK paths we subscribe to
+  const SK_PATHS = [
+    'navigation.speedOverGround',
+    'navigation.courseOverGroundTrue',
+    'navigation.headingTrue',
+    'environment.depth.belowTransducer',
+    'environment.wind.speedTrue',
+    'environment.wind.directionTrue',
+    'environment.wind.speedApparent',
+    'environment.wind.angleApparent',
+    'environment.outside.pressure',
+    'environment.outside.temperature',
+    'environment.outside.humidity',
+    'navigation.speedThroughWater',
+    'navigation.position',
+  ];
+
+  // ── STATE ─────────────────────────────────────────────────
+  const state = {
+    // Navigation
+    sog:      null,   // knots
+    cog:      null,   // degrees true
+    heading:  null,   // degrees true
+    position: null,   // { lat, lon }
+
+    // Environment
+    depth:    null,   // metres
+    tws:      null,   // knots
+    twd:      null,   // degrees true
+    aws:      null,   // knots apparent
+    awa:      null,   // degrees apparent
+
+    // Weather (from ESP32 via SignalK)
+    pressure: null,   // hPa
+    temp:     null,   // °C
+    humidity: null,   // %
+
+    // ESP32 direct
+    stw:      null,   // knots speed through water
+    bilge:    false,  // wet/dry
+
+    // Relay states
+    relays: { 1:false, 2:false, 3:false, 4:false,
+              5:false, 6:false, 7:false, 8:false },
+
+    // Passage planning
+    passage: {
+      active:      false,
+      waypoints:   [],
+      nextWPIndex: 0,
+      alerts:      [],
+      planSOG:     null,   // planned average SOG
+      planETA:     null,   // planned ETA at destination
+    },
+
+    // Connection health
+    connected:   false,
+    lastUpdate:  null,
+    gpsValid:    false,
+  };
+
+  // ── EVENT EMITTER ─────────────────────────────────────────
+  const listeners = {};
+
+  function on(event, fn) {
+    if (!listeners[event]) listeners[event] = [];
+    listeners[event].push(fn);
+    return () => off(event, fn); // returns unsubscribe fn
+  }
+
+  function off(event, fn) {
+    if (listeners[event])
+      listeners[event] = listeners[event].filter(f => f !== fn);
+  }
+
+  function emit(event, data) {
+    (listeners[event] || []).forEach(fn => {
+      try { fn(data); } catch(e) { console.warn('SBSData listener error:', e); }
+    });
+  }
+
+  // ── UNIT CONVERSION ───────────────────────────────────────
+  const conv = {
+    msToKnots:    ms  => ms != null ? ms * 1.94384 : null,
+    radToDeg:     rad => rad != null ? (rad * 180 / Math.PI + 360) % 360 : null,
+    paToHpa:      pa  => pa  != null ? pa / 100 : null,
+    kToC:         k   => k   != null ? k - 273.15 : null,
+  };
+
+  // ── SIGNALK PATH → STATE MAPPING ──────────────────────────
+  function applyValue(path, value) {
+    switch (path) {
+      case 'navigation.speedOverGround':
+        state.sog = conv.msToKnots(value); break;
+      case 'navigation.courseOverGroundTrue':
+        state.cog = conv.radToDeg(value); break;
+      case 'navigation.headingTrue':
+        state.heading = conv.radToDeg(value); break;
+      case 'navigation.speedThroughWater':
+        state.stw = conv.msToKnots(value); break;
+      case 'navigation.position':
+        state.position = value;
+        state.gpsValid = (value && value.latitude !== 0); break;
+      case 'environment.depth.belowTransducer':
+        state.depth = value; break;  // already in metres
+      case 'environment.wind.speedTrue':
+        state.tws = conv.msToKnots(value); break;
+      case 'environment.wind.directionTrue':
+        state.twd = conv.radToDeg(value); break;
+      case 'environment.wind.speedApparent':
+        state.aws = conv.msToKnots(value); break;
+      case 'environment.wind.angleApparent':
+        state.awa = conv.radToDeg(value); break;
+      case 'environment.outside.pressure':
+        state.pressure = conv.paToHpa(value); break;
+      case 'environment.outside.temperature':
+        state.temp = conv.kToC(value); break;
+      case 'environment.outside.humidity':
+        state.humidity = value != null ? value * 100 : null; break;
+    }
+  }
+
+  // ── WEBSOCKET ─────────────────────────────────────────────
+  let ws = null;
+  let wsRetryTimer = null;
+  let wsRetryDelay = 2000;
+
+  function wsConnect() {
+    if (ws && ws.readyState <= 1) return; // already open/connecting
+
+    const url = `ws://${SK_HOST}:${SK_WS_PORT}/signalk/v1/stream?subscribe=none`;
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      console.log('SBSData: SignalK connected');
+      state.connected = true;
+      wsRetryDelay = 2000;
+      emit('connected');
+
+      // Subscribe to all paths
+      ws.send(JSON.stringify({
+        context: 'vessels.self',
+        subscribe: SK_PATHS.map(path => ({
+          path,
+          period:    1000,
+          policy:    'ideal',
+          minPeriod: 200,
+        }))
+      }));
+    };
+
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (!msg.updates) return;
+
+        msg.updates.forEach(update => {
+          (update.values || []).forEach(({path, value}) => {
+            applyValue(path, value);
+          });
+        });
+
+        state.lastUpdate = Date.now();
+        emit('update', state);
+        checkPassageAlerts();
+
+      } catch(e) {
+        console.warn('SBSData: parse error', e);
+      }
+    };
+
+    ws.onclose = () => {
+      state.connected = false;
+      emit('disconnected');
+      wsRetryTimer = setTimeout(() => {
+        wsRetryDelay = Math.min(wsRetryDelay * 1.5, 30000);
+        wsConnect();
+      }, wsRetryDelay);
+    };
+
+    ws.onerror = (e) => {
+      console.warn('SBSData: WebSocket error', e);
+      ws.close();
+    };
+  }
+
+  // ── RELAY API ─────────────────────────────────────────────
+  async function fetchRelayStates() {
+    try {
+      const res = await fetch(`http://${SK_HOST}:${RELAY_PORT}/relay/status`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.channels) {
+        data.channels.forEach(ch => {
+          state.relays[ch.channel] = ch.state;
+        });
+        emit('relays', state.relays);
+      }
+    } catch(e) {
+      // relay server not reachable — handled by status dots
+    }
+  }
+
+  async function toggleRelay(channel, newState) {
+    try {
+      const res = await fetch(`http://${SK_HOST}:${RELAY_PORT}/relay/${channel}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: newState }),
+      });
+      if (!res.ok) throw new Error('relay toggle failed');
+      state.relays[channel] = newState;
+      emit('relays', state.relays);
+      return true;
+    } catch(e) {
+      console.warn('SBSData: relay toggle error', e);
+      return false;
+    }
+  }
+
+  // ── PASSAGE PLANNING ──────────────────────────────────────
+  function setPassage(plan) {
+    state.passage = {
+      active:      true,
+      waypoints:   plan.waypoints || [],
+      nextWPIndex: 0,
+      alerts:      [],
+      planSOG:     plan.planSOG || null,
+      planETA:     plan.planETA || null,
+    };
+    emit('passage:updated', state.passage);
+  }
+
+  function clearPassage() {
+    state.passage.active = false;
+    state.passage.alerts = [];
+    emit('passage:updated', state.passage);
+  }
+
+  function advanceWaypoint() {
+    if (state.passage.nextWPIndex < state.passage.waypoints.length - 1) {
+      state.passage.nextWPIndex++;
+      emit('passage:updated', state.passage);
+    }
+  }
+
+  // ── ALERT CHECKS ──────────────────────────────────────────
+  function checkPassageAlerts() {
+    if (!state.passage.active) return;
+
+    // SOG advisory — if significantly below planned SOG
+    if (state.passage.planSOG && state.sog != null) {
+      if (state.sog < state.passage.planSOG * 0.7) {
+        raiseAdvisory('sog_low',
+          `SOG ${fmt(state.sog, 1)}kn — below planned ${fmt(state.passage.planSOG, 1)}kn`);
+      } else {
+        clearAdvisory('sog_low');
+      }
+    }
+  }
+
+  function raiseUrgent(id, message) {
+    const existing = state.passage.alerts.find(a => a.id === id);
+    if (!existing) {
+      const alert = { id, level: 'urgent', message, time: Date.now() };
+      state.passage.alerts.push(alert);
+      emit('alert:urgent', alert);
+    }
+  }
+
+  function raiseAdvisory(id, message) {
+    const existing = state.passage.alerts.find(a => a.id === id);
+    if (!existing) {
+      const alert = { id, level: 'advisory', message, time: Date.now() };
+      state.passage.alerts.push(alert);
+      emit('alert:advisory', alert);
+      emit('update', state); // trigger badge update
+    }
+  }
+
+  function clearAdvisory(id) {
+    const before = state.passage.alerts.length;
+    state.passage.alerts = state.passage.alerts.filter(a => a.id !== id);
+    if (state.passage.alerts.length !== before) emit('update', state);
+  }
+
+  function dismissAlert(id) {
+    state.passage.alerts = state.passage.alerts.filter(a => a.id !== id);
+    emit('update', state);
+  }
+
+  // External bilge alert (can be raised from relay server polling)
+  function raiseBilgeAlert() {
+    raiseUrgent('bilge', '⚠ BILGE WATER DETECTED — check bilge pump');
+  }
+
+  // ── DISPLAY HELPERS ───────────────────────────────────────
+  function fmt(val, decimals = 0, fallback = '---') {
+    if (val == null || isNaN(val)) return fallback;
+    return val.toFixed(decimals);
+  }
+
+  function fmtBearing(deg, fallback = '---') {
+    if (deg == null) return fallback;
+    return Math.round(deg).toString().padStart(3, '0') + '°';
+  }
+
+  function fmtCoord(lat, lon) {
+    if (lat == null || lon == null) return '--- ---';
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lonDir = lon >= 0 ? 'E' : 'W';
+    const latDeg = Math.abs(lat);
+    const lonDeg = Math.abs(lon);
+    const latMin = (latDeg % 1) * 60;
+    const lonMin = (lonDeg % 1) * 60;
+    return `${Math.floor(latDeg)}°${latMin.toFixed(3)}'${latDir} ` +
+           `${Math.floor(lonDeg)}°${lonMin.toFixed(3)}'${lonDir}`;
+  }
+
+  // ── POLL INTERVALS ────────────────────────────────────────
+  // Relay state and system status poll (less frequent — REST)
+  setInterval(fetchRelayStates, 5000);
+
+  // Connection watchdog — if no update in 10s, flag stale
+  setInterval(() => {
+    if (state.lastUpdate && Date.now() - state.lastUpdate > 10000) {
+      emit('stale');
+    }
+  }, 5000);
+
+  // ── NIGHT MODE ────────────────────────────────────────────
+  let nightMode = false;
+  function toggleNight() {
+    nightMode = !nightMode;
+    document.documentElement.classList.toggle('night', nightMode);
+    localStorage.setItem('sbs-night', nightMode ? '1' : '0');
+    emit('night', nightMode);
+    return nightMode;
+  }
+
+  // Restore night mode preference
+  if (localStorage.getItem('sbs-night') === '1') toggleNight();
+
+  // ── UTC CLOCK ─────────────────────────────────────────────
+  function updateClock() {
+    const el = document.querySelector('.sbs-clock');
+    if (el) {
+      const now = new Date();
+      el.textContent = now.toUTCString().slice(17, 22) + ' UTC';
+    }
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── INIT ──────────────────────────────────────────────────
+  function init() {
+    wsConnect();
+    fetchRelayStates();
+  }
+
+  // Auto-init when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // ── PUBLIC API ────────────────────────────────────────────
+  return {
+    // State (read-only reference — do not mutate directly)
+    get sog()      { return state.sog; },
+    get cog()      { return state.cog; },
+    get heading()  { return state.heading; },
+    get depth()    { return state.depth; },
+    get tws()      { return state.tws; },
+    get twd()      { return state.twd; },
+    get aws()      { return state.aws; },
+    get awa()      { return state.awa; },
+    get pressure() { return state.pressure; },
+    get temp()     { return state.temp; },
+    get humidity() { return state.humidity; },
+    get stw()      { return state.stw; },
+    get bilge()    { return state.bilge; },
+    get position() { return state.position; },
+    get relays()   { return state.relays; },
+    get passage()  { return state.passage; },
+    get connected(){ return state.connected; },
+    get gpsValid() { return state.gpsValid; },
+    get nightMode(){ return nightMode; },
+
+    // Events
+    on, off,
+
+    // Actions
+    toggleRelay,
+    setPassage,
+    clearPassage,
+    advanceWaypoint,
+    dismissAlert,
+    raiseBilgeAlert,
+    toggleNight,
+
+    // Formatting helpers
+    fmt,
+    fmtBearing,
+    fmtCoord,
+
+    // Internal (for debugging)
+    _state: state,
+    _reconnect: wsConnect,
+  };
+})();
+
+</script>
+<script>
+/* ============================================================
+   SBS-COMPONENTS.JS — Reusable Web Components
+   Used by both index.html (portal) and helm.html
+
+   Components:
+     <instrument-cell>   — single data readout (SOG, COG, etc.)
+     <wind-gauge>        — circular wind direction + speed
+     <depth-display>     — depth with shallow water warning
+     <relay-button>      — relay toggle with on/off state
+     <bilge-status>      — bilge wet/dry indicator
+     <compass-rose>      — heading/COG compass
+     <alert-banner>      — urgent/advisory sliding banner
+     <night-toggle>      — night mode button
+     <connection-status> — SignalK + relay connection dots
+   ============================================================ */
+
+// ── HELPERS ───────────────────────────────────────────────────
+
+function css(strings, ...vals) {
+  return strings.reduce((acc, str, i) => acc + str + (vals[i] || ''), '');
+}
+
+// Base class — handles SBSData subscription lifecycle
+class SBSComponent extends HTMLElement {
+  connectedCallback() {
+    this._unsub = SBSData.on('update', () => this.render());
+    this.render();
+  }
+  disconnectedCallback() {
+    if (this._unsub) this._unsub();
+  }
+  render() {}
+}
+
+// ── INSTRUMENT CELL ───────────────────────────────────────────
+// <instrument-cell key="sog" label="SOG" unit="kn" size="lg">
+// key maps to SBSData[key]
+// size: sm | md | lg | xl
+
+customElements.define('instrument-cell', class extends SBSComponent {
+  render() {
+    const key   = this.getAttribute('key');
+    const label = this.getAttribute('label') || key?.toUpperCase();
+    const unit  = this.getAttribute('unit') || '';
+    const size  = this.getAttribute('size') || 'md';
+    const dec   = parseInt(this.getAttribute('decimals') || '1');
+    const bear  = this.hasAttribute('bearing');
+
+    const raw = key ? SBSData[key] : null;
+    const val = raw == null ? '---'
+      : bear ? SBSData.fmtBearing(raw)
+      : SBSData.fmt(raw, dec);
+
+    const sizeMap = { sm: '1.4rem', md: '2rem', lg: '2.8rem', xl: '4rem' };
+    const fontSize = sizeMap[size] || '2rem';
+
+    this.innerHTML = `
+      <div class="inst-cell${raw == null ? ' stale' : ''}">
+        <span class="label">${label}</span>
+        <span class="value" style="font-size:${fontSize}">${val}</span>
+        ${unit ? `<span class="unit">${unit}</span>` : ''}
+      </div>`;
+  }
+});
+
+// ── WIND GAUGE ────────────────────────────────────────────────
+// <wind-gauge mode="true|apparent" size="200">
+// Circular gauge showing wind direction arrow + speed
+
+customElements.define('wind-gauge', class extends SBSComponent {
+  connectedCallback() {
+    this._unsub = SBSData.on('update', () => this.render());
+    this.style.display = 'block';
+    this.render();
+  }
+
+  render() {
+    const mode   = this.getAttribute('mode') || 'true';
+    const size   = parseInt(this.getAttribute('size') || '180');
+    const isTrue = mode === 'true';
+
+    const speed = isTrue ? SBSData.tws : SBSData.aws;
+    const dir   = isTrue ? SBSData.twd : SBSData.awa;
+    const label = isTrue ? 'TWS' : 'AWS';
+    const dirLabel = isTrue ? 'TWD' : 'AWA';
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const r  = size / 2 - 8;
+    const arrowAngle = dir != null ? dir : 0;
+    const rad = (arrowAngle - 90) * Math.PI / 180;
+    const arrowLen = r * 0.65;
+    const ax = cx + Math.cos(rad) * arrowLen;
+    const ay = cy + Math.sin(rad) * arrowLen;
+    const tailRad = rad + Math.PI;
+    const tx = cx + Math.cos(tailRad) * (arrowLen * 0.4);
+    const ty = cy + Math.sin(tailRad) * (arrowLen * 0.4);
+
+    // Wind speed color
+    const spd = speed || 0;
+    const windColor = spd > 25 ? '#ef4444'
+      : spd > 15 ? '#eab308'
+      : '#e8940a';
+
+    // Cardinal marks
+    const cardinals = ['N','E','S','W'];
+    const cardinalSVG = cardinals.map((c, i) => {
+      const a = (i * 90 - 90) * Math.PI / 180;
+      const cr = r + 4;
+      const x = cx + Math.cos(a) * (r - 14);
+      const y = cy + Math.sin(a) * (r - 14);
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central"
+        font-family="'Barlow Condensed',sans-serif" font-size="10" font-weight="600"
+        fill="#4a6070">${c}</text>`;
+    }).join('');
+
+    // Tick marks
+    const ticks = Array.from({length: 36}, (_, i) => {
+      const a = (i * 10 - 90) * Math.PI / 180;
+      const major = i % 9 === 0;
+      const inner = r - (major ? 8 : 4);
+      const x1 = cx + Math.cos(a) * inner;
+      const y1 = cy + Math.sin(a) * inner;
+      const x2 = cx + Math.cos(a) * r;
+      const y2 = cy + Math.sin(a) * r;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+        stroke="${major ? '#2a3f50' : '#1e2e3a'}" stroke-width="${major ? 1.5 : 1}"/>`;
+    }).join('');
+
+    this.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+          <!-- Outer ring -->
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+            stroke="#1e2e3a" stroke-width="1.5"/>
+          <!-- Inner fill -->
+          <circle cx="${cx}" cy="${cy}" r="${r - 1}" fill="#0d1318"/>
+
+          ${ticks}
+          ${cardinalSVG}
+
+          ${dir != null ? `
+          <!-- Arrow shaft -->
+          <line x1="${tx}" y1="${ty}" x2="${ax}" y2="${ay}"
+            stroke="${windColor}" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Arrowhead -->
+          <polygon points="${ax},${ay}
+            ${cx + Math.cos(rad - 0.4) * (arrowLen * 0.75)},${cy + Math.sin(rad - 0.4) * (arrowLen * 0.75)}
+            ${cx + Math.cos(rad + 0.4) * (arrowLen * 0.75)},${cy + Math.sin(rad + 0.4) * (arrowLen * 0.75)}"
+            fill="${windColor}"/>
+          <!-- Tail dot -->
+          <circle cx="${tx}" cy="${ty}" r="3" fill="${windColor}" opacity="0.5"/>
+          ` : `
+          <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
+            font-family="'Share Tech Mono',monospace" font-size="12" fill="#4a6070">---</text>
+          `}
+
+          <!-- Center speed display -->
+          <text x="${cx}" y="${cy - 6}" text-anchor="middle"
+            font-family="'Share Tech Mono',monospace"
+            font-size="${size > 160 ? 22 : 16}" fill="${windColor}" font-weight="bold">
+            ${SBSData.fmt(speed, 1)}
+          </text>
+          <text x="${cx}" y="${cy + 14}" text-anchor="middle"
+            font-family="'Barlow Condensed',sans-serif"
+            font-size="10" fill="#4a6070" letter-spacing="0.08em">
+            ${label} KN
+          </text>
+        </svg>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;
+          letter-spacing:0.08em;color:#4a6070;text-transform:uppercase">
+          ${dirLabel}: ${SBSData.fmtBearing(dir)}
+        </div>
+      </div>`;
+  }
+});
+
+// ── DEPTH DISPLAY ─────────────────────────────────────────────
+// <depth-display shallow="3" critical="1">
+// Turns yellow at shallow threshold, red at critical
+
+customElements.define('depth-display', class extends SBSComponent {
+  render() {
+    const shallow  = parseFloat(this.getAttribute('shallow')  || '3');
+    const critical = parseFloat(this.getAttribute('critical') || '1');
+    const depth    = SBSData.depth;
+
+    const color = depth == null ? 'var(--t-muted)'
+      : depth < critical  ? 'var(--c-red)'
+      : depth < shallow   ? 'var(--c-yellow)'
+      : 'var(--c-cyan)';
+
+    const glow = depth != null && depth < critical
+      ? 'var(--shadow-red)' : 'none';
+
+    this.innerHTML = `
+      <div class="inst-cell" style="border-color:${color};box-shadow:${glow}">
+        <span class="label">DEPTH</span>
+        <span class="value" style="font-size:2.8rem;color:${color}">
+          ${SBSData.fmt(depth, 1)}
+        </span>
+        <span class="unit">m</span>
+        ${depth != null && depth < shallow
+          ? `<span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;
+              letter-spacing:0.1em;text-transform:uppercase;color:${color};margin-top:2px">
+              ${depth < critical ? '⚠ CRITICAL' : 'SHALLOW'}
+             </span>`
+          : ''}
+      </div>`;
+  }
+});
+
+// ── RELAY BUTTON ──────────────────────────────────────────────
+// <relay-button channel="4" name="Bilge Pump" icon="💧">
+
+customElements.define('relay-button', class extends HTMLElement {
+  connectedCallback() {
+    this._unsubRelay  = SBSData.on('relays', () => this.render());
+    this._unsubUpdate = SBSData.on('update', () => this.render());
+    this.render();
+  }
+
+  disconnectedCallback() {
+    if (this._unsubRelay)  this._unsubRelay();
+    if (this._unsubUpdate) this._unsubUpdate();
+  }
+
+  render() {
+    const ch   = parseInt(this.getAttribute('channel'));
+    const name = this.getAttribute('name') || `CH${ch}`;
+    const icon = this.getAttribute('icon') || '⚡';
+    const on   = SBSData.relays[ch] === true;
+
+    this.innerHTML = `
+      <button class="relay-btn${on ? ' on' : ''}" data-ch="${ch}">
+        <span class="icon">${icon}</span>
+        <span class="name">${name}</span>
+      </button>`;
+
+    this.querySelector('button').addEventListener('click', async () => {
+      await SBSData.toggleRelay(ch, !on);
+    });
+  }
+});
+
+// ── BILGE STATUS ──────────────────────────────────────────────
+// <bilge-status> — shows dry/wet with visual indicator
+
+customElements.define('bilge-status', class extends SBSComponent {
+  render() {
+    const wet = SBSData.bilge;
+    this.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;
+        padding:6px 12px;border-radius:6px;
+        background:${wet ? 'rgba(127,29,29,0.4)' : 'rgba(20,83,45,0.3)'};
+        border:1px solid ${wet ? 'var(--c-red)' : 'var(--c-green-dim)'};
+        box-shadow:${wet ? 'var(--shadow-red)' : 'none'}">
+        <span style="font-size:16px">${wet ? '💧' : '✓'}</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;
+          font-size:12px;font-weight:600;letter-spacing:0.1em;
+          text-transform:uppercase;
+          color:${wet ? 'var(--c-red)' : 'var(--c-green)'}">
+          BILGE ${wet ? 'WET' : 'DRY'}
+        </span>
+      </div>`;
+  }
+});
+
+// ── COMPASS ROSE ──────────────────────────────────────────────
+// <compass-rose mode="heading|cog" size="180">
+
+customElements.define('compass-rose', class extends SBSComponent {
+  connectedCallback() {
+    this._unsub = SBSData.on('update', () => this.render());
+    this.style.display = 'block';
+    this.render();
+  }
+
+  render() {
+    const mode  = this.getAttribute('mode') || 'cog';
+    const size  = parseInt(this.getAttribute('size') || '180');
+    const value = mode === 'heading' ? SBSData.heading : SBSData.cog;
+    const label = mode === 'heading' ? 'HDG' : 'COG';
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const r  = size / 2 - 10;
+
+    // Rotate the compass rose so north points to current heading/COG
+    const rotation = value != null ? -value : 0;
+
+    // Cardinal + intercardinal labels
+    const dirs = [
+      {l:'N',a:0},{l:'NE',a:45},{l:'E',a:90},{l:'SE',a:135},
+      {l:'S',a:180},{l:'SW',a:225},{l:'W',a:270},{l:'NW',a:315}
+    ];
+
+    const dirSVG = dirs.map(({l, a}) => {
+      const rad = (a - 90) * Math.PI / 180;
+      const dist = l.length === 1 ? r - 16 : r - 20;
+      const x = cx + Math.cos(rad) * dist;
+      const y = cy + Math.sin(rad) * dist;
+      const isCard = l.length === 1;
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central"
+        font-family="'Barlow Condensed',sans-serif"
+        font-size="${isCard ? 13 : 9}" font-weight="${isCard ? 700 : 400}"
+        fill="${l === 'N' ? '#e8940a' : isCard ? '#8fa3b3' : '#4a6070'}">${l}</text>`;
+    }).join('');
+
+    // Tick marks
+    const ticks = Array.from({length: 72}, (_, i) => {
+      const a = (i * 5 - 90) * Math.PI / 180;
+      const major = i % 6 === 0;
+      const inner = r - (major ? 10 : 5);
+      const x1 = cx + Math.cos(a) * inner;
+      const y1 = cy + Math.sin(a) * inner;
+      const x2 = cx + Math.cos(a) * r;
+      const y2 = cy + Math.sin(a) * r;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+        stroke="${major ? '#2a3f50' : '#1a2830'}" stroke-width="${major ? 1.5 : 1}"/>`;
+    }).join('');
+
+    // Lubber line (fixed, points up = current heading)
+    const lubberLen = r - 4;
+
+    this.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="position:relative;width:${size}px;height:${size}px">
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"
+            style="position:absolute;top:0;left:0">
+            <!-- Outer ring -->
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+              stroke="#1e2e3a" stroke-width="1.5"/>
+            <!-- Inner fill -->
+            <circle cx="${cx}" cy="${cy}" r="${r-1}" fill="#0a1218"/>
+          </svg>
+
+          <!-- Rotating rose -->
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"
+            style="position:absolute;top:0;left:0;
+              transform:rotate(${rotation}deg);
+              transition:transform 0.5s ease;
+              transform-origin:${cx}px ${cy}px">
+            ${ticks}
+            ${dirSVG}
+          </svg>
+
+          <!-- Fixed lubber line + center -->
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"
+            style="position:absolute;top:0;left:0">
+            <!-- Lubber line -->
+            <line x1="${cx}" y1="${cy - lubberLen}" x2="${cx}" y2="${cy - (r-2)}"
+              stroke="var(--c-amber)" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- Center dot -->
+            <circle cx="${cx}" cy="${cy}" r="4" fill="var(--c-amber)"/>
+            <!-- Value display -->
+            <text x="${cx}" y="${cy + 6}" text-anchor="middle"
+              font-family="'Share Tech Mono',monospace"
+              font-size="18" fill="var(--t-value)">
+              ${value != null ? Math.round(value).toString().padStart(3,'0') + '°' : '---'}
+            </text>
+          </svg>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;
+          letter-spacing:0.1em;color:#4a6070;text-transform:uppercase">${label}</div>
+      </div>`;
+  }
+});
+
+// ── ALERT BANNER ──────────────────────────────────────────────
+// <alert-banner> — auto-shows when urgent/advisory alerts fire
+
+customElements.define('alert-banner', class extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = `
+      <div class="alert-banner" id="sbs-alert-banner">
+        <span id="sbs-alert-text"></span>
+        <button class="dismiss" onclick="this.closest('.alert-banner').classList.remove('show')">✕</button>
+      </div>`;
+
+    SBSData.on('alert:urgent', (alert) => {
+      this._show(alert.message, 'urgent');
+    });
+
+    SBSData.on('alert:advisory', (alert) => {
+      this._show(alert.message, 'advisory');
+    });
+  }
+
+  _show(message, level) {
+    const banner = this.querySelector('.alert-banner');
+    const text   = this.querySelector('#sbs-alert-text');
+    if (!banner || !text) return;
+    banner.className = `alert-banner ${level}`;
+    text.textContent = message;
+    // Force reflow then add show
+    banner.offsetHeight;
+    banner.classList.add('show');
+    if (level === 'advisory') {
+      setTimeout(() => banner.classList.remove('show'), 8000);
+    }
+  }
+});
+
+// ── NIGHT TOGGLE ──────────────────────────────────────────────
+// <night-toggle> — single button, toggles night mode
+
+customElements.define('night-toggle', class extends HTMLElement {
+  connectedCallback() {
+    this.render();
+    SBSData.on('night', () => this.render());
+    this.addEventListener('click', () => SBSData.toggleNight());
+  }
+
+  render() {
+    this.innerHTML = `
+      <button class="sbs-btn" title="Toggle night mode"
+        style="${SBSData.nightMode
+          ? 'border-color:var(--c-amber-dim);color:var(--c-amber)'
+          : ''}">
+        ${SBSData.nightMode ? '☀' : '🌙'}
+      </button>`;
+  }
+});
+
+// ── CONNECTION STATUS ─────────────────────────────────────────
+// <connection-status> — shows SignalK + relay + GPS dots
+
+customElements.define('connection-status', class extends HTMLElement {
+  connectedCallback() {
+    SBSData.on('connected',    () => this.render());
+    SBSData.on('disconnected', () => this.render());
+    SBSData.on('update',       () => this.render());
+    SBSData.on('stale',        () => this.render());
+    this.render();
+  }
+
+  render() {
+    const sk    = SBSData.connected ? 'ok' : 'err';
+    const gps   = SBSData.gpsValid  ? 'ok' : 'warn';
+    const bilge = SBSData.bilge     ? 'err' : 'ok';
+
+    this.innerHTML = `
+      <span class="status-dot ${sk}">SK</span>
+      <span class="status-dot ${gps}">GPS</span>
+      <span class="status-dot ${bilge}">BILGE</span>`;
+  }
+});
+
+// ── PASSAGE NEXT WAYPOINT ─────────────────────────────────────
+// <next-waypoint> — compact next WP display for helm passage tab
+
+customElements.define('next-waypoint', class extends SBSComponent {
+  render() {
+    const p  = SBSData.passage;
+    const wp = p.waypoints[p.nextWPIndex];
+
+    if (!p.active || !wp) {
+      this.innerHTML = `
+        <div class="inst-cell" style="grid-column:span 2">
+          <span class="label">NEXT WAYPOINT</span>
+          <span class="value" style="font-size:1.2rem;color:var(--t-muted)">No active passage</span>
+        </div>`;
+      return;
+    }
+
+    this.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;
+        background:var(--c-surface);border:1px solid var(--c-border);
+        border-radius:var(--r-lg);padding:var(--sp-lg)">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;
+          letter-spacing:0.1em;text-transform:uppercase;color:var(--t-muted)">
+          NEXT WAYPOINT ${p.nextWPIndex + 1}/${p.waypoints.length}
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;
+          font-weight:700;color:var(--c-amber-hi)">${wp.name || 'WP ' + (p.nextWPIndex + 1)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="inst-cell">
+            <span class="label">BRG</span>
+            <span class="value" style="font-size:1.8rem">${wp.bearing != null ? SBSData.fmtBearing(wp.bearing) : '---'}</span>
+          </div>
+          <div class="inst-cell">
+            <span class="label">DIST</span>
+            <span class="value" style="font-size:1.8rem">${wp.distance != null ? SBSData.fmt(wp.distance, 1) : '---'}</span>
+            <span class="unit">nm</span>
+          </div>
+        </div>
+      </div>`;
+  }
+});
+
+console.log('SBS Components loaded ✓');
+
+</script>
+<script>
+const CHANNELS = [
+  { ch:1, name:'Cabin Lights',  icon:'💡' },
+  { ch:2, name:'Nav Lights',    icon:'🔦' },
+  { ch:3, name:'Anchor Light',  icon:'⚓' },
+  { ch:4, name:'Bilge Pump',    icon:'💧' },
+  { ch:5, name:'Water Pump',    icon:'🚿' },
+  { ch:6, name:'Vent Fan',      icon:'🌀' },
+  { ch:7, name:'Instruments',   icon:'🧭' },
+  { ch:8, name:'Starlink',      icon:'🛰️' },
+];
+
+const RELAY_BASE = `http://${window.location.hostname}:5000`;
+
+// ── TABS ──────────────────────────────────────────────────
+document.querySelectorAll('.sbs-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.sbs-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sbs-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+// ── TOAST ─────────────────────────────────────────────────
+let _tt;
+function toast(msg, ms=2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+// ── RELAYS ────────────────────────────────────────────────
+function buildRelays() {
+  const grid = document.getElementById('relay-grid');
+  CHANNELS.forEach(r => {
+    const el = document.createElement('relay-button');
+    el.setAttribute('channel', r.ch);
+    el.setAttribute('name', r.name);
+    el.setAttribute('icon', r.icon);
+    grid.appendChild(el);
+  });
+}
+
+async function allRelaysOff() {
+  for (const ch of CHANNELS) await SBSData.toggleRelay(ch.ch, false);
+  toast('All relays off');
+}
+
+// ── HOTSPOT ───────────────────────────────────────────────
+let hotspotOn = false;
+async function checkHotspot() {
+  try {
+    const res = await fetch(`${RELAY_BASE}/hotspot/status`);
+    const d = await res.json();
+    hotspotOn = d.active === true;
+    document.getElementById('hotspot-state').textContent = hotspotOn ? 'ON' : 'OFF';
+    document.getElementById('hotspot-btn').style.borderColor = hotspotOn ? 'var(--c-green)' : '';
+  } catch(e) {}
+}
+async function toggleHotspot() {
+  try {
+    await fetch(`${RELAY_BASE}/hotspot/${hotspotOn ? 'off' : 'on'}`, {method:'POST'});
+    hotspotOn = !hotspotOn;
+    document.getElementById('hotspot-state').textContent = hotspotOn ? 'ON' : 'OFF';
+    document.getElementById('hotspot-btn').style.borderColor = hotspotOn ? 'var(--c-green)' : '';
+    toast(`Hotspot ${hotspotOn ? 'enabled' : 'disabled'}`);
+  } catch(e) { toast('Hotspot toggle failed'); }
+}
+
+// ── SYSTEM ────────────────────────────────────────────────
+async function confirmAction(action) {
+  if (!confirm(`${action === 'reboot' ? 'Reboot' : 'Shutdown'} sailboatserver?`)) return;
+  try {
+    await fetch(`${RELAY_BASE}/system/${action}`, {method:'POST'});
+    toast(`${action} initiated…`, 5000);
+  } catch(e) { toast(`${action} failed`); }
+}
+
+// ════════════════════════════════════════════════════════
+// PASSAGE PLANNING
+// ════════════════════════════════════════════════════════
+let passage = {
+  from:'', to:'', waypoints:[], planSOG:5.0,
+  departureTime:null, selectedWindow:0,
+  crew:['Skipper','Crew 1','Crew 2']
+};
+
+function savePassage() { localStorage.setItem('sbs-passage', JSON.stringify(passage)); }
+function loadPassage() {
+  try { const s = localStorage.getItem('sbs-passage'); if (s) passage = {...passage,...JSON.parse(s)}; } catch(e){}
+}
+
+function newPassage() {
+  const from = prompt('Departure port:'); if (!from) return;
+  const to   = prompt('Destination:');   if (!to)   return;
+  const sog  = parseFloat(prompt('Planned SOG (knots):', '5.0') || '5.0');
+  passage = {from, to, waypoints:[], planSOG:sog,
+    departureTime:Date.now(), selectedWindow:0, crew:passage.crew};
+  savePassage(); renderPassage(); toast(`${from} → ${to}`);
+}
+
+function clearPassage() {
+  if (!confirm('Clear passage?')) return;
+  passage = {...passage, from:'', to:'', waypoints:[]};
+  localStorage.removeItem('sbs-passage');
+  renderPassage(); SBSData.clearPassage();
+}
+
+function renderPassage() {
+  const active = !!(passage.from && passage.to);
+  document.getElementById('route-title').textContent =
+    active ? `${passage.from} → ${passage.to}` : 'No passage planned';
+  document.getElementById('clear-btn').style.display = active ? '' : 'none';
+
+  const dist  = calcTotalDist();
+  const hours = passage.planSOG > 0 ? dist / passage.planSOG : null;
+  const eta   = hours && passage.departureTime
+    ? new Date(passage.departureTime + hours * 3600000) : null;
+
+  document.getElementById('kpi-dist').textContent = dist > 0 ? dist.toFixed(1) : '---';
+  document.getElementById('kpi-time').textContent = hours ? hours.toFixed(1) : '---';
+  document.getElementById('kpi-sog').textContent  = passage.planSOG ? passage.planSOG.toFixed(1) : '---';
+  document.getElementById('kpi-eta').textContent  = eta
+    ? eta.toUTCString().slice(5,11)+' '+eta.toUTCString().slice(17,22) : '---';
+
+  renderWaypoints();
+  buildDepartureWindows();
+  buildSafetyBars();
+  buildWatchSchedule();
+
+  if (active) SBSData.setPassage({waypoints:passage.waypoints,
+    planSOG:passage.planSOG, planETA:eta ? eta.getTime() : null});
+}
+
+// WAYPOINTS
+function toggleWPForm() {
+  const f = document.getElementById('add-wp-form');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+
+function addWaypoint() {
+  const name  = document.getElementById('wp-name').value.trim();
+  const coord = document.getElementById('wp-coord').value.trim();
+  if (!name || !coord) { toast('Enter name and coordinates'); return; }
+  const parts = coord.split(',').map(s => parseFloat(s.trim()));
+  if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1]))
+    { toast('Use: 48.384, -124.721'); return; }
+  passage.waypoints.push({name, lat:parts[0], lon:parts[1]});
+  document.getElementById('wp-name').value = '';
+  document.getElementById('wp-coord').value = '';
+  document.getElementById('add-wp-form').style.display = 'none';
+  savePassage(); renderPassage();
+}
+
+function removeWaypoint(i) {
+  passage.waypoints.splice(i, 1); savePassage(); renderPassage();
+}
+
+function renderWaypoints() {
+  const tbody = document.getElementById('wp-tbody');
+  if (!passage.waypoints.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--t-muted);text-align:center;
+      padding:var(--sp-xl)">No waypoints</td></tr>`; return;
+  }
+  let cumHours = 0;
+  tbody.innerHTML = passage.waypoints.map((wp, i) => {
+    const d = segDist(i);
+    cumHours += d / (passage.planSOG || 5);
+    const eta = passage.departureTime
+      ? new Date(passage.departureTime + cumHours*3600000) : null;
+    return `<tr>
+      <td class="wp-num">${i+1}</td>
+      <td style="font-weight:500">${wp.name}</td>
+      <td style="font-family:var(--font-mono);font-size:var(--s-xs)">${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}</td>
+      <td style="font-family:var(--font-mono)">${d.toFixed(1)}</td>
+      <td style="font-family:var(--font-mono);font-size:var(--s-xs)">
+        ${eta ? eta.toUTCString().slice(5,11)+' '+eta.toUTCString().slice(17,22) : '---'}</td>
+      <td><button class="sbs-btn" style="padding:2px 8px;font-size:10px"
+        onclick="removeWaypoint(${i})">✕</button></td></tr>`;
+  }).join('');
+}
+
+function segDist(i) {
+  if (i === 0) return 0;
+  return haversine(passage.waypoints[i-1].lat, passage.waypoints[i-1].lon,
+                   passage.waypoints[i].lat,   passage.waypoints[i].lon);
+}
+function calcTotalDist() {
+  if (passage.waypoints.length < 2) return 0;
+  let d = 0;
+  for (let i = 1; i < passage.waypoints.length; i++) d += segDist(i);
+  return d;
+}
+function haversine(la1, lo1, la2, lo2) {
+  const R = 3440.065, dLa = (la2-la1)*Math.PI/180, dLo = (lo2-lo1)*Math.PI/180;
+  const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// DEPARTURE WINDOWS
+function buildDepartureWindows() {
+  const c = document.getElementById('dep-windows');
+  if (!passage.from) { c.innerHTML=''; return; }
+  const base = passage.departureTime || Date.now();
+  const wins = [
+    {offset:0,  score:82, wind:'12-15kn SW', swell:'1.2m', cls:'good'},
+    {offset:6,  score:67, wind:'15-20kn W',  swell:'1.5m', cls:'ok'},
+    {offset:12, score:45, wind:'20-25kn NW', swell:'2.1m', cls:'marginal'},
+    {offset:18, score:71, wind:'12-18kn SW', swell:'1.3m', cls:'ok'},
+  ];
+  c.innerHTML = wins.map((w,i) => {
+    const t = new Date(base + w.offset*3600000);
+    const ts = t.toUTCString().slice(5,11)+' '+t.toUTCString().slice(17,22)+'z';
+    return `<div class="dep-window${passage.selectedWindow===i?' selected':''}" onclick="selectWin(${i})">
+      <div class="dw-time">${ts}</div>
+      <div class="dw-score ${w.cls}">${w.score}</div>
+      <div class="dw-wind">${w.wind}</div>
+      <div class="dw-wind" style="color:var(--c-blue-dim)">${w.swell}</div>
+    </div>`;
+  }).join('');
+}
+function selectWin(i) { passage.selectedWindow=i; savePassage(); buildDepartureWindows(); }
+
+// SAFETY BARS
+function buildSafetyBars() {
+  const vc = {good:'var(--c-green)',ok:'var(--c-amber)',marginal:'var(--c-yellow)',bad:'var(--c-red)'};
+  const bars = [
+    {label:'Wind',       pct:75, cls:'ok',      verdict:'MODERATE'},
+    {label:'Swell',      pct:60, cls:'ok',      verdict:'MODERATE'},
+    {label:'Visibility', pct:90, cls:'good',    verdict:'GOOD'},
+    {label:'Tidal Gate', pct:85, cls:'good',    verdict:'GOOD'},
+    {label:'Fuel Range', pct:80, cls:'ok',      verdict:'ADEQUATE'},
+  ];
+  document.getElementById('safety-bars').innerHTML = bars.map(b=>`
+    <div class="safety-row">
+      <span class="s-label">${b.label}</span>
+      <div class="safety-bar"><div class="safety-fill ${b.cls}" style="width:${b.pct}%"></div></div>
+      <span class="s-verdict" style="color:${vc[b.cls]}">${b.verdict}</span>
+    </div>`).join('');
+}
+
+// WATCH SCHEDULE
+const WC = [
+  {bg:'rgba(59,130,246,0.3)', border:'#3b82f6', text:'#93c5fd'},
+  {bg:'rgba(34,197,94,0.3)',  border:'#22c55e', text:'#86efac'},
+  {bg:'rgba(168,85,247,0.3)', border:'#a855f7', text:'#d8b4fe'},
+];
+function buildWatchSchedule() {
+  const dist  = calcTotalDist();
+  const hours = passage.planSOG > 0 ? dist / passage.planSOG : 24;
+  const blocks = Math.ceil(hours / 3);
+  const crew  = passage.crew || ['Skipper','Crew 1','Crew 2'];
+  const start = passage.departureTime || Date.now();
+  const grid  = document.getElementById('watch-grid');
+  const sumEl = document.getElementById('watch-summary');
+
+  if (!passage.from || dist === 0) {
+    grid.innerHTML = `<div style="color:var(--t-muted);font-family:var(--font-display);
+      font-size:var(--s-xs);letter-spacing:0.06em">No active passage</div>`;
+    sumEl.textContent = ''; return;
+  }
+
+  const counts = crew.map(()=>0);
+  let html = '';
+  for (let i = 0; i < blocks; i++) {
+    const ci = i % crew.length;
+    counts[ci]++;
+    const c = WC[ci % WC.length];
+    const ts = new Date(start + i*3*3600000).toUTCString().slice(17,22);
+    html += `<div class="watch-block" style="background:${c.bg};border:1px solid ${c.border};color:${c.text}">
+      <span class="wb-time">${ts}z</span>
+      <span class="wb-name">${crew[ci].split(' ')[0]}</span></div>`;
+  }
+  grid.innerHTML = html;
+  sumEl.textContent = crew.map((c,i)=>`${c}: ${counts[i]*3}h`).join('  ·  ');
+}
+
+// Advisory badge on Plan tab
+SBSData.on('update', () => {
+  const alerts = SBSData.passage.alerts.filter(a => a.level === 'advisory');
+  const tab = document.getElementById('tab-plan');
+  let badge = tab.querySelector('.badge');
+  if (alerts.length > 0) {
+    if (!badge) { badge = document.createElement('span'); badge.className='badge'; tab.appendChild(badge); }
+    badge.textContent = alerts.length;
+  } else if (badge) badge.remove();
+});
+
+// INIT
+buildRelays();
+loadPassage();
+renderPassage();
+checkHotspot();
+</script>
+</body>
+</html>

@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SV-Esperanza</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Teko:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080c12; --bg2:#0d1520; --bg3:#111e2e;
+  --border:#1a2d42; --blue:#0e7fd4; --teal:#0bbfb0;
+  --amber:#e07b2a; --red:#c0392b; --green:#27ae60;
+  --text:#c8d8e8; --dim:#486070; --bright:#e8f2fa;
+  --mono:'Share Tech Mono',monospace;
+  --disp:'Teko',sans-serif; --sans:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:56px;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 100% 40% at 50% 0%,rgba(14,127,212,.07) 0%,transparent 60%),radial-gradient(ellipse 50% 30% at 100% 100%,rgba(11,191,176,.04) 0%,transparent 60%);pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:0 12px 24px;}
+
+/* ── MAIN TABS ── */
+.main-tabs{position:sticky;top:0;z-index:50;background:rgba(8,12,18,.96);border-bottom:1px solid var(--border);display:flex;backdrop-filter:blur(10px);}
+.mtab{flex:1;padding:14px 8px;font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.mtab.active{color:var(--teal);border-bottom-color:var(--teal);}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+
+/* ── HEADER ── */
+header{padding:20px 0 18px;border-bottom:1px solid var(--border);margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+.vessel{font-family:var(--disp);font-size:44px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--bright);line-height:1;}
+.vessel em{color:var(--blue);font-style:normal;}
+.header-right{text-align:right;font-family:var(--mono);line-height:1.8;}
+#clock{font-size:22px;color:var(--teal);letter-spacing:2px;}
+#coords{font-size:11px;color:var(--teal);margin-top:2px;}
+#dateline{font-size:10px;color:var(--dim);}
+
+/* ── SECTION LABELS ── */
+.sec-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.sec-label::before{content:'';width:2px;height:12px;background:var(--blue);border-radius:2px;flex-shrink:0;}
+section{margin-bottom:24px;}
+
+/* ── INSTRUMENTS ── */
+.inst-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.inst{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;position:relative;overflow:hidden;}
+.inst::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--blue);opacity:.25;transition:opacity .3s,background .3s;}
+.inst.live::after{opacity:1;background:var(--teal);}
+.inst-lbl{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}
+.inst-val{font-family:var(--mono);font-size:24px;color:var(--bright);line-height:1;}
+.inst-unit{font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px;}
+
+/* ── TEMPERATURES ── */
+.temp-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+@media(min-width:500px){.temp-row{grid-template-columns:repeat(4,1fr);}}
+.temp-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;transition:border-color .3s;}
+.temp-card.hot{border-color:var(--amber);}
+.temp-loc{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:6px;}
+.temp-c{font-family:var(--mono);font-size:26px;color:var(--bright);line-height:1;}
+.temp-f{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px;}
+
+/* ── RELAY BUTTONS ── */
+.relay-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(min-width:600px){.relay-grid{grid-template-columns:repeat(4,1fr);}}
+.relay-btn{background:var(--bg2);border:2px solid var(--border);border-radius:12px;padding:20px 12px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:border-color .15s,background .15s,transform .1s;min-height:100px;position:relative;user-select:none;}
+.relay-btn:active{transform:scale(0.96);}
+.relay-btn:hover{border-color:var(--blue);}
+.relay-btn.on{border-color:var(--teal);background:rgba(11,191,176,.08);}
+.relay-icon{font-size:26px;line-height:1;}
+.relay-label{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--bright);text-align:center;line-height:1.2;}
+.relay-state{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;}
+.relay-btn.on .relay-state{color:var(--teal);}
+.relay-btn:not(.on) .relay-state{color:var(--dim);}
+.relay-btn::before{content:'';position:absolute;top:10px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--dim);transition:background .2s,box-shadow .2s;}
+.relay-btn.on::before{background:var(--teal);box-shadow:0 0 8px var(--teal);}
+.all-off-btn{width:100%;margin-top:8px;padding:10px;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.3);border-radius:8px;font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--red);cursor:pointer;transition:all .15s;}
+.all-off-btn:active{background:rgba(192,57,43,.2);}
+
+/* ── LINKS ── */
+.links-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+@media(min-width:500px){.links-grid{grid-template-columns:repeat(3,1fr);}}
+.link-btn{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 12px;text-decoration:none;color:var(--text);display:flex;align-items:center;gap:10px;transition:border-color .2s,background .2s;min-height:64px;}
+.link-btn:hover{border-color:var(--blue);background:rgba(14,127,212,.06);}
+.link-icon{font-size:20px;flex-shrink:0;}
+.link-lbl{font-size:12px;font-weight:600;color:var(--bright);line-height:1.2;}
+.link-sub{font-size:10px;color:var(--dim);margin-top:2px;}
+
+/* ── SYSTEM BUTTONS ── */
+.sys-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+@media(min-width:500px){.sys-grid{grid-template-columns:repeat(4,1fr);}}
+.sys-btn{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--text);font-family:var(--sans);transition:border-color .2s,background .2s;width:100%;text-align:left;min-height:64px;}
+.sys-btn:hover{border-color:var(--blue);background:rgba(14,127,212,.06);}
+.sys-btn.active{border-color:var(--teal);background:rgba(11,191,176,.06);}
+.sys-btn.amber:hover{border-color:var(--amber);background:rgba(224,123,42,.06);}
+.sys-btn.red:hover{border-color:var(--red);background:rgba(192,57,43,.06);}
+.sys-ico{font-size:20px;flex-shrink:0;}
+.sys-lbl{font-size:12px;font-weight:600;color:var(--bright);}
+.sys-sub{font-size:10px;color:var(--dim);margin-top:2px;font-family:var(--mono);}
+
+/* ── PLAN SUB-TABS ── */
+.plan-subtabs{display:flex;gap:2px;margin-bottom:14px;overflow-x:auto;}
+.pstab{padding:6px 12px;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.pstab.active{color:var(--teal);border-color:var(--teal);background:rgba(11,191,176,.06);}
+.plan-sub{display:none;}.plan-sub.active{display:block;}
+.plan-wrap{padding:16px 0;}
+
+/* ── PLAN CARDS ── */
+.route-hero{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:14px;}
+.route-title{font-size:20px;font-weight:700;color:var(--bright);letter-spacing:.05em;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.route-title .arrow{color:var(--amber);}
+.route-sub{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:.06em;}
+.route-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px;}
+.kpi{background:var(--bg3);border-radius:5px;padding:8px 6px;text-align:center;}
+.kpi-v{font-family:var(--mono);font-size:18px;color:var(--amber);line-height:1;}
+.kpi-l{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.07em;margin-top:2px;}
+.plan-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px;}
+.plan-card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.plan-card-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);}
+.plan-card-hint{font-family:var(--mono);font-size:9px;color:var(--dim);}
+
+/* ── DEPARTURE OPTS ── */
+.dep-row{display:flex;gap:6px;}
+.dep-opt{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 6px;text-align:center;cursor:pointer;transition:all .15s;}
+.dep-opt.selected{background:rgba(224,123,42,.12);border-color:var(--amber);}
+.dep-opt:active{opacity:.7;}
+.dep-time{font-family:var(--mono);font-size:12px;color:var(--bright);line-height:1;}
+.dep-opt.selected .dep-time{color:var(--amber);}
+.dep-label{font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px;}
+.dep-wind{font-family:var(--mono);font-size:10px;margin-top:4px;}
+.dep-score{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+
+/* ── WAYPOINT TABLE ── */
+.wp-table{width:100%;border-collapse:collapse;}
+.wp-table th{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;padding:0 4px 6px;text-align:left;border-bottom:1px solid var(--border);}
+.wp-table td{font-family:var(--mono);font-size:11px;color:var(--dim);padding:6px 4px;border-bottom:1px solid var(--bg3);vertical-align:middle;}
+.wp-table tr.active td{color:var(--bright);}
+.wp-table tr.done td{color:var(--green);opacity:.7;}
+.wp-dot{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid var(--border);vertical-align:middle;margin-right:5px;}
+.active .wp-dot{background:var(--amber);border-color:var(--amber);box-shadow:0 0 7px var(--amber);}
+.done .wp-dot{background:var(--green);border-color:var(--green);}
+.wp-name-cell{display:flex;align-items:center;}
+.eta-cell{text-align:right;}
+.active .eta-cell{color:var(--amber);}
+.add-wp-btn{width:100%;margin-top:8px;padding:8px;background:var(--bg3);border:1px dashed var(--border);border-radius:5px;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;letter-spacing:.08em;transition:all .15s;}
+.add-wp-btn:active{border-color:var(--blue);color:var(--blue);}
+
+/* ── SAFETY BARS ── */
+.safety-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.sf-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0;}
+.sf-name{font-size:11px;font-weight:600;color:var(--bright);width:72px;flex-shrink:0;}
+.sf-bar{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.sf-fill{height:100%;border-radius:3px;}
+.sf-val{font-family:var(--mono);font-size:9px;color:var(--dim);width:80px;text-align:right;flex-shrink:0;}
+
+/* ── WINDOWS ── */
+.window-grid{display:flex;flex-direction:column;gap:6px;}
+.wx-window{background:var(--bg3);border-radius:6px;border:1px solid var(--border);padding:10px 12px;display:flex;align-items:center;gap:10px;}
+.wx-window.best{border-color:var(--green);background:rgba(39,174,96,.05);}
+.wx-window.ok{border-color:var(--amber);background:rgba(224,123,42,.04);}
+.wx-window.poor{border-color:var(--red);background:rgba(192,57,43,.04);}
+.wxw-score-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0;min-width:40px;}
+.wxw-score{font-family:var(--mono);font-size:22px;font-weight:700;}
+.wxw-score.g{color:var(--green);}.wxw-score.a{color:var(--amber);}.wxw-score.r{color:var(--red);}
+.wxw-score-lbl{font-family:var(--mono);font-size:8px;color:var(--dim);}
+.wxw-detail{flex:1;}
+.wxw-time{font-family:var(--mono);font-size:12px;color:var(--bright);margin-bottom:3px;}
+.wxw-line{font-family:var(--mono);font-size:10px;color:var(--dim);line-height:1.7;}
+.wxw-line strong{color:var(--bright);}.wxw-line .hi{color:var(--amber);}.wxw-line .lo{color:var(--green);}.wxw-line .bad{color:var(--red);}
+.select-btn{font-family:var(--mono);font-size:10px;color:var(--amber);border:1px solid rgba(224,123,42,.3);background:rgba(224,123,42,.08);padding:4px 8px;border-radius:3px;cursor:pointer;flex-shrink:0;}
+.select-btn:active{opacity:.7;}
+.wx-window.best .select-btn{border-color:var(--green);color:var(--green);background:rgba(39,174,96,.1);}
+
+/* ── TIDAL GATES ── */
+.gate-list{display:flex;flex-direction:column;gap:8px;}
+.gate-row{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;}
+.gate-row.good{border-left:3px solid var(--green);}
+.gate-row.marginal{border-left:3px solid var(--amber);}
+.gate-row.bad{border-left:3px solid var(--red);}
+.gate-name{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--bright);}
+.gate-sub{font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:2px;}
+.gate-info{flex:1;}
+.gate-timing{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:5px;line-height:1.7;}
+.gate-timing strong{color:var(--amber);}.gate-timing .ok{color:var(--green);}
+.gate-status{font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;flex-shrink:0;align-self:flex-start;}
+.gate-status.good{background:rgba(39,174,96,.1);color:var(--green);border:1px solid var(--green);}
+.gate-status.marginal{background:rgba(224,123,42,.1);color:var(--amber);border:1px solid var(--amber);}
+.gate-status.bad{background:rgba(192,57,43,.1);color:var(--red);border:1px solid var(--red);}
+.tidal-mini{width:100%;height:44px;display:block;margin-top:6px;}
+
+/* ── FUEL/RANGE ── */
+.fuel-visual{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.fuel-gauge-wrap{background:var(--bg3);border-radius:6px;padding:9px 10px;}
+.fuel-gauge-lbl{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.08em;margin-bottom:5px;}
+.fuel-bar-track{height:13px;background:var(--bg);border-radius:7px;overflow:hidden;}
+.fuel-bar-fill{height:100%;border-radius:7px;transition:width .8s ease;}
+.fuel-bar-fill.fuel{background:linear-gradient(90deg,var(--amber),#ff8f00);}
+.fuel-bar-fill.range{background:linear-gradient(90deg,var(--teal),#0bbfb0);}
+.fuel-val{font-family:var(--mono);font-size:18px;color:var(--bright);margin-top:4px;}
+.fuel-sub{font-family:var(--mono);font-size:9px;color:var(--dim);}
+.scenario-row{display:flex;gap:6px;margin-bottom:10px;}
+.scenario{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 6px;text-align:center;}
+.scenario-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.06em;margin-bottom:4px;}
+.scenario-val{font-family:var(--mono);font-size:14px;color:var(--bright);}
+.scenario-sub{font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:2px;}
+.scenario.highlight{border-color:var(--amber);background:rgba(224,123,42,.08);}
+.scenario.highlight .scenario-val{color:var(--amber);}
+.fuel-warning{background:rgba(224,123,42,.08);border:1px solid rgba(224,123,42,.3);border-radius:5px;padding:8px 10px;font-family:var(--mono);font-size:10px;color:var(--amber);line-height:1.6;}
+
+/* ── WATCH SCHEDULE ── */
+.watch-block{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px;}
+.watch-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.watch-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);}
+.shuffle-btn{font-family:var(--mono);font-size:9px;color:var(--amber);border:1px solid rgba(224,123,42,.3);background:rgba(224,123,42,.08);padding:4px 10px;border-radius:3px;cursor:pointer;}
+.shuffle-btn:active{opacity:.7;}
+.wt-label-row{font-family:var(--mono);font-size:8px;color:var(--dim);display:flex;justify-content:space-between;padding-left:48px;margin-bottom:4px;}
+.wt-grid{display:flex;flex-direction:column;gap:3px;}
+.wt-row{display:flex;align-items:center;gap:6px;}
+.wt-name{font-family:var(--mono);font-size:9px;color:var(--dim);width:42px;flex-shrink:0;text-align:right;}
+.wt-blocks{display:flex;flex:1;gap:1px;}
+.wt-block{flex:1;height:20px;border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:6px;letter-spacing:.04em;}
+.wt-block:active{opacity:.7;}
+.wt-block.c1{background:rgba(224,123,42,.35);color:var(--amber);}
+.wt-block.c2{background:rgba(11,191,176,.3);color:var(--teal);}
+.wt-block.c3{background:rgba(79,195,247,.3);color:#4fc3f7;}
+.wt-block.off{background:var(--bg3);color:var(--dim);}
+.watch-next{background:rgba(224,123,42,.08);border:1px solid rgba(224,123,42,.3);border-radius:6px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+.wn-label{font-family:var(--mono);font-size:9px;color:var(--dim);}
+.wn-val{font-family:var(--mono);font-size:12px;color:var(--amber);}
+.ws-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
+.ws-row:last-child{border-bottom:none;}
+.ws-name{font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:7px;}
+.ws-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ws-hours{font-family:var(--mono);font-size:11px;color:var(--bright);}
+.ws-shifts{font-family:var(--mono);font-size:10px;color:var(--dim);}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.active{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:10px;width:100%;max-width:340px;padding:16px;}
+.modal-title{font-size:16px;font-weight:700;color:var(--bright);margin-bottom:12px;}
+.form-row{margin-bottom:10px;}
+.form-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;display:block;margin-bottom:4px;}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-family:var(--mono);font-size:13px;color:var(--bright);outline:none;}
+.form-input:focus{border-color:var(--blue);}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.modal-btns{display:flex;gap:8px;margin-top:14px;}
+.mbtn{flex:1;padding:10px;border-radius:5px;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;border:none;text-transform:uppercase;}
+.mbtn.primary{background:var(--blue);color:#fff;}
+.mbtn.cancel{background:var(--bg3);color:var(--dim);}
+
+/* ── STATUS BAR ── */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:44px;background:rgba(8,12,18,.96);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:18px;font-family:var(--mono);font-size:9px;z-index:100;backdrop-filter:blur(10px);overflow-x:auto;}
+.s-item{display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex-shrink:0;}
+.dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.dot.warn{background:var(--amber);box-shadow:0 0 5px var(--amber);}
+.dot.err{background:var(--red);box-shadow:0 0 5px var(--red);}
+.s-lbl{color:var(--dim);}.s-val{color:var(--text);}
+.s-right{margin-left:auto;color:var(--dim);}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:58px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--bg3);border:1px solid var(--blue);border-radius:8px;padding:10px 20px;font-family:var(--mono);font-size:12px;color:var(--bright);z-index:300;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<div class="main-tabs">
+  <button class="mtab active" onclick="showMainTab('manage')">Manage</button>
+  <button class="mtab"        onclick="showMainTab('plan')">Plan</button>
+  <button class="mtab"        onclick="window.location.href='/helm.html'">Helm ↗</button>
+</div>
+
+<div class="wrap">
+
+<!-- ════════════════════ MANAGE TAB ════════════════════ -->
+<div class="tab-panel active" id="tab-manage">
+
+  <header>
+    <div class="vessel"><em>SV</em>-Esperanza</div>
+    <div class="header-right">
+      <div id="clock">--:--:--</div>
+      <div id="coords">awaiting fix...</div>
+      <div id="dateline">---</div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-label">Navigation</div>
+    <div class="inst-row">
+      <div class="inst" id="i-sog"><div class="inst-lbl">SOG</div><div class="inst-val" id="v-sog">--.-</div><div class="inst-unit">knots</div></div>
+      <div class="inst" id="i-stw"><div class="inst-lbl">STW</div><div class="inst-val" id="v-stw">--.-</div><div class="inst-unit">knots</div></div>
+      <div class="inst" id="i-cog"><div class="inst-lbl">COG</div><div class="inst-val" id="v-cog">---</div><div class="inst-unit">° true</div></div>
+      <div class="inst" id="i-hdg"><div class="inst-lbl">Heading</div><div class="inst-val" id="v-hdg">---</div><div class="inst-unit">° mag</div></div>
+      <div class="inst" id="i-baro"><div class="inst-lbl">Baro</div><div class="inst-val" id="v-baro">----</div><div class="inst-unit">hPa</div></div>
+      <div class="inst" id="i-wind"><div class="inst-lbl">Wind App</div><div class="inst-val" id="v-wind">--.-</div><div class="inst-unit">knots</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Temperatures</div>
+    <div class="temp-row">
+      <div class="temp-card" id="tc-cabin">  <div class="temp-loc">Cabin</div>   <div class="temp-c" id="c-cabin">--.-°</div>  <div class="temp-f" id="f-cabin">-- °F</div></div>
+      <div class="temp-card" id="tc-engine"> <div class="temp-loc">Engine</div>  <div class="temp-c" id="c-engine">--.-°</div> <div class="temp-f" id="f-engine">-- °F</div></div>
+      <div class="temp-card" id="tc-exhaust"><div class="temp-loc">Exhaust</div> <div class="temp-c" id="c-exhaust">--.-°</div><div class="temp-f" id="f-exhaust">-- °F</div></div>
+      <div class="temp-card" id="tc-water">  <div class="temp-loc">Water</div>   <div class="temp-c" id="c-water">--.-°</div>  <div class="temp-f" id="f-water">-- °F</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Electrical</div>
+    <div class="relay-grid" id="relay-grid"></div>
+    <button class="all-off-btn" onclick="allRelaysOff()">⬛ All Off</button>
+  </section>
+
+  <section>
+    <div class="sec-label">Resources</div>
+    <div class="links-grid">
+      <a class="link-btn" href="http://192.168.8.201:3000" target="_blank"><div class="link-icon">⚓</div><div><div class="link-lbl">SignalK</div><div class="link-sub">Instruments</div></div></a>
+      <a class="link-btn" href="http://192.168.8.201:8080" target="_blank"><div class="link-icon">📚</div><div><div class="link-lbl">Library</div><div class="link-sub">Kiwix offline</div></div></a>
+      <a class="link-btn" href="http://192.168.8.1" target="_blank"><div class="link-icon">🌐</div><div><div class="link-lbl">Router</div><div class="link-sub">192.168.8.1</div></div></a>
+      <a class="link-btn" href="/docs/books/" target="_blank"><div class="link-icon">📖</div><div><div class="link-lbl">Books</div><div class="link-sub">PDFs &amp; manuals</div></div></a>
+      <a class="link-btn" href="/docs/engine/" target="_blank"><div class="link-icon">🔧</div><div><div class="link-lbl">Engine</div><div class="link-sub">Universal M18</div></div></a>
+      <a class="link-btn" href="/docs/audio/" target="_blank"><div class="link-icon">🎧</div><div><div class="link-lbl">Audiobooks</div><div class="link-sub">Be the Captain</div></div></a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">System</div>
+    <div class="sys-grid">
+      <button class="sys-btn" id="btn-hotspot" onclick="toggleHotspot()">
+        <div class="sys-ico">📡</div><div><div class="sys-lbl">Hotspot</div><div class="sys-sub" id="hotspot-sub">checking...</div></div>
+      </button>
+      <button class="sys-btn" onclick="window.open('http://192.168.8.1','_blank')">
+        <div class="sys-ico">🌐</div><div><div class="sys-lbl">Router</div><div class="sys-sub">192.168.8.1</div></div>
+      </button>
+      <button class="sys-btn amber" onclick="confirmAction('reboot')">
+        <div class="sys-ico">🔄</div><div><div class="sys-lbl">Reboot</div><div class="sys-sub">sailboatserver</div></div>
+      </button>
+      <button class="sys-btn red" onclick="confirmAction('shutdown')">
+        <div class="sys-ico">⏻</div><div><div class="sys-lbl">Shutdown</div><div class="sys-sub">power off</div></div>
+      </button>
+    </div>
+  </section>
+
+</div><!-- /tab-manage -->
+
+<!-- ════════════════════ PLAN TAB ════════════════════ -->
+<div class="tab-panel" id="tab-plan">
+  <div class="plan-wrap">
+
+    <div class="route-hero">
+      <div class="route-title">
+        <span id="plan-from">FROM</span><span class="arrow">→</span><span id="plan-to">TO</span>
+        <button class="add-wp-btn" style="width:auto;padding:4px 12px;font-size:10px;margin-left:auto" onclick="openWPModal()">+ Edit Route</button>
+      </div>
+      <div class="route-sub" id="plan-sub">No passage loaded — add waypoints to begin</div>
+      <div class="route-kpis">
+        <div class="kpi"><div class="kpi-v" id="plan-nm">--</div><div class="kpi-l">nm total</div></div>
+        <div class="kpi"><div class="kpi-v" id="plan-hrs">--</div><div class="kpi-l">est hours</div></div>
+        <div class="kpi"><div class="kpi-v" id="plan-sog">5.5kt</div><div class="kpi-l">plan SOG</div></div>
+        <div class="kpi"><div class="kpi-v" id="plan-eta">--:--</div><div class="kpi-l">ETA dest</div></div>
+      </div>
+    </div>
+
+    <div class="plan-subtabs">
+      <button class="pstab active" onclick="showPlanSub('overview')" id="ps-overview">Overview</button>
+      <button class="pstab" onclick="showPlanSub('windows')" id="ps-windows">Windows</button>
+      <button class="pstab" onclick="showPlanSub('tides')" id="ps-tides">Tides</button>
+      <button class="pstab" onclick="showPlanSub('fuel')" id="ps-fuel">Fuel/Range</button>
+      <button class="pstab" onclick="showPlanSub('watches')" id="ps-watches">Watches</button>
+    </div>
+
+    <!-- ── OVERVIEW ── -->
+    <div class="plan-sub active" id="psub-overview">
+
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Departure Window</div><div class="plan-card-hint">tap to compare</div></div>
+        <div class="dep-row" id="depRow">
+          <div class="dep-opt selected" onclick="selectDep(this,'Sat 06:00','Sun 14:30','SW F4','good')">
+            <div class="dep-time">Sat 06:00</div><div class="dep-label">TODAY</div>
+            <div class="dep-wind"><span class="dep-score" style="background:var(--green)"></span><span style="color:var(--green)">SW F4</span></div>
+          </div>
+          <div class="dep-opt" onclick="selectDep(this,'Sat 12:00','Sun 20:30','SW F4-5','ok')">
+            <div class="dep-time">Sat 12:00</div><div class="dep-label">+6 HRS</div>
+            <div class="dep-wind"><span class="dep-score" style="background:var(--amber)"></span><span style="color:var(--amber)">SW F4-5</span></div>
+          </div>
+          <div class="dep-opt" onclick="selectDep(this,'Sun 06:00','Mon 14:30','W F3-4','ok')">
+            <div class="dep-time">Sun 06:00</div><div class="dep-label">TOMORROW</div>
+            <div class="dep-wind"><span class="dep-score" style="background:var(--amber)"></span><span style="color:var(--amber)">W F3-4</span></div>
+          </div>
+          <div class="dep-opt" onclick="selectDep(this,'Sun 18:00','Mon 22:30','SW F5-6','poor')">
+            <div class="dep-time">Sun 18:00</div><div class="dep-label">+36 HRS</div>
+            <div class="dep-wind"><span class="dep-score" style="background:var(--red)"></span><span style="color:var(--red)">SW F5-6</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Waypoints</div><div class="select-btn" onclick="openWPModal()">+ ADD</div></div>
+        <table class="wp-table" id="wpTable">
+          <thead><tr><th>#</th><th>Waypoint</th><th>Dist</th><th>TTG</th><th>ETA</th></tr></thead>
+          <tbody id="wp-tbody"><tr><td colspan="5" style="color:var(--dim);font-family:var(--mono);font-size:10px;padding:12px 0;text-align:center;">No waypoints — tap + ADD to start</td></tr></tbody>
+        </table>
+        <button class="add-wp-btn" onclick="openWPModal()">+ Add Waypoint</button>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Passage Assessment</div><div id="assess-badge" style="font-family:var(--mono);font-size:11px;color:var(--green)">✓ GOOD TO GO</div></div>
+        <div class="safety-row"><div class="sf-icon">💨</div><div class="sf-name">Wind</div><div class="sf-bar"><div class="sf-fill" style="width:80%;background:var(--green)"></div></div><div class="sf-val">SW F4→F5</div></div>
+        <div class="safety-row"><div class="sf-icon">🌊</div><div class="sf-name">Swell</div><div class="sf-bar"><div class="sf-fill" style="width:65%;background:var(--amber)"></div></div><div class="sf-val">1.4–2.4m</div></div>
+        <div class="safety-row"><div class="sf-icon">🌫</div><div class="sf-name">Visibility</div><div class="sf-bar"><div class="sf-fill" style="width:90%;background:var(--green)"></div></div><div class="sf-val">Good</div></div>
+        <div class="safety-row"><div class="sf-icon">🔱</div><div class="sf-name">Tidal Gates</div><div class="sf-bar"><div class="sf-fill" style="width:88%;background:var(--green)"></div></div><div class="sf-val">HW-1 ✓</div></div>
+        <div class="safety-row"><div class="sf-icon">⛽</div><div class="sf-name">Fuel Range</div><div class="sf-bar"><div class="sf-fill" style="width:72%;background:var(--teal)"></div></div><div class="sf-val">72L / 312nm</div></div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--amber);margin-top:8px;padding-top:7px;border-top:1px solid var(--border)">⚠ F5 possible Sat night — reassess at 18:00 UTC before Lizard</div>
+      </div>
+    </div><!-- /psub-overview -->
+
+    <!-- ── WINDOWS ── -->
+    <div class="plan-sub" id="psub-windows">
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Departure Windows — 48hrs</div><div class="plan-card-hint">tap to set departure</div></div>
+        <div class="window-grid">
+          <div class="wx-window best">
+            <div class="wxw-score-wrap"><div class="wxw-score g">92</div><div class="wxw-score-lbl">SCORE</div></div>
+            <div class="wxw-detail">
+              <div class="wxw-time">SAT 06:00 UTC ★ BEST</div>
+              <div class="wxw-line"><strong>Wind:</strong> <span class="lo">SW 15–20kt</span> backing W 18kt by Biscay</div>
+              <div class="wxw-line"><strong>Swell:</strong> <span class="lo">1.2–1.8m</span> · Vis: Good · Baro: 1016 stable</div>
+              <div class="wxw-line"><strong>Gate:</strong> <span class="lo">HW-1 ✓ ideal</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--dim)">ETA<strong style="display:block;color:var(--bright);font-size:11px">Sun 14:30</strong></div>
+              <div class="select-btn" onclick="setDeparture('SAT 06:00')">SELECT</div>
+            </div>
+          </div>
+          <div class="wx-window ok">
+            <div class="wxw-score-wrap"><div class="wxw-score a">74</div><div class="wxw-score-lbl">SCORE</div></div>
+            <div class="wxw-detail">
+              <div class="wxw-time">SAT 12:00 UTC</div>
+              <div class="wxw-line"><strong>Wind:</strong> <span class="hi">SW 20–25kt</span> F5 Sat night</div>
+              <div class="wxw-line"><strong>Swell:</strong> <span class="hi">1.8–2.8m</span> · Baro: 1014 falling</div>
+              <div class="wxw-line"><strong>Gate:</strong> <span class="hi">HW+2 — missed</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--dim)">ETA<strong style="display:block;color:var(--bright);font-size:11px">Sun 20:30</strong></div>
+              <div class="select-btn" onclick="setDeparture('SAT 12:00')">SELECT</div>
+            </div>
+          </div>
+          <div class="wx-window ok">
+            <div class="wxw-score-wrap"><div class="wxw-score a">68</div><div class="wxw-score-lbl">SCORE</div></div>
+            <div class="wxw-detail">
+              <div class="wxw-time">SUN 06:00 UTC</div>
+              <div class="wxw-line"><strong>Wind:</strong> <span class="lo">W 12–18kt</span> light</div>
+              <div class="wxw-line"><strong>Swell:</strong> <span class="lo">1.0–1.6m</span> · Fog risk</div>
+              <div class="wxw-line"><strong>Gate:</strong> <span class="lo">HW-1 ✓</span> · 24hr delay</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--dim)">ETA<strong style="display:block;color:var(--bright);font-size:11px">Mon 14:30</strong></div>
+              <div class="select-btn" onclick="setDeparture('SUN 06:00')">SELECT</div>
+            </div>
+          </div>
+          <div class="wx-window poor">
+            <div class="wxw-score-wrap"><div class="wxw-score r">31</div><div class="wxw-score-lbl">SCORE</div></div>
+            <div class="wxw-detail">
+              <div class="wxw-time">SUN 18:00 UTC</div>
+              <div class="wxw-line"><strong>Wind:</strong> <span class="bad">SW 28–35kt</span> gale possible</div>
+              <div class="wxw-line"><strong>Swell:</strong> <span class="bad">3.0–4.0m</span> · Poor vis</div>
+              <div class="wxw-line"><strong>Gate:</strong> <span class="bad">Spring ebb — NO</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--dim)">ETA<strong style="display:block;color:var(--bright);font-size:11px">Mon 22:30</strong></div>
+              <div class="select-btn" style="border-color:rgba(192,57,43,.4);color:var(--red);background:rgba(192,57,43,.1)" onclick="setDeparture('SUN 18:00')">SELECT</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">48hr Wind Forecast</div><div class="plan-card-hint">departure markers shown</div></div>
+        <canvas id="windowsChart" height="100" style="width:100%;display:block;"></canvas>
+      </div>
+    </div><!-- /psub-windows -->
+
+    <!-- ── TIDES ── -->
+    <div class="plan-sub" id="psub-tides">
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Tidal Gates</div></div>
+        <div class="gate-list">
+          <div class="gate-row good">
+            <div class="gate-info">
+              <div class="gate-name">Lizard Point</div>
+              <div class="gate-sub">50°01.9'N 005°12.1'W · ETA 09:20 SAT</div>
+              <div class="gate-timing">Pass: <strong>HW-3</strong> · Stream: <span class="ok">1.2kt fair (E)</span><br>HW Falmouth: 11:55 SAT · Best: <strong>08:00–11:30</strong></div>
+              <canvas class="tidal-mini" id="tide-lizard"></canvas>
+            </div>
+            <div class="gate-status good">GOOD</div>
+          </div>
+          <div class="gate-row good">
+            <div class="gate-info">
+              <div class="gate-name">TSS Casquets / Ouessant</div>
+              <div class="gate-sub">Traffic Separation Scheme · ETA 15:45 SAT</div>
+              <div class="gate-timing">Crossing: <strong>NE–SW route required</strong> · Traffic: <span class="ok">Low Sat afternoon</span><br>Stream: <span class="ok">0.8kt NE — favourable</span></div>
+            </div>
+            <div class="gate-status good">CLEAR</div>
+          </div>
+          <div class="gate-row good">
+            <div class="gate-info">
+              <div class="gate-name">Chenal du Four</div>
+              <div class="gate-sub">48°20'N 004°47'W · ETA Sun 08:00</div>
+              <div class="gate-timing">Pass: <strong>HW Brest -1hr</strong> · HW Sun: 09:12<br>Window: <strong>07:45–10:30</strong> · Stream: <span class="ok">2.1kt N — fair</span></div>
+              <canvas class="tidal-mini" id="tide-chenal"></canvas>
+            </div>
+            <div class="gate-status good">IDEAL</div>
+          </div>
+        </div>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Tidal Curve — Brest</div><div class="plan-card-hint">Sat → Sun 24:00</div></div>
+        <canvas id="tidalMain" height="100" style="width:100%;display:block;"></canvas>
+      </div>
+      <div class="plan-card">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);line-height:1.9;">
+          <div>HW Falmouth: <strong style="color:var(--bright)">Sat 11:55 / Sun 00:14</strong> · Range: <strong style="color:var(--bright)">4.1m</strong></div>
+          <div>HW Brest: <strong style="color:var(--bright)">Sat 10:42 / Sun 09:12</strong> · Range: <strong style="color:var(--bright)">5.8m</strong></div>
+          <div>Spring coefficient: <strong style="color:var(--amber)">78</strong> (approaching neap)</div>
+          <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--amber)">⚠ Chenal: min depth 10m at LW neap — no issue for this draft</div>
+        </div>
+      </div>
+    </div><!-- /psub-tides -->
+
+    <!-- ── FUEL/RANGE ── -->
+    <div class="plan-sub" id="psub-fuel">
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Fuel Status</div></div>
+        <div class="fuel-visual">
+          <div class="fuel-gauge-wrap">
+            <div class="fuel-gauge-lbl">FUEL ONBOARD</div>
+            <div class="fuel-bar-track"><div class="fuel-bar-fill fuel" style="width:72%"></div></div>
+            <div class="fuel-val">72L</div><div class="fuel-sub">of 100L capacity</div>
+          </div>
+          <div class="fuel-gauge-wrap">
+            <div class="fuel-gauge-lbl">MOTORING RANGE</div>
+            <div class="fuel-bar-track"><div class="fuel-bar-fill range" style="width:78%"></div></div>
+            <div class="fuel-val">312nm</div><div class="fuel-sub">@ 2.3L/hr · 5.5kt</div>
+          </div>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);line-height:1.8;">
+          <div>Consumption: <strong style="color:var(--bright)">2.3 L/hr</strong> motoring · <strong style="color:var(--bright)">0.8 L/hr</strong> motor-sailing</div>
+          <div>Reserve: <strong style="color:var(--bright)">15L</strong> held back · Usable: <strong style="color:var(--amber)">57L</strong></div>
+        </div>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Passage Fuel Scenarios</div></div>
+        <div class="scenario-row">
+          <div class="scenario"><div class="scenario-label">FULL SAIL</div><div class="scenario-val">~8L</div><div class="scenario-sub">engine charging</div></div>
+          <div class="scenario highlight"><div class="scenario-label">MOTOR-SAIL</div><div class="scenario-val">~22L</div><div class="scenario-sub">likely scenario</div></div>
+          <div class="scenario"><div class="scenario-label">FULL MOTOR</div><div class="scenario-val">~75L</div><div class="scenario-sub">exceeds usable</div></div>
+        </div>
+        <div class="fuel-warning">⚠ Full motoring exceeds usable fuel by ~18L.<br>Motor-sail recommended — 22L leaves <strong>35L reserve</strong> on arrival.</div>
+        <div style="margin-top:10px;">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:5px;letter-spacing:.08em;">RANGE OVERLAY</div>
+          <canvas id="rangeCanvas" height="70" style="width:100%;display:block;border-radius:4px;"></canvas>
+        </div>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Fuel Stops En Route</div></div>
+        <div style="background:var(--bg3);border-radius:5px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-weight:600;color:var(--bright)">Camaret-sur-Mer</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:2px">2nm off route · Fuel pontoon</div></div>
+          <div style="text-align:right"><div style="font-family:var(--mono);font-size:11px;color:var(--amber)">+2nm</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim)">detour</div></div>
+        </div>
+      </div>
+    </div><!-- /psub-fuel -->
+
+    <!-- ── WATCHES ── -->
+    <div class="plan-sub" id="psub-watches">
+      <div class="watch-block">
+        <div class="watch-header">
+          <div class="watch-title">Watch Schedule · 3-on / 3-off</div>
+          <button class="shuffle-btn" onclick="shuffleWatches()">SHUFFLE</button>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;margin-bottom:6px;">CREW</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-family:var(--mono);font-size:11px;color:var(--bright);display:flex;align-items:center;gap:6px;"><div style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>SKIPPER</div>
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-family:var(--mono);font-size:11px;color:var(--bright);display:flex;align-items:center;gap:6px;"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal)"></div>CREW 1</div>
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-family:var(--mono);font-size:11px;color:var(--bright);display:flex;align-items:center;gap:6px;"><div style="width:7px;height:7px;border-radius:50%;background:#4fc3f7"></div>CREW 2</div>
+          </div>
+        </div>
+        <div class="wt-label-row" id="watch-time-labels"></div>
+        <div class="wt-grid" id="watchGrid"></div>
+        <div class="watch-next">
+          <div><div class="wn-label">NEXT WATCH CHANGE</div><div class="wn-val" id="watch-next-info">building schedule...</div></div>
+          <div style="font-family:var(--mono);font-size:20px;color:var(--amber)" id="watchCountdown">--h --m</div>
+        </div>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Hours Summary</div></div>
+        <div id="watch-summary-rows"></div>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-hd"><div class="plan-card-title">Watch Notes</div></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);line-height:1.9;">
+          <div>• COLREGS Rule 5 — maintain proper lookout at all times</div>
+          <div>• Brief crew on tidal gates, AIS targets, and expected wind shifts</div>
+          <div>• Chenal du Four — wake skipper at 07:30 for 08:00 entry</div>
+        </div>
+      </div>
+    </div><!-- /psub-watches -->
+
+  </div>
+</div><!-- /tab-plan -->
+
+</div><!-- /wrap -->
+
+<div class="statusbar">
+  <div class="s-item"><div class="dot" id="d-relay"></div><span class="s-lbl">Relay</span><span class="s-val" id="sb-relay">--</span></div>
+  <div class="s-item"><div class="dot" id="d-signalk"></div><span class="s-lbl">SK</span><span class="s-val" id="sb-sk">--</span></div>
+  <div class="s-item"><div class="dot" id="d-gps"></div><span class="s-lbl">GPS</span><span class="s-val" id="sb-gps">no fix</span></div>
+  <div class="s-item"><div class="dot" id="d-bilge"></div><span class="s-lbl">Bilge</span><span class="s-val" id="sb-bilge">--</span></div>
+  <div class="s-right" id="sb-time">--</div>
+</div>
+
+<div class="modal-overlay" id="wpModal">
+  <div class="modal">
+    <div class="modal-title">Add Waypoint</div>
+    <div class="form-row"><label class="form-label">WAYPOINT NAME</label><input class="form-input" type="text" placeholder="e.g. Lizard Point" id="wpName"></div>
+    <div class="form-row form-row-2">
+      <div><label class="form-label">LATITUDE</label><input class="form-input" type="text" placeholder="50°01.9'N" id="wpLat"></div>
+      <div><label class="form-label">LONGITUDE</label><input class="form-input" type="text" placeholder="005°12.1'W" id="wpLon"></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div><label class="form-label">NOTES</label><input class="form-input" type="text" placeholder="Tidal gate, hazard..." id="wpNote"></div>
+      <div><label class="form-label">INSERT AFTER #</label><input class="form-input" type="text" placeholder="WP number" id="wpAfter"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeModal()">Cancel</button>
+      <button class="mbtn primary" onclick="addWP()">Add Waypoint</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const RELAY = 'http://192.168.8.201:5000';
+const SK    = 'http://192.168.8.201:3000/signalk/v1/api/vessels/self';
+
+const CHANNELS = [
+  { ch:1, name:'Cabin Lights',  icon:'💡' },
+  { ch:2, name:'Nav Lights',    icon:'🔦' },
+  { ch:3, name:'Anchor Light',  icon:'⚓' },
+  { ch:4, name:'Bilge Pump',    icon:'💧' },
+  { ch:5, name:'Water Pump',    icon:'🚿' },
+  { ch:6, name:'Vent Fan',      icon:'🌀' },
+  { ch:7, name:'Instruments',   icon:'🧭' },
+  { ch:8, name:'Starlink',      icon:'🛰️' },
+];
+
+const TEMP_WARN = { engine:80, exhaust:90, cabin:45, water:null };
+let hotspotOn = false;
+let watchBuilt = false;
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function showMainTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  const idx = ['manage','plan'].indexOf(id);
+  if (idx >= 0) document.querySelectorAll('.mtab')[idx].classList.add('active');
+}
+
+function showPlanSub(id) {
+  document.querySelectorAll('.plan-sub').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.pstab').forEach(t => t.classList.remove('active'));
+  document.getElementById('psub-' + id).classList.add('active');
+  document.getElementById('ps-' + id).classList.add('active');
+  if (id === 'tides')   setTimeout(drawTides, 40);
+  if (id === 'windows') setTimeout(drawWindowsChart, 40);
+  if (id === 'fuel')    setTimeout(drawRange, 40);
+  if (id === 'watches' && !watchBuilt) { buildWatches(); watchBuilt = true; }
+}
+
+// ─── CLOCK ────────────────────────────────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent     = n.toLocaleTimeString('en-US', {hour12:false});
+  document.getElementById('dateline').textContent  = n.toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'});
+  updateWatchCountdown();
+}
+setInterval(tick, 1000); tick();
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let tt;
+function toast(msg, ms=2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function dot(id, state) { document.getElementById(id).className = 'dot ' + state; }
+
+// ─── RELAY BUTTONS ────────────────────────────────────────────────────────────
+function buildRelays() {
+  const grid = document.getElementById('relay-grid');
+  CHANNELS.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'relay-btn'; btn.id = `rb-${r.ch}`;
+    btn.innerHTML = `<div class="relay-icon">${r.icon}</div><div class="relay-label">${r.name}</div><div class="relay-state" id="rs-${r.ch}">off</div>`;
+    btn.addEventListener('click', () => toggleRelay(r.ch));
+    grid.appendChild(btn);
+  });
+}
+
+function setRelayUI(ch, on) {
+  const btn = document.getElementById(`rb-${ch}`);
+  const lbl = document.getElementById(`rs-${ch}`);
+  if (!btn) return;
+  btn.classList.toggle('on', on);
+  if (lbl) lbl.textContent = on ? 'on' : 'off';
+}
+
+async function toggleRelay(ch) {
+  const r = CHANNELS.find(r => r.ch === ch);
+  const currently = document.getElementById(`rb-${ch}`).classList.contains('on');
+  try {
+    const res = await fetch(`${RELAY}/relay/${ch}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({state: !currently})
+    });
+    const d = await res.json();
+    setRelayUI(ch, d.state);
+    toast(`${r.name}: ${d.state ? 'ON ●' : 'OFF ○'}`);
+  } catch { toast('Relay server offline'); }
+}
+
+async function pollRelays() {
+  try {
+    const res = await fetch(`${RELAY}/relays`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    Object.entries(data).forEach(([ch, info]) => setRelayUI(parseInt(ch), info.state));
+    dot('d-relay','ok');
+    document.getElementById('sb-relay').textContent = 'online';
+  } catch {
+    dot('d-relay','err');
+    document.getElementById('sb-relay').textContent = 'offline';
+  }
+}
+
+async function allRelaysOff() {
+  if (!confirm('Turn off all relays?')) return;
+  for (const r of CHANNELS) {
+    try {
+      await fetch(`${RELAY}/relay/${r.ch}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({state: false})
+      });
+      setRelayUI(r.ch, false);
+    } catch {}
+  }
+  toast('All relays off');
+}
+
+// ─── TEMPERATURES ─────────────────────────────────────────────────────────────
+async function pollTemps() {
+  try {
+    const res = await fetch(`${RELAY}/temperatures`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    ['cabin','engine','exhaust','water'].forEach(loc => {
+      const d = data[loc];
+      if (!d || d.celsius === null) return;
+      document.getElementById(`c-${loc}`).textContent = d.celsius.toFixed(1) + '°';
+      document.getElementById(`f-${loc}`).textContent = d.fahrenheit.toFixed(1) + ' °F';
+      const thr = TEMP_WARN[loc];
+      document.getElementById(`tc-${loc}`)?.classList.toggle('hot', !!(thr && d.celsius > thr));
+    });
+  } catch {}
+}
+
+// ─── SIGNALK ──────────────────────────────────────────────────────────────────
+function fmtCoord(deg, dirs) {
+  const d = Math.abs(deg), min = (d % 1) * 60;
+  return `${Math.floor(d)}°${min.toFixed(3)}'${deg >= 0 ? dirs[0] : dirs[1]}`;
+}
+
+function setInst(vid, val, iid) {
+  document.getElementById(vid).textContent = val;
+  if (iid) document.getElementById(iid)?.classList.add('live');
+}
+
+async function pollSK() {
+  try {
+    const [nr, er] = await Promise.all([
+      fetch(`${SK}/navigation`),
+      fetch(`${SK}/environment`)
+    ]);
+    if (nr.ok) {
+      const nav = await nr.json();
+      const sog = nav.speedOverGround?.value;
+      const stw = nav.speedThroughWater?.value;
+      const cog = nav.courseOverGroundTrue?.value;
+      const hdg = nav.headingMagnetic?.value;
+      const pos = nav.position?.value;
+      if (sog != null) setInst('v-sog', (sog * 1.94384).toFixed(1), 'i-sog');
+      if (stw != null) setInst('v-stw', (stw * 1.94384).toFixed(1), 'i-stw');
+      if (cog != null) setInst('v-cog', Math.round(cog * 180 / Math.PI), 'i-cog');
+      if (hdg != null) setInst('v-hdg', Math.round(hdg * 180 / Math.PI), 'i-hdg');
+      if (pos?.latitude != null) {
+        document.getElementById('coords').textContent =
+          `${fmtCoord(pos.latitude,'NS')}  ${fmtCoord(pos.longitude,'EW')}`;
+        dot('d-gps','ok');
+        document.getElementById('sb-gps').textContent = 'fix';
+      }
+    }
+    if (er.ok) {
+      const env = await er.json();
+      const p = env.outside?.pressure?.value;
+      const w = env.wind?.speedApparent?.value;
+      if (p != null) setInst('v-baro', Math.round(p / 100), 'i-baro');
+      if (w != null) setInst('v-wind', (w * 1.94384).toFixed(1), 'i-wind');
+    }
+    dot('d-signalk','ok');
+    document.getElementById('sb-sk').textContent = 'online';
+  } catch {
+    dot('d-signalk','err');
+    document.getElementById('sb-sk').textContent = 'offline';
+  }
+}
+
+// ─── HOTSPOT ──────────────────────────────────────────────────────────────────
+async function toggleHotspot() {
+  try {
+    const statusRes = await fetch(`${RELAY}/hotspot/status`);
+    if (statusRes.ok) { const d = await statusRes.json(); hotspotOn = d.active; }
+    const res = await fetch(`${RELAY}/hotspot/${hotspotOn ? 'off' : 'on'}`, {method:'POST'});
+    const d = await res.json();
+    hotspotOn = d.active;
+    document.getElementById('btn-hotspot').classList.toggle('active', hotspotOn);
+    document.getElementById('hotspot-sub').textContent = hotspotOn ? 'active · 10.42.0.1' : 'off';
+    toast(`Hotspot ${hotspotOn ? 'ON' : 'OFF'}`);
+  } catch { toast('Relay server offline'); }
+}
+
+async function pollHotspot() {
+  try {
+    const res = await fetch(`${RELAY}/hotspot/status`);
+    if (!res.ok) return;
+    const d = await res.json();
+    hotspotOn = d.active;
+    document.getElementById('btn-hotspot').classList.toggle('active', hotspotOn);
+    document.getElementById('hotspot-sub').textContent = hotspotOn ? 'active · 10.42.0.1' : 'off';
+  } catch {}
+}
+
+// ─── SYSTEM ───────────────────────────────────────────────────────────────────
+async function confirmAction(action) {
+  if (!confirm(action === 'reboot' ? 'Reboot the server?' : 'Shut down the server?')) return;
+  try {
+    await fetch(`${RELAY}/system/${action}`, {method:'POST'});
+    toast(action === 'reboot' ? 'Rebooting...' : 'Shutting down...', 4000);
+  } catch { toast('Command sent'); }
+}
+
+// ─── POLL LOOP ────────────────────────────────────────────────────────────────
+async function poll() {
+  await Promise.allSettled([pollRelays(), pollTemps(), pollSK(), pollHotspot()]);
+  document.getElementById('sb-time').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
+  // Bilge: from relay server GPIO read (add /bilge endpoint to relay_server.py when ready)
+  dot('d-bilge','ok');
+  document.getElementById('sb-bilge').textContent = 'dry';
+}
+
+// ─── DEPARTURE SELECTOR ───────────────────────────────────────────────────────
+function selectDep(el, time, eta, wind, quality) {
+  document.querySelectorAll('.dep-opt').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('plan-sub').textContent = `DEPART ${time} UTC · ETA ${eta} · ${wind}`;
+}
+
+function setDeparture(label) {
+  toast(`Departure set to ${label}`);
+  showPlanSub('overview');
+}
+
+// ─── WAYPOINTS ────────────────────────────────────────────────────────────────
+let waypoints = [];
+const PLAN_SOG = 5.5;
+
+function haversineNm(lat1, lon1, lat2, lon2) {
+  const R = 3440.065, r = d => d * Math.PI / 180;
+  const dLat=r(lat2-lat1), dLon=r(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function parseDMS(str) {
+  str = (str||'').trim();
+  const dec = parseFloat(str);
+  if (!isNaN(dec)) return dec;
+  const m = str.match(/(\d+)[°\s]+(\d+\.?\d*)['\s]*([NSEWnsew])/);
+  if (m) {
+    const v = parseFloat(m[1]) + parseFloat(m[2])/60;
+    return /[SsWw]/.test(m[3]) ? -v : v;
+  }
+  return NaN;
+}
+
+function openWPModal() { document.getElementById('wpModal').classList.add('active'); }
+function closeModal()  { document.getElementById('wpModal').classList.remove('active'); }
+
+function addWP() {
+  const name = (document.getElementById('wpName').value||'').trim();
+  if (!name) { toast('Enter a waypoint name'); return; }
+  const lat = parseDMS(document.getElementById('wpLat').value);
+  const lon = parseDMS(document.getElementById('wpLon').value);
+  waypoints.push({ name, lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon });
+  closeModal();
+  ['wpName','wpLat','wpLon','wpNote','wpAfter'].forEach(id => document.getElementById(id).value='');
+  rebuildWPTable();
+  updatePlanKPIs();
+  toast(`${name} added`);
+}
+
+function rebuildWPTable() {
+  const tbody = document.getElementById('wp-tbody');
+  if (!waypoints.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--dim);font-family:var(--mono);font-size:10px;padding:12px 0;text-align:center;">No waypoints — tap + ADD to start</td></tr>';
+    return;
+  }
+  let cum = 0, html = '';
+  waypoints.forEach((wp, i) => {
+    const prev = i > 0 ? waypoints[i-1] : null;
+    let dist='—', ttg='—', eta='—';
+    if (prev && prev.lat!=null && wp.lat!=null) {
+      const nm = haversineNm(prev.lat, prev.lon, wp.lat, wp.lon);
+      cum += nm; dist = nm.toFixed(1)+'nm';
+      const hrs = cum/PLAN_SOG;
+      const hh = Math.floor((6+hrs)%24), mm = Math.round(((6+hrs)%1)*60);
+      const dayOff = Math.floor((6+hrs)/24);
+      ttg = `${Math.floor(hrs)}h ${Math.round((hrs%1)*60)}m`;
+      eta = (dayOff?`+${dayOff}d `:'')+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    } else if (i===0) { eta='DEPART'; }
+    const cls = i===0?'done':(i===1?'active':'');
+    html += `<tr class="${cls}"><td>${String(i+1).padStart(2,'0')}</td><td><div class="wp-name-cell"><span class="wp-dot"></span>${wp.name}</div></td><td>${dist}</td><td>${ttg}</td><td class="eta-cell">${eta}</td></tr>`;
+  });
+  tbody.innerHTML = html;
+  if (waypoints.length >= 2) {
+    document.getElementById('plan-from').textContent = waypoints[0].name.toUpperCase();
+    document.getElementById('plan-to').textContent   = waypoints[waypoints.length-1].name.toUpperCase();
+  }
+}
+
+function updatePlanKPIs() {
+  if (waypoints.length < 2) return;
+  let total = 0;
+  for (let i=1; i<waypoints.length; i++) {
+    const a=waypoints[i-1], b=waypoints[i];
+    if (a.lat!=null && b.lat!=null) total += haversineNm(a.lat,a.lon,b.lat,b.lon);
+  }
+  const hrs = total / PLAN_SOG;
+  const eta = 6 + hrs;
+  const hh = Math.floor(eta%24), mm = Math.round((eta%1)*60), day = Math.floor(eta/24);
+  document.getElementById('plan-nm').textContent  = total.toFixed(0);
+  document.getElementById('plan-hrs').textContent = hrs.toFixed(1);
+  document.getElementById('plan-sog').textContent = PLAN_SOG+'kt';
+  document.getElementById('plan-eta').textContent = (day?`+${day}d `:'')+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+  document.getElementById('plan-sub').textContent = `${waypoints.length} waypoints · ${total.toFixed(1)}nm · ~${hrs.toFixed(1)}hrs @ ${PLAN_SOG}kt`;
+}
+
+// ─── WATCH SCHEDULE ───────────────────────────────────────────────────────────
+const CREW_NAMES  = ['SKIPPER','CREW 1','CREW 2'];
+const CREW_COLS   = ['c1','c2','c3'];
+const CREW_COLORS = ['var(--amber)','var(--teal)','#4fc3f7'];
+const PASS_HRS=32.5, WATCH=3;
+
+function buildWatches() {
+  const grid = document.getElementById('watchGrid');
+  grid.innerHTML = '';
+  const nBlocks = Math.ceil(PASS_HRS/WATCH);
+
+  // Labels
+  const lblRow = document.getElementById('watch-time-labels');
+  lblRow.innerHTML = '';
+  for (let b=0; b<=nBlocks; b+=2) {
+    const h = 6 + b*WATCH, day=h>=24?'Sun':'Sat';
+    lblRow.innerHTML += `<span>${day} ${String(Math.floor(h%24)).padStart(2,'0')}:00</span>`;
+  }
+
+  CREW_NAMES.forEach((name, ci) => {
+    const row = document.createElement('div');
+    row.className = 'wt-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'wt-name';
+    lbl.textContent = name.split(' ')[0];
+    row.appendChild(lbl);
+    const blocks = document.createElement('div');
+    blocks.className = 'wt-blocks';
+    for (let b=0; b<nBlocks; b++) {
+      const on = b % CREW_NAMES.length === ci;
+      const bl = document.createElement('div');
+      bl.className = 'wt-block ' + (on ? CREW_COLS[ci] : 'off');
+      bl.textContent = on ? 'ON' : '';
+      bl.title = `${name}: ${on?'ON WATCH':'OFF'} — ${fmtWatchTime(b)}`;
+      bl.onclick = () => {
+        const isOn = bl.classList.contains(CREW_COLS[ci]);
+        bl.className = 'wt-block ' + (isOn ? 'off' : CREW_COLS[ci]);
+        bl.textContent = isOn ? '' : 'ON';
+      };
+      blocks.appendChild(bl);
+    }
+    row.appendChild(blocks);
+    grid.appendChild(row);
+  });
+
+  buildWatchSummary();
+}
+
+function fmtWatchTime(block) {
+  const h = 6 + block*WATCH, day=h>=24?'Sun':'Sat';
+  return `${day} ${String(Math.floor(h%24)).padStart(2,'0')}:00`;
+}
+
+function shuffleWatches() {
+  watchBuilt = false; document.getElementById('watchGrid').innerHTML='';
+  buildWatches(); watchBuilt = true;
+}
+
+function buildWatchSummary() {
+  const nBlocks = Math.ceil(PASS_HRS/WATCH);
+  let html = '';
+  CREW_NAMES.forEach((name, ci) => {
+    const on = Math.floor(nBlocks/CREW_NAMES.length) + (ci < nBlocks%CREW_NAMES.length ? 1 : 0);
+    const hrs = (on * WATCH).toFixed(1);
+    html += `<div class="ws-row"><div class="ws-name"><div class="ws-dot" style="background:${CREW_COLORS[ci]}"></div>${name}</div><div class="ws-hours">${hrs}h</div><div class="ws-shifts">${on} shifts</div></div>`;
+  });
+  document.getElementById('watch-summary-rows').innerHTML = html;
+}
+
+function updateWatchCountdown() {
+  const el = document.getElementById('watchCountdown');
+  if (!el) return;
+  const now = new Date(), h = now.getHours(), m = now.getMinutes();
+  const blockH = WATCH - ((h - 6 + 48) % WATCH) - 1;
+  el.textContent = `${Math.max(0,blockH)}h ${60-m}m`;
+}
+
+// ─── CANVAS: TIDAL ────────────────────────────────────────────────────────────
+function tidalCurve(ctx, W, H, phase, col) {
+  const pL=4,pR=4,pT=4,pB=4, gW=W-pL-pR, gH=H-pT-pB;
+  ctx.beginPath();
+  for (let i=0; i<=80; i++) {
+    const t=i/80, tide=Math.sin(t*2*Math.PI*1.3+phase)*0.44+0.5;
+    const x=pL+t*gW, y=pT+gH-tide*gH;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowColor=col;ctx.shadowBlur=4;ctx.stroke();ctx.shadowBlur=0;
+  ctx.lineTo(pL+gW,pT+gH);ctx.lineTo(pL,pT+gH);ctx.closePath();ctx.fillStyle=col+'18';ctx.fill();
+  const et=0.38, ex=pL+et*gW, ey=pT+gH-(Math.sin(et*2*Math.PI*1.3+phase)*0.44+0.5)*gH;
+  ctx.beginPath();ctx.moveTo(ex,pT);ctx.lineTo(ex,pT+gH);
+  ctx.strokeStyle='rgba(39,174,96,.5)';ctx.lineWidth=1;ctx.setLineDash([2,3]);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(ex,ey,3.5,0,2*Math.PI);ctx.fillStyle=col;ctx.fill();
+}
+
+function drawTides() {
+  ['tide-lizard','tide-chenal'].forEach((id,i) => {
+    const c=document.getElementById(id);if(!c)return;
+    const dpr=window.devicePixelRatio||1;
+    c.width=c.offsetWidth*dpr;c.height=44*dpr;
+    const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
+    tidalCurve(ctx,c.offsetWidth,44,i*0.8,'#4fc3f7');
+  });
+  const cm=document.getElementById('tidalMain');if(!cm)return;
+  const dpr=window.devicePixelRatio||1;
+  cm.width=cm.offsetWidth*dpr;cm.height=100*dpr;
+  const ctx=cm.getContext('2d');ctx.scale(dpr,dpr);
+  const W=cm.offsetWidth,H=100,pL=28,pR=8,pT=12,pB=20,gW=W-pL-pR,gH=H-pT-pB;
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath();
+  for(let i=0;i<=120;i++){const t=i/120,tide=Math.sin(t*2*Math.PI*1.9+0.4)*0.44+0.5;const x=pL+t*gW,y=pT+gH-tide*gH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.strokeStyle='#4fc3f7';ctx.lineWidth=2;ctx.shadowColor='#4fc3f7';ctx.shadowBlur=5;ctx.stroke();ctx.shadowBlur=0;
+  ctx.lineTo(pL+gW,pT+gH);ctx.lineTo(pL,pT+gH);ctx.closePath();ctx.fillStyle='rgba(79,195,247,.07)';ctx.fill();
+  [[0.1,'DEP','#e07b2a'],[0.52,'GATE','#27ae60'],[0.85,'ARR','#4fc3f7']].forEach(([t,lbl,col])=>{
+    const x=pL+t*gW;
+    ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+gH);
+    ctx.strokeStyle=col+'55';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=col;ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText(lbl,x,pT+9);
+  });
+  ['Sat 00','Sat 06','Sat 12','Sat 18','Sun 00','Sun 06','Sun 12','Sun 18'].forEach((l,i)=>{
+    ctx.fillStyle='#486070';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText(l,pL+i*(gW/7),H-4);
+  });
+  ['0m','3m','6m'].forEach((l,i)=>{
+    ctx.fillStyle='#486070';ctx.font='8px monospace';ctx.textAlign='right';ctx.fillText(l,pL-2,pT+gH-i*(gH/2)+3);
+  });
+}
+
+// ─── CANVAS: WINDOWS CHART ────────────────────────────────────────────────────
+function drawWindowsChart() {
+  const c=document.getElementById('windowsChart');if(!c)return;
+  const dpr=window.devicePixelRatio||1;
+  c.width=c.offsetWidth*dpr;c.height=100*dpr;
+  const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
+  const W=c.offsetWidth,H=100,pL=28,pR=8,pT=12,pB=22,gW=W-pL-pR,gH=H-pT-pB;
+  const gfs=[15,16,18,20,22,25,28,30,28,25,20,18,15,14,12,14],n=gfs.length,max=35;
+  const px=i=>pL+i*(gW/(n-1)),py=v=>pT+gH-(v/max)*gH;
+  [10,20,30].forEach(v=>{const y=py(v);ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+gW,y);ctx.strokeStyle='#111e2e';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='#486070';ctx.font='8px monospace';ctx.textAlign='right';ctx.fillText(v,pL-2,y+3);});
+  ctx.beginPath();ctx.moveTo(pL,py(28));ctx.lineTo(pL+gW,py(28));ctx.strokeStyle='rgba(192,57,43,.3)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(192,57,43,.5)';ctx.font='8px monospace';ctx.textAlign='left';ctx.fillText('F6',pL+2,py(28)-3);
+  ctx.beginPath();gfs.forEach((v,i)=>{const x=px(i),y=py(v);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.lineTo(px(n-1),pT+gH);ctx.lineTo(px(0),pT+gH);ctx.closePath();ctx.fillStyle='rgba(224,123,42,.07)';ctx.fill();
+  ctx.beginPath();gfs.forEach((v,i)=>{const x=px(i),y=py(v);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.strokeStyle='#e07b2a';ctx.lineWidth=2;ctx.shadowColor='#e07b2a';ctx.shadowBlur=5;ctx.stroke();ctx.shadowBlur=0;
+  [[0,'#27ae60'],[0.25,'#e07b2a'],[0.5,'#e07b2a'],[0.75,'#c0392b']].forEach(([t,col])=>{
+    const x=pL+t*gW;ctx.beginPath();ctx.arc(x,py(gfs[Math.round(t*(n-1))]),5,0,2*Math.PI);
+    ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6;ctx.fill();ctx.shadowBlur=0;
+  });
+  ['Sat 00','Sat 06','Sat 12','Sat 18','Sun 00','Sun 06','Sun 12','Sun 18'].forEach((l,i)=>{
+    ctx.fillStyle='#486070';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText(l,pL+i*(gW/7),H-4);
+  });
+}
+
+// ─── CANVAS: RANGE ────────────────────────────────────────────────────────────
+function drawRange() {
+  const c=document.getElementById('rangeCanvas');if(!c)return;
+  const dpr=window.devicePixelRatio||1;
+  c.width=c.offsetWidth*dpr;c.height=70*dpr;
+  const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
+  const W=c.offsetWidth,H=70;
+  ctx.fillStyle='#050c14';ctx.fillRect(0,0,W,H);
+  for(let x=0;x<W;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.strokeStyle='#0a1520';ctx.lineWidth=.5;ctx.stroke();}
+  for(let y=0;y<H;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.strokeStyle='#0a1520';ctx.lineWidth=.5;ctx.stroke();}
+  ctx.beginPath();ctx.moveTo(0,18);ctx.quadraticCurveTo(W*.2,12,W*.35,20);ctx.quadraticCurveTo(W*.5,28,W*.6,15);ctx.lineTo(W*.6,0);ctx.lineTo(0,0);ctx.closePath();ctx.fillStyle='#141a0f';ctx.fill();
+  const vpx=W*0.32,vpy=H*0.5;
+  ctx.beginPath();ctx.arc(vpx,vpy,H*.55,0,2*Math.PI);ctx.strokeStyle='rgba(224,123,42,.25)';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='rgba(224,123,42,.04)';ctx.fill();
+  ctx.beginPath();ctx.arc(vpx,vpy,H*.75,0,2*Math.PI);ctx.strokeStyle='rgba(11,191,176,.2)';ctx.lineWidth=1;ctx.setLineDash([3,6]);ctx.stroke();ctx.setLineDash([]);
+  ctx.save();ctx.translate(vpx,vpy);ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(-5,6);ctx.lineTo(0,3);ctx.lineTo(5,6);ctx.closePath();ctx.fillStyle='#e07b2a';ctx.shadowColor='#e07b2a';ctx.shadowBlur=8;ctx.fill();ctx.restore();
+  const dx=W*0.72,dy=H*0.38;
+  ctx.beginPath();ctx.arc(dx,dy,4,0,2*Math.PI);ctx.fillStyle='#4fc3f7';ctx.fill();
+  ctx.fillStyle='#4fc3f7';ctx.font='8px monospace';ctx.textAlign='left';ctx.fillText('DEST',dx+6,dy+3);
+  ctx.beginPath();ctx.moveTo(vpx,vpy);ctx.lineTo(dx,dy);ctx.strokeStyle='rgba(224,123,42,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(224,123,42,.7)';ctx.font='8px monospace';ctx.textAlign='left';ctx.fillText('── Motoring',W-92,H-18);
+  ctx.fillStyle='rgba(11,191,176,.7)';ctx.fillText('- - Motor-sail',W-92,H-7);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+buildRelays();
+poll();
+setInterval(poll, 5000);
+</script>
+</body>
+</html>

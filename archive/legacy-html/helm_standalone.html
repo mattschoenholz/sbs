@@ -1,0 +1,2907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SV-Esperanza — Helm</title>
+<style>
+/* ============================================================
+   SBS THEME — Sailboat Server Design System
+   Nautical instrument aesthetic: dark, precise, readable
+   Inspired by chart plotters and marine electronics
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500&display=swap');
+
+/* ── DESIGN TOKENS ─────────────────────────────────────────── */
+:root {
+  /* Core palette — deep water + amber instruments */
+  --c-void:        #080c10;   /* absolute black — backgrounds */
+  --c-deep:        #0d1318;   /* deep nav panel bg */
+  --c-surface:     #111920;   /* card / panel surface */
+  --c-raised:      #16222d;   /* elevated element */
+  --c-border:      #1e2e3a;   /* subtle borders */
+  --c-border-hi:   #2a3f50;   /* highlighted borders */
+
+  /* Amber — primary instrument color */
+  --c-amber:       #e8940a;   /* primary amber */
+  --c-amber-hi:    #f5a820;   /* bright amber / active */
+  --c-amber-dim:   #a06208;   /* dim amber */
+  --c-amber-glow:  rgba(232, 148, 10, 0.15);
+
+  /* Status colors */
+  --c-green:       #22c55e;
+  --c-green-dim:   #166534;
+  --c-green-glow:  rgba(34, 197, 94, 0.15);
+  --c-red:         #ef4444;
+  --c-red-dim:     #7f1d1d;
+  --c-red-glow:    rgba(239, 68, 68, 0.2);
+  --c-yellow:      #eab308;
+  --c-yellow-dim:  #713f12;
+  --c-blue:        #3b82f6;
+  --c-blue-dim:    #1e3a5f;
+  --c-blue-glow:   rgba(59, 130, 246, 0.15);
+  --c-cyan:        #06b6d4;
+
+  /* Text hierarchy */
+  --t-primary:     #e8edf2;   /* primary text */
+  --t-secondary:   #8fa3b3;   /* secondary / labels */
+  --t-muted:       #4a6070;   /* muted / disabled */
+  --t-amber:       var(--c-amber-hi);
+  --t-value:       #f0f4f8;   /* instrument values — slightly warm white */
+
+  /* Typography */
+  --font-display:  'Barlow Condensed', sans-serif;  /* headings, labels, nav */
+  --font-mono:     'Share Tech Mono', monospace;    /* instrument values */
+  --font-body:     'Barlow', sans-serif;            /* body text */
+
+  /* Fluid type scale */
+  --s-xs:   clamp(9px,  1.6vw, 11px);
+  --s-sm:   clamp(11px, 2vw,   13px);
+  --s-md:   clamp(13px, 2.4vw, 15px);
+  --s-lg:   clamp(15px, 2.8vw, 18px);
+  --s-xl:   clamp(18px, 3.5vw, 24px);
+  --s-2xl:  clamp(24px, 5vw,   36px);
+  --s-3xl:  clamp(32px, 7vw,   52px);
+  --s-4xl:  clamp(44px, 10vw,  72px);
+
+  /* Spacing */
+  --sp-xs:  4px;
+  --sp-sm:  8px;
+  --sp-md:  12px;
+  --sp-lg:  16px;
+  --sp-xl:  24px;
+  --sp-2xl: 32px;
+
+  /* Radii */
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   12px;
+
+  /* Transitions */
+  --tx-fast:   120ms ease;
+  --tx-normal: 220ms ease;
+  --tx-slow:   400ms ease;
+
+  /* Shadows */
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg:   0 8px 24px rgba(0,0,0,0.6);
+  --shadow-amber: 0 0 12px var(--c-amber-glow);
+  --shadow-green: 0 0 12px var(--c-green-glow);
+  --shadow-red:   0 0 16px var(--c-red-glow);
+}
+
+/* Night mode — full amber, no white light */
+:root.night {
+  --t-primary:   #d4820a;
+  --t-secondary: #8a5506;
+  --t-muted:     #4a3002;
+  --t-value:     #e8940a;
+  --c-green:     #c47a00;
+  --c-blue:      #b36a00;
+  --c-cyan:      #c47a00;
+  --c-red:       #cc3300;
+}
+
+/* ── RESET & BASE ───────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--c-void);
+  color: var(--t-primary);
+  font-family: var(--font-body);
+  font-size: var(--s-md);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* full screen app */
+}
+
+/* ── SHARED LAYOUT ──────────────────────────────────────────── */
+.sbs-app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--c-void);
+}
+
+/* ── STATUS BAR ─────────────────────────────────────────────── */
+.sbs-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  padding: var(--sp-sm) var(--sp-lg);
+  background: var(--c-deep);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+  height: 36px;
+}
+
+.sbs-statusbar .sbs-title {
+  font-family: var(--font-display);
+  font-size: var(--s-md);
+  font-weight: 600;
+  color: var(--c-amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+
+.sbs-statusbar .sbs-clock {
+  font-family: var(--font-mono);
+  font-size: var(--s-sm);
+  color: var(--t-secondary);
+}
+
+/* Status dots */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+}
+
+.status-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--t-muted);
+  transition: background var(--tx-normal), box-shadow var(--tx-normal);
+}
+
+.status-dot.ok::before   { background: var(--c-green); box-shadow: 0 0 6px var(--c-green); }
+.status-dot.warn::before { background: var(--c-yellow); box-shadow: 0 0 6px var(--c-yellow); }
+.status-dot.err::before  { background: var(--c-red); box-shadow: 0 0 6px var(--c-red); }
+
+/* ── TAB NAV ────────────────────────────────────────────────── */
+.sbs-tabs {
+  display: flex;
+  background: var(--c-deep);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+
+.sbs-tab {
+  flex: 1;
+  padding: var(--sp-sm) var(--sp-md);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--t-muted);
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--tx-fast), border-color var(--tx-fast);
+  position: relative;
+}
+
+.sbs-tab:hover { color: var(--t-secondary); }
+
+.sbs-tab.active {
+  color: var(--c-amber-hi);
+  border-bottom-color: var(--c-amber);
+}
+
+/* Alert badge on tab */
+.sbs-tab .badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--c-red);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ── TAB PANELS ─────────────────────────────────────────────── */
+.sbs-panel {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--sp-lg);
+  gap: var(--sp-md);
+}
+
+.sbs-panel.active { display: flex; flex-direction: column; }
+
+/* ── CARDS ──────────────────────────────────────────────────── */
+.sbs-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.sbs-card-header {
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-secondary);
+  margin-bottom: var(--sp-md);
+  padding-bottom: var(--sp-sm);
+  border-bottom: 1px solid var(--c-border);
+}
+
+/* ── INSTRUMENT CELLS ───────────────────────────────────────── */
+.inst-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-sm);
+}
+
+.inst-cell {
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.inst-cell .label {
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+}
+
+.inst-cell .value {
+  font-family: var(--font-mono);
+  font-size: var(--s-2xl);
+  color: var(--t-value);
+  line-height: 1;
+}
+
+.inst-cell .unit {
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  color: var(--t-secondary);
+}
+
+.inst-cell.highlight .value { color: var(--c-amber-hi); }
+.inst-cell.alert .value     { color: var(--c-red); }
+
+/* ── BUTTONS ────────────────────────────────────────────────── */
+.sbs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm) var(--sp-lg);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border-hi);
+  border-radius: var(--r-md);
+  color: var(--t-primary);
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--tx-fast);
+  text-decoration: none;
+}
+
+.sbs-btn:hover {
+  background: var(--c-border-hi);
+  color: var(--t-primary);
+}
+
+.sbs-btn.primary {
+  background: var(--c-amber-dim);
+  border-color: var(--c-amber);
+  color: var(--c-amber-hi);
+}
+
+.sbs-btn.primary:hover {
+  background: var(--c-amber);
+  color: var(--c-void);
+}
+
+.sbs-btn.danger {
+  background: var(--c-red-dim);
+  border-color: var(--c-red);
+  color: var(--c-red);
+}
+
+.sbs-btn.danger:hover {
+  background: var(--c-red);
+  color: white;
+}
+
+.sbs-btn.large {
+  padding: var(--sp-md) var(--sp-xl);
+  font-size: var(--s-lg);
+  border-radius: var(--r-lg);
+}
+
+/* ── RELAY BUTTONS ──────────────────────────────────────────── */
+.relay-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-xs);
+  padding: var(--sp-md);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all var(--tx-fast);
+  min-height: 80px;
+  position: relative;
+}
+
+.relay-btn .icon  { font-size: var(--s-xl); }
+.relay-btn .name  {
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t-secondary);
+  text-align: center;
+}
+
+.relay-btn.on {
+  background: rgba(14, 40, 20, 0.8);
+  border-color: var(--c-green);
+  box-shadow: var(--shadow-green);
+}
+
+.relay-btn.on .name { color: var(--c-green); }
+
+.relay-btn.on::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-green);
+  box-shadow: 0 0 6px var(--c-green);
+}
+
+/* ── ALERT BANNER ───────────────────────────────────────────── */
+.alert-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: var(--sp-md) var(--sp-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  font-family: var(--font-display);
+  font-size: var(--s-md);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  transform: translateY(-100%);
+  transition: transform var(--tx-normal);
+}
+
+.alert-banner.show { transform: translateY(0); }
+
+.alert-banner.urgent {
+  background: var(--c-red-dim);
+  border-bottom: 2px solid var(--c-red);
+  color: var(--c-red);
+  box-shadow: var(--shadow-red);
+}
+
+.alert-banner.advisory {
+  background: var(--c-yellow-dim);
+  border-bottom: 2px solid var(--c-yellow);
+  color: var(--c-yellow);
+}
+
+.alert-banner .dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--s-lg);
+  opacity: 0.7;
+}
+
+/* ── HELM BUTTON ────────────────────────────────────────────── */
+.helm-launch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-md) var(--sp-xl);
+  background: linear-gradient(135deg, #0d2440, #1a3a5c);
+  border: 1px solid #2a5080;
+  border-radius: var(--r-lg);
+  color: #60a8d0;
+  font-family: var(--font-display);
+  font-size: var(--s-lg);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--tx-normal);
+  box-shadow: 0 0 20px rgba(42, 80, 128, 0.3);
+}
+
+.helm-launch:hover {
+  background: linear-gradient(135deg, #1a3a5c, #2a5080);
+  color: #90c8f0;
+  box-shadow: 0 0 30px rgba(42, 80, 128, 0.5);
+}
+
+/* ── SCROLLBARS ─────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: var(--c-void); }
+::-webkit-scrollbar-thumb { background: var(--c-border-hi); border-radius: 2px; }
+
+/* ── UTILITY ────────────────────────────────────────────────── */
+.flex-row   { display: flex; flex-direction: row; align-items: center; }
+.flex-col   { display: flex; flex-direction: column; }
+.gap-sm     { gap: var(--sp-sm); }
+.gap-md     { gap: var(--sp-md); }
+.gap-lg     { gap: var(--sp-lg); }
+.text-amber { color: var(--c-amber-hi); }
+.text-muted { color: var(--t-muted); }
+.text-mono  { font-family: var(--font-mono); }
+.text-display { font-family: var(--font-display); }
+.hidden     { display: none !important; }
+
+</style>
+<style>
+/* ── HELM-SPECIFIC OVERRIDES ────────────────────────────── */
+html, body { overflow: hidden; }
+
+/* Helm fills the whole screen — no scrolling */
+.helm-app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--c-void);
+  position: relative;
+}
+
+/* ── TOP BAR ─────────────────────────────────────────────── */
+.helm-topbar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 var(--sp-md);
+  background: var(--c-deep);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+  gap: var(--sp-md);
+  z-index: 10;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--t-muted);
+  font-family: var(--font-display);
+  font-size: var(--s-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--tx-fast);
+}
+.back-btn:hover { color: var(--t-secondary); border-color: var(--c-border-hi); }
+
+.helm-title {
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c-amber);
+}
+
+.helm-topbar .spacer { flex: 1; }
+
+/* ── HELM TABS ───────────────────────────────────────────── */
+.helm-tabs {
+  display: flex;
+  background: var(--c-deep);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+
+.helm-tab {
+  flex: 1;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--t-muted);
+  font-family: var(--font-display);
+  font-size: clamp(10px, 2.2vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--tx-fast), border-color var(--tx-fast);
+  position: relative;
+}
+.helm-tab:hover { color: var(--t-secondary); }
+.helm-tab.active { color: var(--c-amber-hi); border-bottom-color: var(--c-amber); }
+.helm-tab .badge {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  background: var(--c-red); border-radius: 7px;
+  font-size: 8px; font-weight: 700; color: white;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── HELM PANELS ─────────────────────────────────────────── */
+.helm-panel {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.helm-panel.active { display: flex; flex-direction: column; }
+
+/* ════════════════════════════════════════════════════════
+   TAB 1: INSTRUMENTS
+════════════════════════════════════════════════════════ */
+
+/* Primary instrument layout — all fills available space */
+.inst-layout {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3px;
+  padding: 3px;
+  flex: 1;
+  height: 100%;
+}
+
+/* Individual instrument tile */
+.helm-tile {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-sm);
+  gap: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.helm-tile .h-label {
+  font-family: var(--font-display);
+  font-size: clamp(9px, 1.8vw, 12px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+
+.helm-tile .h-value {
+  font-family: var(--font-mono);
+  font-size: clamp(28px, 7vw, 64px);
+  color: var(--t-value);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.helm-tile .h-unit {
+  font-family: var(--font-display);
+  font-size: clamp(10px, 2vw, 14px);
+  letter-spacing: 0.1em;
+  color: var(--t-secondary);
+}
+
+.helm-tile.amber .h-value { color: var(--c-amber-hi); }
+.helm-tile.cyan  .h-value { color: var(--c-cyan); }
+.helm-tile.green .h-value { color: var(--c-green); }
+.helm-tile.red   .h-value { color: var(--c-red); }
+
+/* Wide tile spans 2 columns */
+.helm-tile.wide { grid-column: span 2; }
+
+/* ── AUTOPILOT TILE ──────────────────────────────────────── */
+.ap-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ap-heading {
+  font-family: var(--font-mono);
+  font-size: clamp(32px, 8vw, 72px);
+  color: var(--c-amber-hi);
+  line-height: 1;
+}
+
+.ap-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.ap-btn {
+  width: clamp(32px, 7vw, 48px);
+  height: clamp(28px, 5vw, 40px);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border-hi);
+  border-radius: var(--r-sm);
+  color: var(--t-primary);
+  font-family: var(--font-display);
+  font-size: clamp(11px, 2.2vw, 15px);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--tx-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ap-btn:hover { background: var(--c-border-hi); }
+.ap-btn.engage {
+  width: clamp(52px, 10vw, 72px);
+  background: rgba(14,83,45,0.5);
+  border-color: var(--c-green);
+  color: var(--c-green);
+}
+.ap-btn.engage.active {
+  background: rgba(34,197,94,0.2);
+  box-shadow: 0 0 10px var(--c-green-glow);
+}
+.ap-btn.disengage {
+  background: var(--c-red-dim);
+  border-color: var(--c-red);
+  color: var(--c-red);
+}
+.ap-status {
+  font-family: var(--font-display);
+  font-size: clamp(8px, 1.6vw, 11px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+}
+
+/* ── DEPTH TILE ──────────────────────────────────────────── */
+.depth-tile .h-value { transition: color var(--tx-normal); }
+.depth-tile.shallow .h-value { color: var(--c-yellow); }
+.depth-tile.critical { border-color: var(--c-red); box-shadow: var(--shadow-red); }
+.depth-tile.critical .h-value { color: var(--c-red); }
+
+/* ════════════════════════════════════════════════════════
+   TAB 2: CHART (placeholder — OpenCPN integration TBD)
+════════════════════════════════════════════════════════ */
+.chart-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #07100f;
+  overflow: hidden;
+}
+
+/* SVG chart background grid */
+.chart-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(6,182,212,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6,182,212,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.chart-overlay-tl {
+  position: absolute;
+  top: var(--sp-md);
+  left: var(--sp-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-sm);
+}
+
+.chart-overlay-tr {
+  position: absolute;
+  top: var(--sp-md);
+  right: var(--sp-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-sm);
+  align-items: flex-end;
+}
+
+.chart-pill {
+  padding: 4px 10px;
+  background: rgba(13,19,24,0.85);
+  border: 1px solid var(--c-border);
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: clamp(10px, 2vw, 13px);
+  color: var(--c-cyan);
+  backdrop-filter: blur(4px);
+}
+
+.chart-compass {
+  position: absolute;
+  bottom: var(--sp-lg);
+  right: var(--sp-lg);
+}
+
+.chart-placeholder {
+  text-align: center;
+  z-index: 1;
+}
+.chart-placeholder .cp-label {
+  font-family: var(--font-display);
+  font-size: var(--s-xl);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-cyan);
+  opacity: 0.4;
+}
+.chart-placeholder .cp-sub {
+  font-family: var(--font-body);
+  font-size: var(--s-sm);
+  color: var(--t-muted);
+  margin-top: var(--sp-sm);
+}
+.chart-placeholder .cp-coord {
+  font-family: var(--font-mono);
+  font-size: var(--s-md);
+  color: var(--c-cyan);
+  margin-top: var(--sp-md);
+  opacity: 0.7;
+}
+
+/* ════════════════════════════════════════════════════════
+   TAB 3: PASSAGE
+════════════════════════════════════════════════════════ */
+.passage-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  gap: 3px;
+  padding: 3px;
+  overflow: hidden;
+}
+
+@media (max-width: 500px) {
+  .passage-layout {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.passage-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.passage-card-title {
+  font-family: var(--font-display);
+  font-size: clamp(9px, 1.8vw, 11px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+  margin-bottom: var(--sp-sm);
+  flex-shrink: 0;
+}
+
+/* Next waypoint hero */
+.nw-name {
+  font-family: var(--font-display);
+  font-size: clamp(18px, 4vw, 28px);
+  font-weight: 700;
+  color: var(--c-amber-hi);
+  line-height: 1.1;
+}
+.nw-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-sm);
+  margin-top: var(--sp-sm);
+}
+.nw-cell {
+  text-align: center;
+}
+.nw-cell .nw-val {
+  font-family: var(--font-mono);
+  font-size: clamp(20px, 4.5vw, 36px);
+  color: var(--t-value);
+  line-height: 1;
+}
+.nw-cell .nw-lbl {
+  font-family: var(--font-display);
+  font-size: clamp(9px, 1.8vw, 11px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+  margin-top: 2px;
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 6px;
+  background: var(--c-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: var(--sp-sm) 0;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--c-amber-dim), var(--c-amber-hi));
+  border-radius: 3px;
+  transition: width 1s ease;
+}
+
+/* Waypoint list */
+.wp-list { flex: 1; overflow-y: auto; }
+.wp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 6px var(--sp-sm);
+  border-radius: var(--r-sm);
+  transition: background var(--tx-fast);
+}
+.wp-row.wp-next {
+  background: rgba(232,148,10,0.08);
+  border: 1px solid var(--c-amber-dim);
+}
+.wp-row.wp-done { opacity: 0.35; }
+.wp-row .wp-idx {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--t-muted);
+  width: 20px;
+  flex-shrink: 0;
+}
+.wp-row .wp-n {
+  font-family: var(--font-display);
+  font-size: clamp(11px, 2.2vw, 14px);
+  font-weight: 600;
+  flex: 1;
+}
+.wp-row.wp-next .wp-n { color: var(--c-amber-hi); }
+.wp-row .wp-d {
+  font-family: var(--font-mono);
+  font-size: clamp(10px, 2vw, 12px);
+  color: var(--t-secondary);
+}
+.wp-row .wp-eta {
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 1.8vw, 11px);
+  color: var(--t-muted);
+}
+
+/* Alerts list */
+.alerts-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.alert-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm);
+  border-radius: var(--r-sm);
+  font-family: var(--font-display);
+  font-size: clamp(10px, 2vw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.alert-row.urgent   { background: var(--c-red-dim);    border: 1px solid var(--c-red);    color: var(--c-red); }
+.alert-row.advisory { background: var(--c-yellow-dim); border: 1px solid var(--c-yellow); color: var(--c-yellow); }
+.alert-row .ar-dismiss {
+  margin-left: auto; background: none; border: none;
+  color: inherit; cursor: pointer; font-size: 12px; opacity: 0.6;
+}
+
+/* Replan button */
+.replan-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm) var(--sp-lg);
+  background: rgba(59,130,246,0.15);
+  border: 1px solid var(--c-blue);
+  border-radius: var(--r-md);
+  color: var(--c-blue);
+  font-family: var(--font-display);
+  font-size: clamp(11px, 2.2vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--tx-fast);
+  margin-top: var(--sp-sm);
+  flex-shrink: 0;
+}
+.replan-btn:hover { background: rgba(59,130,246,0.25); }
+
+/* ════════════════════════════════════════════════════════
+   TAB 4: WEATHER
+════════════════════════════════════════════════════════ */
+.weather-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 3px;
+  padding: 3px;
+  overflow: hidden;
+}
+@media (max-width: 500px) {
+  .weather-layout { grid-template-columns: 1fr; overflow-y: auto; }
+}
+
+.wx-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.wx-card-title {
+  font-family: var(--font-display);
+  font-size: clamp(9px, 1.8vw, 11px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+  margin-bottom: var(--sp-sm);
+  flex-shrink: 0;
+}
+
+/* Hero weather cell */
+.wx-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-lg);
+  flex-wrap: wrap;
+}
+.wx-speed {
+  font-family: var(--font-mono);
+  font-size: clamp(40px, 10vw, 80px);
+  color: var(--c-amber-hi);
+  line-height: 1;
+}
+.wx-speed-unit {
+  font-family: var(--font-display);
+  font-size: clamp(14px, 3vw, 20px);
+  color: var(--t-secondary);
+  letter-spacing: 0.1em;
+}
+.wx-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wx-dir {
+  font-family: var(--font-mono);
+  font-size: clamp(18px, 4vw, 28px);
+  color: var(--t-value);
+}
+.wx-label {
+  font-family: var(--font-display);
+  font-size: clamp(9px, 1.8vw, 11px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+}
+.wx-freshness {
+  font-family: var(--font-display);
+  font-size: clamp(9px, 1.8vw, 11px);
+  letter-spacing: 0.06em;
+  color: var(--t-muted);
+  margin-top: auto;
+  padding-top: var(--sp-sm);
+}
+
+/* Baro trend */
+.baro-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-sm);
+  flex: 1;
+}
+.baro-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.baro-val {
+  font-family: var(--font-mono);
+  font-size: clamp(18px, 4vw, 30px);
+  color: var(--t-value);
+  line-height: 1;
+}
+.baro-lbl {
+  font-family: var(--font-display);
+  font-size: clamp(9px, 1.8vw, 11px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t-muted);
+}
+.trend-arrow {
+  font-size: clamp(20px, 4vw, 32px);
+}
+.trend-rising   { color: var(--c-green); }
+.trend-falling  { color: var(--c-red); }
+.trend-steady   { color: var(--c-amber); }
+
+/* Forecast canvas */
+.wx-canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 80px;
+}
+.wx-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 24hr strip */
+.wx-strip {
+  display: flex;
+  overflow-x: auto;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-top: var(--sp-sm);
+}
+.wx-strip-cell {
+  flex-shrink: 0;
+  min-width: 60px;
+  text-align: center;
+  padding: 4px;
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wx-strip-cell .wsc-time { font-family: var(--font-mono); font-size: 9px; color: var(--t-muted); }
+.wx-strip-cell .wsc-wind { font-family: var(--font-display); font-size: 10px; font-weight: 700; color: var(--c-amber-hi); }
+.wx-strip-cell .wsc-wave { font-family: var(--font-display); font-size: 9px; color: var(--c-blue); }
+
+/* ── MOB OVERLAY ─────────────────────────────────────────── */
+.mob-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(100, 0, 0, 0.95);
+  z-index: 900;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-xl);
+  padding: var(--sp-xl);
+}
+.mob-overlay.active { display: flex; }
+
+.mob-header {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 8vw, 52px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #fff;
+  animation: mob-pulse 1s infinite;
+}
+@keyframes mob-pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.mob-coord {
+  font-family: var(--font-mono);
+  font-size: clamp(14px, 3.5vw, 22px);
+  color: #ffaaaa;
+  text-align: center;
+}
+
+.mob-timer {
+  font-family: var(--font-mono);
+  font-size: clamp(32px, 9vw, 64px);
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.mob-checklist {
+  list-style: none;
+  max-width: 400px;
+  width: 100%;
+}
+.mob-checklist li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  padding: var(--sp-sm);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  font-family: var(--font-display);
+  font-size: clamp(12px, 2.5vw, 16px);
+  color: #ffcccc;
+  cursor: pointer;
+}
+.mob-checklist li.checked { text-decoration: line-through; color: rgba(255,255,255,0.4); }
+.mob-checklist li::before {
+  content: '☐';
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.mob-checklist li.checked::before { content: '☑'; }
+
+.mob-actions {
+  display: flex;
+  gap: var(--sp-md);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.mob-action-btn {
+  padding: var(--sp-md) var(--sp-xl);
+  border-radius: var(--r-md);
+  font-family: var(--font-display);
+  font-size: clamp(12px, 2.5vw, 15px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid;
+  transition: all var(--tx-fast);
+}
+.mob-action-btn.mayday   { background: #ff2200; border-color: #ff6644; color: white; }
+.mob-action-btn.recovered{ background: #006600; border-color: #22cc22; color: white; }
+.mob-action-btn.false-al { background: transparent; border-color: rgba(255,255,255,0.4); color: rgba(255,255,255,0.7); }
+
+/* ── MOB BUTTON (always visible) ────────────────────────── */
+.mob-btn {
+  position: fixed;
+  bottom: var(--sp-lg);
+  left: var(--sp-lg);
+  width: clamp(56px, 14vw, 72px);
+  height: clamp(56px, 14vw, 72px);
+  background: var(--c-red);
+  border: 2px solid #ff4444;
+  border-radius: 50%;
+  color: white;
+  font-family: var(--font-display);
+  font-size: clamp(9px, 2vw, 12px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(239,68,68,0.4);
+  transition: all var(--tx-fast);
+  line-height: 1.2;
+}
+.mob-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(239,68,68,0.6);
+}
+.mob-btn .mob-icon { font-size: clamp(18px, 4vw, 24px); line-height: 1; }
+</style>
+</head>
+
+<body>
+<div class="helm-app">
+
+  <!-- Alert banner -->
+  <alert-banner></alert-banner>
+
+  <!-- Top bar -->
+  <div class="helm-topbar">
+    <a href="/index.html" class="back-btn">← Portal</a>
+    <span class="helm-title">⚓ Helm</span>
+    <span class="spacer"></span>
+    <connection-status></connection-status>
+    <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary);margin-left:var(--sp-sm)"></span>
+    <night-toggle></night-toggle>
+  </div>
+
+  <!-- Tab nav -->
+  <div class="helm-tabs">
+    <button class="helm-tab active" data-tab="instruments">Instruments</button>
+    <button class="helm-tab" data-tab="chart">Chart</button>
+    <button class="helm-tab" data-tab="passage" id="htab-passage">Passage</button>
+    <button class="helm-tab" data-tab="weather">Weather</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       INSTRUMENTS TAB
+  ═════════════════════════════════════════════════════ -->
+  <div class="helm-panel active" data-panel="instruments">
+    <div class="inst-layout">
+
+      <!-- SOG -->
+      <div class="helm-tile amber" id="tile-sog">
+        <span class="h-label">SOG</span>
+        <span class="h-value" id="v-sog">---</span>
+        <span class="h-unit">KN</span>
+      </div>
+
+      <!-- COG -->
+      <div class="helm-tile" id="tile-cog">
+        <span class="h-label">COG</span>
+        <span class="h-value" id="v-cog">---</span>
+        <span class="h-unit">°T</span>
+      </div>
+
+      <!-- DEPTH -->
+      <div class="helm-tile depth-tile" id="tile-depth">
+        <span class="h-label">DEPTH</span>
+        <span class="h-value" id="v-depth">---</span>
+        <span class="h-unit">M</span>
+      </div>
+
+      <!-- AUTOPILOT (wide) -->
+      <div class="helm-tile wide" id="tile-ap">
+        <span class="h-label">AUTOPILOT</span>
+        <div class="ap-tile">
+          <div class="ap-heading" id="v-ap-hdg">---°</div>
+          <div class="ap-controls">
+            <button class="ap-btn" onclick="apAdjust(-10)">-10°</button>
+            <button class="ap-btn" onclick="apAdjust(-1)">-1°</button>
+            <button class="ap-btn engage" id="ap-engage-btn" onclick="apToggle()">STBY</button>
+            <button class="ap-btn" onclick="apAdjust(1)">+1°</button>
+            <button class="ap-btn" onclick="apAdjust(10)">+10°</button>
+          </div>
+          <div class="ap-status" id="ap-status">STANDBY</div>
+        </div>
+      </div>
+
+      <!-- TWS -->
+      <div class="helm-tile" id="tile-tws">
+        <span class="h-label">TWS</span>
+        <span class="h-value" id="v-tws">---</span>
+        <span class="h-unit">KN</span>
+      </div>
+
+      <!-- TWD -->
+      <div class="helm-tile" id="tile-twd">
+        <span class="h-label">TWD</span>
+        <span class="h-value" id="v-twd">---</span>
+        <span class="h-unit">°T</span>
+      </div>
+
+      <!-- STW -->
+      <div class="helm-tile cyan" id="tile-stw">
+        <span class="h-label">STW</span>
+        <span class="h-value" id="v-stw">---</span>
+        <span class="h-unit">KN</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       CHART TAB
+  ═════════════════════════════════════════════════════ -->
+  <div class="helm-panel" data-panel="chart">
+    <div class="chart-container">
+
+      <!-- Overlaid instrument pills TL -->
+      <div class="chart-overlay-tl">
+        <div class="chart-pill" id="chart-sog">SOG — kn</div>
+        <div class="chart-pill" id="chart-cog">COG — °</div>
+        <div class="chart-pill" id="chart-depth">DEPTH — m</div>
+      </div>
+
+      <!-- Wind pill TR -->
+      <div class="chart-overlay-tr">
+        <div class="chart-pill" id="chart-tws">TWS — kn</div>
+        <div class="chart-pill" id="chart-twd">TWD — °</div>
+        <div class="chart-pill" id="chart-pos">--- ---</div>
+      </div>
+
+      <!-- Chart placeholder -->
+      <div class="chart-placeholder">
+        <div class="cp-label">Chart View</div>
+        <div class="cp-sub">OpenCPN integration pending<br>Connect via VNC or tile server</div>
+        <div class="cp-coord" id="chart-coord">Waiting for GPS…</div>
+      </div>
+
+      <!-- Compass rose bottom-right -->
+      <div class="chart-compass">
+        <compass-rose mode="cog" size="120"></compass-rose>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PASSAGE TAB
+  ═════════════════════════════════════════════════════ -->
+  <div class="helm-panel" data-panel="passage">
+    <div class="passage-layout">
+
+      <!-- Next waypoint card -->
+      <div class="passage-card">
+        <div class="passage-card-title">Next Waypoint</div>
+        <div id="nw-no-passage" style="color:var(--t-muted);font-family:var(--font-display);
+          font-size:var(--s-sm);flex:1;display:flex;align-items:center;justify-content:center">
+          No active passage — plan in Portal
+        </div>
+        <div id="nw-content" style="display:none;flex:1;flex-direction:column">
+          <div class="nw-name" id="nw-name">—</div>
+          <div class="nw-grid">
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-brg">---</div>
+              <div class="nw-lbl">Bearing °T</div>
+            </div>
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-dist">---</div>
+              <div class="nw-lbl">Dist nm</div>
+            </div>
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-eta">---</div>
+              <div class="nw-lbl">ETA</div>
+            </div>
+            <div class="nw-cell">
+              <div class="nw-val" id="nw-vmg">---</div>
+              <div class="nw-lbl">VMG kn</div>
+            </div>
+          </div>
+          <!-- Progress -->
+          <div style="margin-top:var(--sp-sm)">
+            <div style="display:flex;justify-content:space-between;
+              font-family:var(--font-display);font-size:9px;letter-spacing:0.08em;
+              text-transform:uppercase;color:var(--t-muted);margin-bottom:4px">
+              <span id="prog-from">—</span>
+              <span id="prog-pct">0%</span>
+              <span id="prog-to">—</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <button class="sbs-btn primary" style="margin-top:var(--sp-sm);font-size:11px"
+            onclick="helmAdvanceWP()">Mark Reached →</button>
+        </div>
+      </div>
+
+      <!-- Waypoint list card -->
+      <div class="passage-card">
+        <div class="passage-card-title">Route</div>
+        <div class="wp-list" id="helm-wp-list">
+          <div style="color:var(--t-muted);font-family:var(--font-display);
+            font-size:var(--s-xs);letter-spacing:0.06em;padding:var(--sp-sm)">
+            No waypoints
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts card -->
+      <div class="passage-card">
+        <div class="passage-card-title">Situation Alerts</div>
+        <div class="alerts-list" id="helm-alerts">
+          <div style="color:var(--t-muted);font-family:var(--font-display);
+            font-size:var(--s-xs);letter-spacing:0.06em;padding:var(--sp-sm)">
+            No alerts
+          </div>
+        </div>
+        <a href="/index.html#plan" class="replan-btn" id="replan-btn" style="display:none">
+          ↻ Replan in Portal
+        </a>
+      </div>
+
+      <!-- SOG vs plan card -->
+      <div class="passage-card">
+        <div class="passage-card-title">Performance</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:var(--sp-sm)">
+          <div class="nw-cell">
+            <div class="nw-val" id="perf-sog">---</div>
+            <div class="nw-lbl">Current SOG kn</div>
+          </div>
+          <div class="nw-cell">
+            <div class="nw-val" id="perf-plan">---</div>
+            <div class="nw-lbl">Plan SOG kn</div>
+          </div>
+          <div id="perf-delta" style="text-align:center;font-family:var(--font-display);
+            font-size:clamp(11px,2.2vw,14px);font-weight:700;letter-spacing:0.08em;
+            text-transform:uppercase;color:var(--t-muted)">—</div>
+          <div class="nw-cell" style="margin-top:auto">
+            <div class="nw-val" id="perf-eta">---</div>
+            <div class="nw-lbl">Revised ETA</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       WEATHER TAB
+  ═════════════════════════════════════════════════════ -->
+  <div class="helm-panel" data-panel="weather">
+    <div class="weather-layout">
+
+      <!-- Current wind card -->
+      <div class="wx-card">
+        <div class="wx-card-title">Wind — True</div>
+        <div class="wx-hero">
+          <div>
+            <div class="wx-speed" id="wx-tws">---</div>
+            <div class="wx-speed-unit">KN TWS</div>
+          </div>
+          <div class="wx-meta">
+            <div class="wx-dir" id="wx-twd">---°</div>
+            <div class="wx-label">Direction</div>
+            <div style="height:var(--sp-sm)"></div>
+            <div class="wx-dir" style="font-size:clamp(14px,3vw,22px)" id="wx-aws">---</div>
+            <div class="wx-label">AWS kn</div>
+          </div>
+        </div>
+        <div style="margin-top:var(--sp-sm)">
+          <wind-gauge mode="true" size="120"></wind-gauge>
+        </div>
+        <div class="wx-freshness" id="wx-fresh">Live from SignalK</div>
+      </div>
+
+      <!-- Barometer card -->
+      <div class="wx-card">
+        <div class="wx-card-title">Barometer &amp; Environment</div>
+        <div class="baro-grid">
+          <div class="baro-cell">
+            <div class="baro-val" id="wx-baro">---</div>
+            <div class="baro-lbl">hPa</div>
+          </div>
+          <div class="baro-cell">
+            <div class="trend-arrow" id="baro-trend">→</div>
+            <div class="baro-lbl" id="baro-trend-lbl">Steady</div>
+          </div>
+          <div class="baro-cell">
+            <div class="baro-val" id="wx-temp">---</div>
+            <div class="baro-lbl">°C Air</div>
+          </div>
+          <div class="baro-cell">
+            <div class="baro-val" id="wx-hum">---</div>
+            <div class="baro-lbl">% RH</div>
+          </div>
+        </div>
+        <!-- Baro history mini-chart -->
+        <div class="wx-canvas-wrap" style="margin-top:var(--sp-sm)">
+          <canvas id="baro-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Forecast strip — spans full width -->
+      <div class="wx-card" style="grid-column:1/-1;grid-row:2">
+        <div class="wx-card-title">24hr Forecast Strip
+          <span style="color:var(--t-muted);font-weight:400;text-transform:none;
+            letter-spacing:0"> — connect GRIB source for live data</span>
+        </div>
+        <div class="wx-strip" id="wx-strip"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /helm-app -->
+
+<!-- MOB button — always visible -->
+<button class="mob-btn" onclick="mobActivate()">
+  <span class="mob-icon">⚠</span>
+  <span>MOB</span>
+</button>
+
+<!-- MOB overlay -->
+<div class="mob-overlay" id="mob-overlay">
+  <div class="mob-header">⚠ MAN OVERBOARD ⚠</div>
+  <div class="mob-coord" id="mob-coord">Position at activation:<br>---</div>
+  <div class="mob-timer" id="mob-timer">00:00</div>
+  <ul class="mob-checklist" id="mob-checklist">
+    <li onclick="this.classList.toggle('checked')">Shout MAN OVERBOARD</li>
+    <li onclick="this.classList.toggle('checked')">Throw lifebuoy / Dan buoy</li>
+    <li onclick="this.classList.toggle('checked')">Assign spotter — keep eyes on victim</li>
+    <li onclick="this.classList.toggle('checked')">Start engine if sailing</li>
+    <li onclick="this.classList.toggle('checked')">Press MOB on chartplotter</li>
+    <li onclick="this.classList.toggle('checked')">Radio MAYDAY if victim not recovered quickly</li>
+  </ul>
+  <div class="mob-actions">
+    <button class="mob-action-btn mayday"    onclick="mobMayday()">📡 MAYDAY</button>
+    <button class="mob-action-btn recovered" onclick="mobClear()">✓ RECOVERED</button>
+    <button class="mob-action-btn false-al"  onclick="mobFalse()">False Alarm</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SBS-DATA.JS — SignalK WebSocket Data Layer
+   Single source of truth for all instrument data.
+   Both index.html and helm.html include this file.
+
+   Usage:
+     SBSData.sog          → current speed over ground (knots)
+     SBSData.on('update', fn)     → called every time data arrives
+     SBSData.on('alert:urgent', fn)  → bilge, AIS, gate closing
+     SBSData.on('alert:advisory', fn) → SOG below plan, ETA slip
+   ============================================================ */
+
+const SBSData = (() => {
+
+  // ── SIGNALK CONFIG ────────────────────────────────────────
+  const SK_HOST     = window.location.hostname || '192.168.8.201';
+  const SK_WS_PORT  = 3000;
+  const SK_API_PORT = 3000;
+  const RELAY_PORT  = 5000;
+
+  // SignalK paths we subscribe to
+  const SK_PATHS = [
+    'navigation.speedOverGround',
+    'navigation.courseOverGroundTrue',
+    'navigation.headingTrue',
+    'environment.depth.belowTransducer',
+    'environment.wind.speedTrue',
+    'environment.wind.directionTrue',
+    'environment.wind.speedApparent',
+    'environment.wind.angleApparent',
+    'environment.outside.pressure',
+    'environment.outside.temperature',
+    'environment.outside.humidity',
+    'navigation.speedThroughWater',
+    'navigation.position',
+  ];
+
+  // ── STATE ─────────────────────────────────────────────────
+  const state = {
+    // Navigation
+    sog:      null,   // knots
+    cog:      null,   // degrees true
+    heading:  null,   // degrees true
+    position: null,   // { lat, lon }
+
+    // Environment
+    depth:    null,   // metres
+    tws:      null,   // knots
+    twd:      null,   // degrees true
+    aws:      null,   // knots apparent
+    awa:      null,   // degrees apparent
+
+    // Weather (from ESP32 via SignalK)
+    pressure: null,   // hPa
+    temp:     null,   // °C
+    humidity: null,   // %
+
+    // ESP32 direct
+    stw:      null,   // knots speed through water
+    bilge:    false,  // wet/dry
+
+    // Relay states
+    relays: { 1:false, 2:false, 3:false, 4:false,
+              5:false, 6:false, 7:false, 8:false },
+
+    // Passage planning
+    passage: {
+      active:      false,
+      waypoints:   [],
+      nextWPIndex: 0,
+      alerts:      [],
+      planSOG:     null,   // planned average SOG
+      planETA:     null,   // planned ETA at destination
+    },
+
+    // Connection health
+    connected:   false,
+    lastUpdate:  null,
+    gpsValid:    false,
+  };
+
+  // ── EVENT EMITTER ─────────────────────────────────────────
+  const listeners = {};
+
+  function on(event, fn) {
+    if (!listeners[event]) listeners[event] = [];
+    listeners[event].push(fn);
+    return () => off(event, fn); // returns unsubscribe fn
+  }
+
+  function off(event, fn) {
+    if (listeners[event])
+      listeners[event] = listeners[event].filter(f => f !== fn);
+  }
+
+  function emit(event, data) {
+    (listeners[event] || []).forEach(fn => {
+      try { fn(data); } catch(e) { console.warn('SBSData listener error:', e); }
+    });
+  }
+
+  // ── UNIT CONVERSION ───────────────────────────────────────
+  const conv = {
+    msToKnots:    ms  => ms != null ? ms * 1.94384 : null,
+    radToDeg:     rad => rad != null ? (rad * 180 / Math.PI + 360) % 360 : null,
+    paToHpa:      pa  => pa  != null ? pa / 100 : null,
+    kToC:         k   => k   != null ? k - 273.15 : null,
+  };
+
+  // ── SIGNALK PATH → STATE MAPPING ──────────────────────────
+  function applyValue(path, value) {
+    switch (path) {
+      case 'navigation.speedOverGround':
+        state.sog = conv.msToKnots(value); break;
+      case 'navigation.courseOverGroundTrue':
+        state.cog = conv.radToDeg(value); break;
+      case 'navigation.headingTrue':
+        state.heading = conv.radToDeg(value); break;
+      case 'navigation.speedThroughWater':
+        state.stw = conv.msToKnots(value); break;
+      case 'navigation.position':
+        state.position = value;
+        state.gpsValid = (value && value.latitude !== 0); break;
+      case 'environment.depth.belowTransducer':
+        state.depth = value; break;  // already in metres
+      case 'environment.wind.speedTrue':
+        state.tws = conv.msToKnots(value); break;
+      case 'environment.wind.directionTrue':
+        state.twd = conv.radToDeg(value); break;
+      case 'environment.wind.speedApparent':
+        state.aws = conv.msToKnots(value); break;
+      case 'environment.wind.angleApparent':
+        state.awa = conv.radToDeg(value); break;
+      case 'environment.outside.pressure':
+        state.pressure = conv.paToHpa(value); break;
+      case 'environment.outside.temperature':
+        state.temp = conv.kToC(value); break;
+      case 'environment.outside.humidity':
+        state.humidity = value != null ? value * 100 : null; break;
+    }
+  }
+
+  // ── WEBSOCKET ─────────────────────────────────────────────
+  let ws = null;
+  let wsRetryTimer = null;
+  let wsRetryDelay = 2000;
+
+  function wsConnect() {
+    if (ws && ws.readyState <= 1) return; // already open/connecting
+
+    const url = `ws://${SK_HOST}:${SK_WS_PORT}/signalk/v1/stream?subscribe=none`;
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      console.log('SBSData: SignalK connected');
+      state.connected = true;
+      wsRetryDelay = 2000;
+      emit('connected');
+
+      // Subscribe to all paths
+      ws.send(JSON.stringify({
+        context: 'vessels.self',
+        subscribe: SK_PATHS.map(path => ({
+          path,
+          period:    1000,
+          policy:    'ideal',
+          minPeriod: 200,
+        }))
+      }));
+    };
+
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (!msg.updates) return;
+
+        msg.updates.forEach(update => {
+          (update.values || []).forEach(({path, value}) => {
+            applyValue(path, value);
+          });
+        });
+
+        state.lastUpdate = Date.now();
+        emit('update', state);
+        checkPassageAlerts();
+
+      } catch(e) {
+        console.warn('SBSData: parse error', e);
+      }
+    };
+
+    ws.onclose = () => {
+      state.connected = false;
+      emit('disconnected');
+      wsRetryTimer = setTimeout(() => {
+        wsRetryDelay = Math.min(wsRetryDelay * 1.5, 30000);
+        wsConnect();
+      }, wsRetryDelay);
+    };
+
+    ws.onerror = (e) => {
+      console.warn('SBSData: WebSocket error', e);
+      ws.close();
+    };
+  }
+
+  // ── RELAY API ─────────────────────────────────────────────
+  async function fetchRelayStates() {
+    try {
+      const res = await fetch(`http://${SK_HOST}:${RELAY_PORT}/relay/status`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.channels) {
+        data.channels.forEach(ch => {
+          state.relays[ch.channel] = ch.state;
+        });
+        emit('relays', state.relays);
+      }
+    } catch(e) {
+      // relay server not reachable — handled by status dots
+    }
+  }
+
+  async function toggleRelay(channel, newState) {
+    try {
+      const res = await fetch(`http://${SK_HOST}:${RELAY_PORT}/relay/${channel}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: newState }),
+      });
+      if (!res.ok) throw new Error('relay toggle failed');
+      state.relays[channel] = newState;
+      emit('relays', state.relays);
+      return true;
+    } catch(e) {
+      console.warn('SBSData: relay toggle error', e);
+      return false;
+    }
+  }
+
+  // ── PASSAGE PLANNING ──────────────────────────────────────
+  function setPassage(plan) {
+    state.passage = {
+      active:      true,
+      waypoints:   plan.waypoints || [],
+      nextWPIndex: 0,
+      alerts:      [],
+      planSOG:     plan.planSOG || null,
+      planETA:     plan.planETA || null,
+    };
+    emit('passage:updated', state.passage);
+  }
+
+  function clearPassage() {
+    state.passage.active = false;
+    state.passage.alerts = [];
+    emit('passage:updated', state.passage);
+  }
+
+  function advanceWaypoint() {
+    if (state.passage.nextWPIndex < state.passage.waypoints.length - 1) {
+      state.passage.nextWPIndex++;
+      emit('passage:updated', state.passage);
+    }
+  }
+
+  // ── ALERT CHECKS ──────────────────────────────────────────
+  function checkPassageAlerts() {
+    if (!state.passage.active) return;
+
+    // SOG advisory — if significantly below planned SOG
+    if (state.passage.planSOG && state.sog != null) {
+      if (state.sog < state.passage.planSOG * 0.7) {
+        raiseAdvisory('sog_low',
+          `SOG ${fmt(state.sog, 1)}kn — below planned ${fmt(state.passage.planSOG, 1)}kn`);
+      } else {
+        clearAdvisory('sog_low');
+      }
+    }
+  }
+
+  function raiseUrgent(id, message) {
+    const existing = state.passage.alerts.find(a => a.id === id);
+    if (!existing) {
+      const alert = { id, level: 'urgent', message, time: Date.now() };
+      state.passage.alerts.push(alert);
+      emit('alert:urgent', alert);
+    }
+  }
+
+  function raiseAdvisory(id, message) {
+    const existing = state.passage.alerts.find(a => a.id === id);
+    if (!existing) {
+      const alert = { id, level: 'advisory', message, time: Date.now() };
+      state.passage.alerts.push(alert);
+      emit('alert:advisory', alert);
+      emit('update', state); // trigger badge update
+    }
+  }
+
+  function clearAdvisory(id) {
+    const before = state.passage.alerts.length;
+    state.passage.alerts = state.passage.alerts.filter(a => a.id !== id);
+    if (state.passage.alerts.length !== before) emit('update', state);
+  }
+
+  function dismissAlert(id) {
+    state.passage.alerts = state.passage.alerts.filter(a => a.id !== id);
+    emit('update', state);
+  }
+
+  // External bilge alert (can be raised from relay server polling)
+  function raiseBilgeAlert() {
+    raiseUrgent('bilge', '⚠ BILGE WATER DETECTED — check bilge pump');
+  }
+
+  // ── DISPLAY HELPERS ───────────────────────────────────────
+  function fmt(val, decimals = 0, fallback = '---') {
+    if (val == null || isNaN(val)) return fallback;
+    return val.toFixed(decimals);
+  }
+
+  function fmtBearing(deg, fallback = '---') {
+    if (deg == null) return fallback;
+    return Math.round(deg).toString().padStart(3, '0') + '°';
+  }
+
+  function fmtCoord(lat, lon) {
+    if (lat == null || lon == null) return '--- ---';
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lonDir = lon >= 0 ? 'E' : 'W';
+    const latDeg = Math.abs(lat);
+    const lonDeg = Math.abs(lon);
+    const latMin = (latDeg % 1) * 60;
+    const lonMin = (lonDeg % 1) * 60;
+    return `${Math.floor(latDeg)}°${latMin.toFixed(3)}'${latDir} ` +
+           `${Math.floor(lonDeg)}°${lonMin.toFixed(3)}'${lonDir}`;
+  }
+
+  // ── POLL INTERVALS ────────────────────────────────────────
+  // Relay state and system status poll (less frequent — REST)
+  setInterval(fetchRelayStates, 5000);
+
+  // Connection watchdog — if no update in 10s, flag stale
+  setInterval(() => {
+    if (state.lastUpdate && Date.now() - state.lastUpdate > 10000) {
+      emit('stale');
+    }
+  }, 5000);
+
+  // ── NIGHT MODE ────────────────────────────────────────────
+  let nightMode = false;
+  function toggleNight() {
+    nightMode = !nightMode;
+    document.documentElement.classList.toggle('night', nightMode);
+    localStorage.setItem('sbs-night', nightMode ? '1' : '0');
+    emit('night', nightMode);
+    return nightMode;
+  }
+
+  // Restore night mode preference
+  if (localStorage.getItem('sbs-night') === '1') toggleNight();
+
+  // ── UTC CLOCK ─────────────────────────────────────────────
+  function updateClock() {
+    const el = document.querySelector('.sbs-clock');
+    if (el) {
+      const now = new Date();
+      el.textContent = now.toUTCString().slice(17, 22) + ' UTC';
+    }
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── INIT ──────────────────────────────────────────────────
+  function init() {
+    wsConnect();
+    fetchRelayStates();
+  }
+
+  // Auto-init when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // ── PUBLIC API ────────────────────────────────────────────
+  return {
+    // State (read-only reference — do not mutate directly)
+    get sog()      { return state.sog; },
+    get cog()      { return state.cog; },
+    get heading()  { return state.heading; },
+    get depth()    { return state.depth; },
+    get tws()      { return state.tws; },
+    get twd()      { return state.twd; },
+    get aws()      { return state.aws; },
+    get awa()      { return state.awa; },
+    get pressure() { return state.pressure; },
+    get temp()     { return state.temp; },
+    get humidity() { return state.humidity; },
+    get stw()      { return state.stw; },
+    get bilge()    { return state.bilge; },
+    get position() { return state.position; },
+    get relays()   { return state.relays; },
+    get passage()  { return state.passage; },
+    get connected(){ return state.connected; },
+    get gpsValid() { return state.gpsValid; },
+    get nightMode(){ return nightMode; },
+
+    // Events
+    on, off,
+
+    // Actions
+    toggleRelay,
+    setPassage,
+    clearPassage,
+    advanceWaypoint,
+    dismissAlert,
+    raiseBilgeAlert,
+    toggleNight,
+
+    // Formatting helpers
+    fmt,
+    fmtBearing,
+    fmtCoord,
+
+    // Internal (for debugging)
+    _state: state,
+    _reconnect: wsConnect,
+  };
+})();
+
+</script>
+<script>
+/* ============================================================
+   SBS-COMPONENTS.JS — Reusable Web Components
+   Used by both index.html (portal) and helm.html
+
+   Components:
+     <instrument-cell>   — single data readout (SOG, COG, etc.)
+     <wind-gauge>        — circular wind direction + speed
+     <depth-display>     — depth with shallow water warning
+     <relay-button>      — relay toggle with on/off state
+     <bilge-status>      — bilge wet/dry indicator
+     <compass-rose>      — heading/COG compass
+     <alert-banner>      — urgent/advisory sliding banner
+     <night-toggle>      — night mode button
+     <connection-status> — SignalK + relay connection dots
+   ============================================================ */
+
+// ── HELPERS ───────────────────────────────────────────────────
+
+function css(strings, ...vals) {
+  return strings.reduce((acc, str, i) => acc + str + (vals[i] || ''), '');
+}
+
+// Base class — handles SBSData subscription lifecycle
+class SBSComponent extends HTMLElement {
+  connectedCallback() {
+    this._unsub = SBSData.on('update', () => this.render());
+    this.render();
+  }
+  disconnectedCallback() {
+    if (this._unsub) this._unsub();
+  }
+  render() {}
+}
+
+// ── INSTRUMENT CELL ───────────────────────────────────────────
+// <instrument-cell key="sog" label="SOG" unit="kn" size="lg">
+// key maps to SBSData[key]
+// size: sm | md | lg | xl
+
+customElements.define('instrument-cell', class extends SBSComponent {
+  render() {
+    const key   = this.getAttribute('key');
+    const label = this.getAttribute('label') || key?.toUpperCase();
+    const unit  = this.getAttribute('unit') || '';
+    const size  = this.getAttribute('size') || 'md';
+    const dec   = parseInt(this.getAttribute('decimals') || '1');
+    const bear  = this.hasAttribute('bearing');
+
+    const raw = key ? SBSData[key] : null;
+    const val = raw == null ? '---'
+      : bear ? SBSData.fmtBearing(raw)
+      : SBSData.fmt(raw, dec);
+
+    const sizeMap = { sm: '1.4rem', md: '2rem', lg: '2.8rem', xl: '4rem' };
+    const fontSize = sizeMap[size] || '2rem';
+
+    this.innerHTML = `
+      <div class="inst-cell${raw == null ? ' stale' : ''}">
+        <span class="label">${label}</span>
+        <span class="value" style="font-size:${fontSize}">${val}</span>
+        ${unit ? `<span class="unit">${unit}</span>` : ''}
+      </div>`;
+  }
+});
+
+// ── WIND GAUGE ────────────────────────────────────────────────
+// <wind-gauge mode="true|apparent" size="200">
+// Circular gauge showing wind direction arrow + speed
+
+customElements.define('wind-gauge', class extends SBSComponent {
+  connectedCallback() {
+    this._unsub = SBSData.on('update', () => this.render());
+    this.style.display = 'block';
+    this.render();
+  }
+
+  render() {
+    const mode   = this.getAttribute('mode') || 'true';
+    const size   = parseInt(this.getAttribute('size') || '180');
+    const isTrue = mode === 'true';
+
+    const speed = isTrue ? SBSData.tws : SBSData.aws;
+    const dir   = isTrue ? SBSData.twd : SBSData.awa;
+    const label = isTrue ? 'TWS' : 'AWS';
+    const dirLabel = isTrue ? 'TWD' : 'AWA';
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const r  = size / 2 - 8;
+    const arrowAngle = dir != null ? dir : 0;
+    const rad = (arrowAngle - 90) * Math.PI / 180;
+    const arrowLen = r * 0.65;
+    const ax = cx + Math.cos(rad) * arrowLen;
+    const ay = cy + Math.sin(rad) * arrowLen;
+    const tailRad = rad + Math.PI;
+    const tx = cx + Math.cos(tailRad) * (arrowLen * 0.4);
+    const ty = cy + Math.sin(tailRad) * (arrowLen * 0.4);
+
+    // Wind speed color
+    const spd = speed || 0;
+    const windColor = spd > 25 ? '#ef4444'
+      : spd > 15 ? '#eab308'
+      : '#e8940a';
+
+    // Cardinal marks
+    const cardinals = ['N','E','S','W'];
+    const cardinalSVG = cardinals.map((c, i) => {
+      const a = (i * 90 - 90) * Math.PI / 180;
+      const cr = r + 4;
+      const x = cx + Math.cos(a) * (r - 14);
+      const y = cy + Math.sin(a) * (r - 14);
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central"
+        font-family="'Barlow Condensed',sans-serif" font-size="10" font-weight="600"
+        fill="#4a6070">${c}</text>`;
+    }).join('');
+
+    // Tick marks
+    const ticks = Array.from({length: 36}, (_, i) => {
+      const a = (i * 10 - 90) * Math.PI / 180;
+      const major = i % 9 === 0;
+      const inner = r - (major ? 8 : 4);
+      const x1 = cx + Math.cos(a) * inner;
+      const y1 = cy + Math.sin(a) * inner;
+      const x2 = cx + Math.cos(a) * r;
+      const y2 = cy + Math.sin(a) * r;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+        stroke="${major ? '#2a3f50' : '#1e2e3a'}" stroke-width="${major ? 1.5 : 1}"/>`;
+    }).join('');
+
+    this.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+          <!-- Outer ring -->
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+            stroke="#1e2e3a" stroke-width="1.5"/>
+          <!-- Inner fill -->
+          <circle cx="${cx}" cy="${cy}" r="${r - 1}" fill="#0d1318"/>
+
+          ${ticks}
+          ${cardinalSVG}
+
+          ${dir != null ? `
+          <!-- Arrow shaft -->
+          <line x1="${tx}" y1="${ty}" x2="${ax}" y2="${ay}"
+            stroke="${windColor}" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Arrowhead -->
+          <polygon points="${ax},${ay}
+            ${cx + Math.cos(rad - 0.4) * (arrowLen * 0.75)},${cy + Math.sin(rad - 0.4) * (arrowLen * 0.75)}
+            ${cx + Math.cos(rad + 0.4) * (arrowLen * 0.75)},${cy + Math.sin(rad + 0.4) * (arrowLen * 0.75)}"
+            fill="${windColor}"/>
+          <!-- Tail dot -->
+          <circle cx="${tx}" cy="${ty}" r="3" fill="${windColor}" opacity="0.5"/>
+          ` : `
+          <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
+            font-family="'Share Tech Mono',monospace" font-size="12" fill="#4a6070">---</text>
+          `}
+
+          <!-- Center speed display -->
+          <text x="${cx}" y="${cy - 6}" text-anchor="middle"
+            font-family="'Share Tech Mono',monospace"
+            font-size="${size > 160 ? 22 : 16}" fill="${windColor}" font-weight="bold">
+            ${SBSData.fmt(speed, 1)}
+          </text>
+          <text x="${cx}" y="${cy + 14}" text-anchor="middle"
+            font-family="'Barlow Condensed',sans-serif"
+            font-size="10" fill="#4a6070" letter-spacing="0.08em">
+            ${label} KN
+          </text>
+        </svg>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;
+          letter-spacing:0.08em;color:#4a6070;text-transform:uppercase">
+          ${dirLabel}: ${SBSData.fmtBearing(dir)}
+        </div>
+      </div>`;
+  }
+});
+
+// ── DEPTH DISPLAY ─────────────────────────────────────────────
+// <depth-display shallow="3" critical="1">
+// Turns yellow at shallow threshold, red at critical
+
+customElements.define('depth-display', class extends SBSComponent {
+  render() {
+    const shallow  = parseFloat(this.getAttribute('shallow')  || '3');
+    const critical = parseFloat(this.getAttribute('critical') || '1');
+    const depth    = SBSData.depth;
+
+    const color = depth == null ? 'var(--t-muted)'
+      : depth < critical  ? 'var(--c-red)'
+      : depth < shallow   ? 'var(--c-yellow)'
+      : 'var(--c-cyan)';
+
+    const glow = depth != null && depth < critical
+      ? 'var(--shadow-red)' : 'none';
+
+    this.innerHTML = `
+      <div class="inst-cell" style="border-color:${color};box-shadow:${glow}">
+        <span class="label">DEPTH</span>
+        <span class="value" style="font-size:2.8rem;color:${color}">
+          ${SBSData.fmt(depth, 1)}
+        </span>
+        <span class="unit">m</span>
+        ${depth != null && depth < shallow
+          ? `<span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;
+              letter-spacing:0.1em;text-transform:uppercase;color:${color};margin-top:2px">
+              ${depth < critical ? '⚠ CRITICAL' : 'SHALLOW'}
+             </span>`
+          : ''}
+      </div>`;
+  }
+});
+
+// ── RELAY BUTTON ──────────────────────────────────────────────
+// <relay-button channel="4" name="Bilge Pump" icon="💧">
+
+customElements.define('relay-button', class extends HTMLElement {
+  connectedCallback() {
+    this._unsubRelay  = SBSData.on('relays', () => this.render());
+    this._unsubUpdate = SBSData.on('update', () => this.render());
+    this.render();
+  }
+
+  disconnectedCallback() {
+    if (this._unsubRelay)  this._unsubRelay();
+    if (this._unsubUpdate) this._unsubUpdate();
+  }
+
+  render() {
+    const ch   = parseInt(this.getAttribute('channel'));
+    const name = this.getAttribute('name') || `CH${ch}`;
+    const icon = this.getAttribute('icon') || '⚡';
+    const on   = SBSData.relays[ch] === true;
+
+    this.innerHTML = `
+      <button class="relay-btn${on ? ' on' : ''}" data-ch="${ch}">
+        <span class="icon">${icon}</span>
+        <span class="name">${name}</span>
+      </button>`;
+
+    this.querySelector('button').addEventListener('click', async () => {
+      await SBSData.toggleRelay(ch, !on);
+    });
+  }
+});
+
+// ── BILGE STATUS ──────────────────────────────────────────────
+// <bilge-status> — shows dry/wet with visual indicator
+
+customElements.define('bilge-status', class extends SBSComponent {
+  render() {
+    const wet = SBSData.bilge;
+    this.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;
+        padding:6px 12px;border-radius:6px;
+        background:${wet ? 'rgba(127,29,29,0.4)' : 'rgba(20,83,45,0.3)'};
+        border:1px solid ${wet ? 'var(--c-red)' : 'var(--c-green-dim)'};
+        box-shadow:${wet ? 'var(--shadow-red)' : 'none'}">
+        <span style="font-size:16px">${wet ? '💧' : '✓'}</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;
+          font-size:12px;font-weight:600;letter-spacing:0.1em;
+          text-transform:uppercase;
+          color:${wet ? 'var(--c-red)' : 'var(--c-green)'}">
+          BILGE ${wet ? 'WET' : 'DRY'}
+        </span>
+      </div>`;
+  }
+});
+
+// ── COMPASS ROSE ──────────────────────────────────────────────
+// <compass-rose mode="heading|cog" size="180">
+
+customElements.define('compass-rose', class extends SBSComponent {
+  connectedCallback() {
+    this._unsub = SBSData.on('update', () => this.render());
+    this.style.display = 'block';
+    this.render();
+  }
+
+  render() {
+    const mode  = this.getAttribute('mode') || 'cog';
+    const size  = parseInt(this.getAttribute('size') || '180');
+    const value = mode === 'heading' ? SBSData.heading : SBSData.cog;
+    const label = mode === 'heading' ? 'HDG' : 'COG';
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const r  = size / 2 - 10;
+
+    // Rotate the compass rose so north points to current heading/COG
+    const rotation = value != null ? -value : 0;
+
+    // Cardinal + intercardinal labels
+    const dirs = [
+      {l:'N',a:0},{l:'NE',a:45},{l:'E',a:90},{l:'SE',a:135},
+      {l:'S',a:180},{l:'SW',a:225},{l:'W',a:270},{l:'NW',a:315}
+    ];
+
+    const dirSVG = dirs.map(({l, a}) => {
+      const rad = (a - 90) * Math.PI / 180;
+      const dist = l.length === 1 ? r - 16 : r - 20;
+      const x = cx + Math.cos(rad) * dist;
+      const y = cy + Math.sin(rad) * dist;
+      const isCard = l.length === 1;
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central"
+        font-family="'Barlow Condensed',sans-serif"
+        font-size="${isCard ? 13 : 9}" font-weight="${isCard ? 700 : 400}"
+        fill="${l === 'N' ? '#e8940a' : isCard ? '#8fa3b3' : '#4a6070'}">${l}</text>`;
+    }).join('');
+
+    // Tick marks
+    const ticks = Array.from({length: 72}, (_, i) => {
+      const a = (i * 5 - 90) * Math.PI / 180;
+      const major = i % 6 === 0;
+      const inner = r - (major ? 10 : 5);
+      const x1 = cx + Math.cos(a) * inner;
+      const y1 = cy + Math.sin(a) * inner;
+      const x2 = cx + Math.cos(a) * r;
+      const y2 = cy + Math.sin(a) * r;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+        stroke="${major ? '#2a3f50' : '#1a2830'}" stroke-width="${major ? 1.5 : 1}"/>`;
+    }).join('');
+
+    // Lubber line (fixed, points up = current heading)
+    const lubberLen = r - 4;
+
+    this.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="position:relative;width:${size}px;height:${size}px">
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"
+            style="position:absolute;top:0;left:0">
+            <!-- Outer ring -->
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+              stroke="#1e2e3a" stroke-width="1.5"/>
+            <!-- Inner fill -->
+            <circle cx="${cx}" cy="${cy}" r="${r-1}" fill="#0a1218"/>
+          </svg>
+
+          <!-- Rotating rose -->
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"
+            style="position:absolute;top:0;left:0;
+              transform:rotate(${rotation}deg);
+              transition:transform 0.5s ease;
+              transform-origin:${cx}px ${cy}px">
+            ${ticks}
+            ${dirSVG}
+          </svg>
+
+          <!-- Fixed lubber line + center -->
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"
+            style="position:absolute;top:0;left:0">
+            <!-- Lubber line -->
+            <line x1="${cx}" y1="${cy - lubberLen}" x2="${cx}" y2="${cy - (r-2)}"
+              stroke="var(--c-amber)" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- Center dot -->
+            <circle cx="${cx}" cy="${cy}" r="4" fill="var(--c-amber)"/>
+            <!-- Value display -->
+            <text x="${cx}" y="${cy + 6}" text-anchor="middle"
+              font-family="'Share Tech Mono',monospace"
+              font-size="18" fill="var(--t-value)">
+              ${value != null ? Math.round(value).toString().padStart(3,'0') + '°' : '---'}
+            </text>
+          </svg>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;
+          letter-spacing:0.1em;color:#4a6070;text-transform:uppercase">${label}</div>
+      </div>`;
+  }
+});
+
+// ── ALERT BANNER ──────────────────────────────────────────────
+// <alert-banner> — auto-shows when urgent/advisory alerts fire
+
+customElements.define('alert-banner', class extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = `
+      <div class="alert-banner" id="sbs-alert-banner">
+        <span id="sbs-alert-text"></span>
+        <button class="dismiss" onclick="this.closest('.alert-banner').classList.remove('show')">✕</button>
+      </div>`;
+
+    SBSData.on('alert:urgent', (alert) => {
+      this._show(alert.message, 'urgent');
+    });
+
+    SBSData.on('alert:advisory', (alert) => {
+      this._show(alert.message, 'advisory');
+    });
+  }
+
+  _show(message, level) {
+    const banner = this.querySelector('.alert-banner');
+    const text   = this.querySelector('#sbs-alert-text');
+    if (!banner || !text) return;
+    banner.className = `alert-banner ${level}`;
+    text.textContent = message;
+    // Force reflow then add show
+    banner.offsetHeight;
+    banner.classList.add('show');
+    if (level === 'advisory') {
+      setTimeout(() => banner.classList.remove('show'), 8000);
+    }
+  }
+});
+
+// ── NIGHT TOGGLE ──────────────────────────────────────────────
+// <night-toggle> — single button, toggles night mode
+
+customElements.define('night-toggle', class extends HTMLElement {
+  connectedCallback() {
+    this.render();
+    SBSData.on('night', () => this.render());
+    this.addEventListener('click', () => SBSData.toggleNight());
+  }
+
+  render() {
+    this.innerHTML = `
+      <button class="sbs-btn" title="Toggle night mode"
+        style="${SBSData.nightMode
+          ? 'border-color:var(--c-amber-dim);color:var(--c-amber)'
+          : ''}">
+        ${SBSData.nightMode ? '☀' : '🌙'}
+      </button>`;
+  }
+});
+
+// ── CONNECTION STATUS ─────────────────────────────────────────
+// <connection-status> — shows SignalK + relay + GPS dots
+
+customElements.define('connection-status', class extends HTMLElement {
+  connectedCallback() {
+    SBSData.on('connected',    () => this.render());
+    SBSData.on('disconnected', () => this.render());
+    SBSData.on('update',       () => this.render());
+    SBSData.on('stale',        () => this.render());
+    this.render();
+  }
+
+  render() {
+    const sk    = SBSData.connected ? 'ok' : 'err';
+    const gps   = SBSData.gpsValid  ? 'ok' : 'warn';
+    const bilge = SBSData.bilge     ? 'err' : 'ok';
+
+    this.innerHTML = `
+      <span class="status-dot ${sk}">SK</span>
+      <span class="status-dot ${gps}">GPS</span>
+      <span class="status-dot ${bilge}">BILGE</span>`;
+  }
+});
+
+// ── PASSAGE NEXT WAYPOINT ─────────────────────────────────────
+// <next-waypoint> — compact next WP display for helm passage tab
+
+customElements.define('next-waypoint', class extends SBSComponent {
+  render() {
+    const p  = SBSData.passage;
+    const wp = p.waypoints[p.nextWPIndex];
+
+    if (!p.active || !wp) {
+      this.innerHTML = `
+        <div class="inst-cell" style="grid-column:span 2">
+          <span class="label">NEXT WAYPOINT</span>
+          <span class="value" style="font-size:1.2rem;color:var(--t-muted)">No active passage</span>
+        </div>`;
+      return;
+    }
+
+    this.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;
+        background:var(--c-surface);border:1px solid var(--c-border);
+        border-radius:var(--r-lg);padding:var(--sp-lg)">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;
+          letter-spacing:0.1em;text-transform:uppercase;color:var(--t-muted)">
+          NEXT WAYPOINT ${p.nextWPIndex + 1}/${p.waypoints.length}
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;
+          font-weight:700;color:var(--c-amber-hi)">${wp.name || 'WP ' + (p.nextWPIndex + 1)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="inst-cell">
+            <span class="label">BRG</span>
+            <span class="value" style="font-size:1.8rem">${wp.bearing != null ? SBSData.fmtBearing(wp.bearing) : '---'}</span>
+          </div>
+          <div class="inst-cell">
+            <span class="label">DIST</span>
+            <span class="value" style="font-size:1.8rem">${wp.distance != null ? SBSData.fmt(wp.distance, 1) : '---'}</span>
+            <span class="unit">nm</span>
+          </div>
+        </div>
+      </div>`;
+  }
+});
+
+console.log('SBS Components loaded ✓');
+
+</script>
+<script>
+// ── TAB SWITCHING ─────────────────────────────────────────
+document.querySelectorAll('.helm-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.helm-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.helm-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+// ── INSTRUMENT UPDATES ────────────────────────────────────
+SBSData.on('update', () => {
+  // Instruments tab
+  setVal('v-sog',  SBSData.fmt(SBSData.sog,     1));
+  setVal('v-cog',  SBSData.fmtBearing(SBSData.cog));
+  setVal('v-stw',  SBSData.fmt(SBSData.stw,     1));
+  setVal('v-tws',  SBSData.fmt(SBSData.tws,     1));
+  setVal('v-twd',  SBSData.fmtBearing(SBSData.twd));
+
+  // Depth with colour coding
+  const d = SBSData.depth;
+  setVal('v-depth', SBSData.fmt(d, 1));
+  const dt = document.getElementById('tile-depth');
+  dt.classList.toggle('critical', d != null && d < 1);
+  dt.classList.toggle('shallow',  d != null && d >= 1 && d < 3);
+
+  // AP heading tracks actual heading when in standby
+  if (!apEngaged) {
+    apTarget = SBSData.heading != null ? Math.round(SBSData.heading) : apTarget;
+    document.getElementById('v-ap-hdg').textContent =
+      apTarget != null ? apTarget + '°' : '---°';
+  }
+
+  // Chart tab overlays
+  setText('chart-sog',   `SOG  ${SBSData.fmt(SBSData.sog, 1)} kn`);
+  setText('chart-cog',   `COG  ${SBSData.fmtBearing(SBSData.cog)}`);
+  setText('chart-depth', `DEPTH  ${SBSData.fmt(SBSData.depth, 1)} m`);
+  setText('chart-tws',   `TWS  ${SBSData.fmt(SBSData.tws, 1)} kn`);
+  setText('chart-twd',   `TWD  ${SBSData.fmtBearing(SBSData.twd)}`);
+  const pos = SBSData.position;
+  if (pos) {
+    setText('chart-pos',   SBSData.fmtCoord(pos.latitude, pos.longitude));
+    setText('chart-coord', SBSData.fmtCoord(pos.latitude, pos.longitude));
+  }
+
+  // Weather tab
+  setVal('wx-tws',  SBSData.fmt(SBSData.tws, 1));
+  setVal('wx-twd',  SBSData.fmtBearing(SBSData.twd));
+  setVal('wx-aws',  SBSData.fmt(SBSData.aws, 1));
+  setVal('wx-baro', SBSData.fmt(SBSData.pressure, 1));
+  setVal('wx-temp', SBSData.fmt(SBSData.temp, 1));
+  setVal('wx-hum',  SBSData.fmt(SBSData.humidity, 0));
+
+  // Baro history + trend
+  updateBaroHistory();
+
+  // Passage tab
+  updatePassageTab();
+});
+
+function setVal(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = v;
+}
+function setText(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = v;
+}
+
+// ── AUTOPILOT STATE ───────────────────────────────────────
+let apEngaged = false;
+let apTarget  = null;
+
+function apToggle() {
+  apEngaged = !apEngaged;
+  const btn = document.getElementById('ap-engage-btn');
+  const sts = document.getElementById('ap-status');
+  if (apEngaged) {
+    apTarget = SBSData.heading != null ? Math.round(SBSData.heading) : (apTarget || 0);
+    btn.textContent = 'ENGAGED';
+    btn.classList.add('active');
+    sts.textContent = `STEERING ${apTarget}°`;
+    sts.style.color = 'var(--c-green)';
+  } else {
+    btn.textContent = 'STBY';
+    btn.classList.remove('active');
+    sts.textContent = 'STANDBY';
+    sts.style.color = '';
+  }
+}
+
+function apAdjust(delta) {
+  if (!apEngaged) return;
+  apTarget = ((apTarget || 0) + delta + 360) % 360;
+  document.getElementById('v-ap-hdg').textContent = apTarget + '°';
+  document.getElementById('ap-status').textContent = `STEERING ${apTarget}°`;
+  // In production: send command to autopilot via SignalK PUT
+}
+
+// ── BARO HISTORY ──────────────────────────────────────────
+const baroHistory = [];
+const BARO_MAX_PTS = 60; // 1hr at 1min intervals
+
+let lastBaroPush = 0;
+function updateBaroHistory() {
+  const now = Date.now();
+  if (SBSData.pressure != null && now - lastBaroPush > 60000) {
+    baroHistory.push({ t: now, p: SBSData.pressure });
+    if (baroHistory.length > BARO_MAX_PTS) baroHistory.shift();
+    lastBaroPush = now;
+    updateBaroTrend();
+    drawBaroChart();
+  }
+}
+
+function updateBaroTrend() {
+  if (baroHistory.length < 6) return;
+  const recent = baroHistory.slice(-6);
+  const delta  = recent[recent.length-1].p - recent[0].p;
+  const arrow  = document.getElementById('baro-trend');
+  const lbl    = document.getElementById('baro-trend-lbl');
+  if (delta > 1)       { arrow.textContent='↑'; arrow.className='trend-arrow trend-rising';  lbl.textContent='Rising'; }
+  else if (delta < -1) { arrow.textContent='↓'; arrow.className='trend-arrow trend-falling'; lbl.textContent='Falling'; }
+  else                 { arrow.textContent='→'; arrow.className='trend-arrow trend-steady';  lbl.textContent='Steady'; }
+}
+
+function drawBaroChart() {
+  const canvas = document.getElementById('baro-chart');
+  if (!canvas || baroHistory.length < 2) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth  || 200;
+  const H = canvas.offsetHeight || 60;
+  canvas.width  = W;
+  canvas.height = H;
+  ctx.clearRect(0, 0, W, H);
+
+  const vals = baroHistory.map(b => b.p);
+  const min  = Math.min(...vals) - 2;
+  const max  = Math.max(...vals) + 2;
+  const xStep = W / (baroHistory.length - 1);
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#e8940a';
+  ctx.lineWidth   = 1.5;
+  baroHistory.forEach((b, i) => {
+    const x = i * xStep;
+    const y = H - ((b.p - min) / (max - min)) * H;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill under line
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  ctx.fillStyle = 'rgba(232,148,10,0.08)';
+  ctx.fill();
+}
+
+// ── FORECAST STRIP ────────────────────────────────────────
+// Placeholder — in production populated from GRIB data
+function buildForecastStrip() {
+  const strip = document.getElementById('wx-strip');
+  const now   = Date.now();
+  const slots = Array.from({length: 8}, (_, i) => {
+    const t    = new Date(now + i * 3 * 3600000);
+    const ts   = t.toUTCString().slice(17,22) + 'z';
+    // Placeholder values — replace with real GRIB interpolation
+    const wind = 12 + Math.round(Math.sin(i * 0.8) * 5);
+    const wave = (0.8 + Math.sin(i * 0.5) * 0.4).toFixed(1);
+    return `<div class="wx-strip-cell">
+      <span class="wsc-time">${ts}</span>
+      <span class="wsc-wind">${wind}kn</span>
+      <span class="wsc-wave">${wave}m</span>
+    </div>`;
+  });
+  strip.innerHTML = slots.join('');
+}
+
+// ── PASSAGE TAB ───────────────────────────────────────────
+function updatePassageTab() {
+  const p   = SBSData.passage;
+  const hasP = p.active && p.waypoints.length > 0;
+  const wp  = p.waypoints[p.nextWPIndex];
+
+  document.getElementById('nw-no-passage').style.display = hasP ? 'none' : '';
+  const nwc = document.getElementById('nw-content');
+  nwc.style.display = hasP ? 'flex' : 'none';
+
+  if (hasP && wp) {
+    setText('nw-name',  wp.name || `WP ${p.nextWPIndex + 1}`);
+    setText('nw-brg',   wp.bearing   != null ? SBSData.fmtBearing(wp.bearing)   : '---');
+    setText('nw-dist',  wp.distance  != null ? SBSData.fmt(wp.distance, 1)       : '---');
+
+    // VMG
+    const vmg = calcVMG(wp.bearing);
+    setText('nw-vmg', SBSData.fmt(vmg, 1));
+
+    // ETA to next WP
+    const eta = wp.distance != null && vmg > 0.1
+      ? new Date(Date.now() + (wp.distance / vmg) * 3600000) : null;
+    setText('nw-eta', eta ? eta.toUTCString().slice(17,22) : '---');
+
+    // Progress
+    const total = p.waypoints.length;
+    const pct   = Math.round((p.nextWPIndex / Math.max(total - 1, 1)) * 100);
+    document.getElementById('prog-fill').style.width = pct + '%';
+    setText('prog-pct',  pct + '%');
+    setText('prog-from', p.waypoints[0]?.name?.split(' ')[0] || '—');
+    setText('prog-to',   p.waypoints[total-1]?.name?.split(' ')[0] || '—');
+
+    // Performance vs plan
+    setText('perf-sog',  SBSData.fmt(SBSData.sog, 1));
+    setText('perf-plan', SBSData.fmt(p.planSOG, 1));
+
+    const perfEl = document.getElementById('perf-delta');
+    if (SBSData.sog != null && p.planSOG) {
+      const diff = SBSData.sog - p.planSOG;
+      perfEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1) + ' kn vs plan';
+      perfEl.style.color = diff >= -0.5 ? 'var(--c-green)' : 'var(--c-red)';
+    }
+
+    // Revised ETA to destination
+    const remDist = remainingDistance();
+    const revETA = SBSData.sog > 0.3 && remDist > 0
+      ? new Date(Date.now() + (remDist / SBSData.sog) * 3600000) : null;
+    setText('perf-eta', revETA
+      ? revETA.toUTCString().slice(5,11) + ' ' + revETA.toUTCString().slice(17,22) : '---');
+  }
+
+  // Waypoint list
+  renderHelmWPList();
+
+  // Alerts
+  renderHelmAlerts();
+}
+
+function calcVMG(bearing) {
+  if (SBSData.sog == null || bearing == null || SBSData.cog == null) return 0;
+  const angle = (bearing - SBSData.cog) * Math.PI / 180;
+  return Math.max(0, SBSData.sog * Math.cos(angle));
+}
+
+function remainingDistance() {
+  const p = SBSData.passage;
+  if (!p.waypoints.length) return 0;
+  let d = 0;
+  for (let i = p.nextWPIndex + 1; i < p.waypoints.length; i++) {
+    const a = p.waypoints[i-1], b = p.waypoints[i];
+    if (a.lat && b.lat) d += haversine(a.lat, a.lon, b.lat, b.lon);
+  }
+  return d;
+}
+
+function haversine(la1, lo1, la2, lo2) {
+  const R = 3440.065, dLa=(la2-la1)*Math.PI/180, dLo=(lo2-lo1)*Math.PI/180;
+  const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function renderHelmWPList() {
+  const p   = SBSData.passage;
+  const el  = document.getElementById('helm-wp-list');
+  if (!p.active || !p.waypoints.length) {
+    el.innerHTML = `<div style="color:var(--t-muted);font-family:var(--font-display);
+      font-size:var(--s-xs);letter-spacing:0.06em;padding:var(--sp-sm)">No waypoints</div>`;
+    return;
+  }
+  el.innerHTML = p.waypoints.map((wp, i) => {
+    const cls = i < p.nextWPIndex ? 'wp-done' : i === p.nextWPIndex ? 'wp-next' : '';
+    return `<div class="wp-row ${cls}">
+      <span class="wp-idx">${i+1}</span>
+      <span class="wp-n">${wp.name || 'WP '+(i+1)}</span>
+      ${wp.distance != null ? `<span class="wp-d">${wp.distance.toFixed(1)}nm</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderHelmAlerts() {
+  const alerts = SBSData.passage.alerts;
+  const el     = document.getElementById('helm-alerts');
+  const replan = document.getElementById('replan-btn');
+
+  // Update badge on passage tab
+  const tab = document.getElementById('htab-passage');
+  let badge = tab.querySelector('.badge');
+  const urgentCount = alerts.filter(a => a.level === 'urgent').length;
+  const totalCount  = alerts.length;
+  if (totalCount > 0) {
+    if (!badge) { badge = document.createElement('span'); badge.className='badge'; tab.appendChild(badge); }
+    badge.textContent = totalCount;
+  } else if (badge) badge.remove();
+
+  if (!alerts.length) {
+    el.innerHTML = `<div style="color:var(--c-green);font-family:var(--font-display);
+      font-size:var(--s-xs);letter-spacing:0.06em;padding:var(--sp-sm)">All clear</div>`;
+    replan.style.display = 'none';
+    return;
+  }
+
+  el.innerHTML = alerts.map(a => `
+    <div class="alert-row ${a.level}">
+      <span>${a.message}</span>
+      <button class="ar-dismiss" onclick="SBSData.dismissAlert('${a.id}')">✕</button>
+    </div>`).join('');
+
+  replan.style.display = alerts.length > 0 ? '' : 'none';
+}
+
+function helmAdvanceWP() {
+  SBSData.advanceWaypoint();
+  updatePassageTab();
+}
+
+// ── MOB ───────────────────────────────────────────────────
+let mobActive   = false;
+let mobStart    = null;
+let mobInterval = null;
+let mobPosition = null;
+
+function mobActivate() {
+  if (mobActive) return;
+  mobActive   = true;
+  mobStart    = Date.now();
+  mobPosition = SBSData.position;
+
+  document.getElementById('mob-overlay').classList.add('active');
+
+  const coordEl = document.getElementById('mob-coord');
+  if (mobPosition) {
+    coordEl.innerHTML = `Position at activation:<br>${SBSData.fmtCoord(mobPosition.latitude, mobPosition.longitude)}`;
+  }
+
+  // Reset checklist
+  document.querySelectorAll('#mob-checklist li').forEach(li => li.classList.remove('checked'));
+
+  mobInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - mobStart) / 1000);
+    const m = Math.floor(elapsed / 60).toString().padStart(2,'0');
+    const s = (elapsed % 60).toString().padStart(2,'0');
+    document.getElementById('mob-timer').textContent = `${m}:${s}`;
+  }, 1000);
+
+  // Raise urgent alert
+  SBSData.raiseBilgeAlert && SBSData._state &&
+    (() => {
+      SBSData._state.passage.alerts.push({
+        id: 'mob', level: 'urgent',
+        message: '⚠ MAN OVERBOARD — recovery in progress',
+        time: Date.now()
+      });
+    })();
+}
+
+function mobClear() {
+  clearMOB();
+  alert('MOB RECOVERED — log the incident in the passage log.');
+}
+
+function mobFalse() {
+  if (confirm('Confirm false alarm?')) clearMOB();
+}
+
+function mobMayday() {
+  alert('MAYDAY PROCEDURE:\n\nVHF Ch16: "MAYDAY MAYDAY MAYDAY"\nVessel name × 3\nPosition: ' +
+    (mobPosition ? SBSData.fmtCoord(mobPosition.latitude, mobPosition.longitude) : 'see chartplotter') +
+    '\nNature: Man Overboard\nPersons: state number\n"OVER"');
+}
+
+function clearMOB() {
+  mobActive = false;
+  clearInterval(mobInterval);
+  document.getElementById('mob-overlay').classList.remove('active');
+  SBSData.dismissAlert('mob');
+}
+
+// ── INIT ──────────────────────────────────────────────────
+buildForecastStrip();
+updatePassageTab();
+</script>
+</body>
+</html>

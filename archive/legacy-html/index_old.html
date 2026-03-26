@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SV-Esperanza</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Teko:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #080c12;
+  --bg2:     #0d1520;
+  --bg3:     #111e2e;
+  --border:  #1a2d42;
+  --blue:    #0e7fd4;
+  --teal:    #0bbfb0;
+  --amber:   #e07b2a;
+  --red:     #c0392b;
+  --green:   #27ae60;
+  --text:    #c8d8e8;
+  --dim:     #486070;
+  --bright:  #e8f2fa;
+  --mono:    'Share Tech Mono', monospace;
+  --disp:    'Teko', sans-serif;
+  --sans:    'Inter', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding-bottom: 56px;
+}
+
+/* background atmosphere */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 100% 40% at 50% 0%, rgba(14,127,212,.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 30% at 100% 100%, rgba(11,191,176,.04) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+.wrap { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; padding: 0 12px 24px; }
+
+/* ── HEADER ─────────────────────────────────────────────── */
+header {
+  padding: 20px 0 18px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vessel {
+  font-family: var(--disp);
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--bright);
+  line-height: 1;
+}
+.vessel em { color: var(--blue); font-style: normal; }
+
+.header-right {
+  text-align: right;
+  font-family: var(--mono);
+  line-height: 1.8;
+}
+#clock { font-size: 22px; color: var(--teal); letter-spacing: 2px; }
+#coords { font-size: 11px; color: var(--teal); margin-top: 2px; }
+#dateline { font-size: 10px; color: var(--dim); }
+
+/* ── SECTION LABELS ─────────────────────────────────────── */
+.sec-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 10px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-label::before {
+  content: '';
+  width: 2px; height: 12px;
+  background: var(--blue);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+section { margin-bottom: 24px; }
+
+/* ── INSTRUMENTS ────────────────────────────────────────── */
+.inst-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.inst {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+}
+.inst::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--blue);
+  opacity: .25;
+  transition: opacity .3s, background .3s;
+}
+.inst.live::after { opacity: 1; background: var(--teal); }
+
+.inst-lbl {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 4px;
+}
+.inst-val {
+  font-family: var(--mono);
+  font-size: 24px;
+  color: var(--bright);
+  line-height: 1;
+}
+.inst-unit {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--dim);
+  margin-top: 3px;
+}
+
+/* ── TEMPERATURES ───────────────────────────────────────── */
+.temp-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+@media (min-width: 500px) {
+  .temp-row { grid-template-columns: repeat(4, 1fr); }
+}
+
+.temp-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: border-color .3s;
+}
+.temp-card.hot { border-color: var(--amber); }
+
+.temp-loc {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 6px;
+}
+.temp-c { font-family: var(--mono); font-size: 26px; color: var(--bright); line-height: 1; }
+.temp-f { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 3px; }
+
+/* ── RELAY BUTTONS — mobile first ──────────────────────── */
+.relay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (min-width: 600px) {
+  .relay-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.relay-btn {
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+  min-height: 100px;
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.relay-btn:active { transform: scale(0.96); }
+.relay-btn:hover:not(.off-disabled) { border-color: var(--blue); }
+
+.relay-btn.on {
+  border-color: var(--teal);
+  background: rgba(11,191,176,.08);
+}
+
+.relay-btn.off-disabled {
+  opacity: .28;
+  cursor: not-allowed;
+}
+
+.relay-icon { font-size: 26px; line-height: 1; }
+
+.relay-label {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bright);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.relay-state {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.relay-btn.on .relay-state  { color: var(--teal); }
+.relay-btn:not(.on) .relay-state { color: var(--dim); }
+
+/* on/off indicator dot */
+.relay-btn::before {
+  content: '';
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: background .2s, box-shadow .2s;
+}
+.relay-btn.on::before {
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal);
+}
+
+/* ── LINKS ──────────────────────────────────────────────── */
+.links-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (min-width: 500px) {
+  .links-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.link-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 12px;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: border-color .2s, background .2s;
+  min-height: 64px;
+}
+.link-btn:hover { border-color: var(--blue); background: rgba(14,127,212,.06); }
+.link-icon { font-size: 20px; flex-shrink: 0; }
+.link-lbl { font-size: 12px; font-weight: 600; color: var(--bright); line-height: 1.2; }
+.link-sub { font-size: 10px; color: var(--dim); margin-top: 2px; }
+
+/* ── SYSTEM BUTTONS ─────────────────────────────────────── */
+.sys-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (min-width: 500px) {
+  .sys-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.sys-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--sans);
+  transition: border-color .2s, background .2s;
+  width: 100%;
+  text-align: left;
+  min-height: 64px;
+}
+.sys-btn:hover   { border-color: var(--blue); background: rgba(14,127,212,.06); }
+.sys-btn.active  { border-color: var(--teal); background: rgba(11,191,176,.06); }
+.sys-btn.amber:hover { border-color: var(--amber); background: rgba(224,123,42,.06); }
+.sys-btn.red:hover   { border-color: var(--red);   background: rgba(192,57,43,.06); }
+
+.sys-ico { font-size: 20px; flex-shrink: 0; }
+.sys-lbl { font-size: 12px; font-weight: 600; color: var(--bright); }
+.sys-sub { font-size: 10px; color: var(--dim); margin-top: 2px; font-family: var(--mono); }
+
+/* ── STATUS BAR ─────────────────────────────────────────── */
+.statusbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 44px;
+  background: rgba(8,12,18,.96);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 18px;
+  font-family: var(--mono);
+  font-size: 9px;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  overflow-x: auto;
+}
+
+.s-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+.dot.ok   { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.dot.warn { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
+.dot.err  { background: var(--red);   box-shadow: 0 0 5px var(--red); }
+.s-lbl { color: var(--dim); }
+.s-val { color: var(--text); }
+.s-right { margin-left: auto; color: var(--dim); }
+
+/* ── TOAST ──────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 58px; left: 50%; transform: translateX(-50%) translateY(8px);
+  background: var(--bg3);
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--bright);
+  z-index: 300;
+  opacity: 0;
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="vessel"><em>SV</em>-Esperanza</div>
+    <div class="header-right">
+      <div id="clock">--:--:--</div>
+      <div id="coords">awaiting fix...</div>
+      <div id="dateline">---</div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION INSTRUMENTS -->
+  <section>
+    <div class="sec-label">Navigation</div>
+    <div class="inst-row">
+      <div class="inst" id="i-sog">
+        <div class="inst-lbl">SOG</div>
+        <div class="inst-val" id="v-sog">--.-</div>
+        <div class="inst-unit">knots</div>
+      </div>
+      <div class="inst" id="i-stw">
+        <div class="inst-lbl">STW</div>
+        <div class="inst-val" id="v-stw">--.-</div>
+        <div class="inst-unit">knots</div>
+      </div>
+      <div class="inst" id="i-cog">
+        <div class="inst-lbl">COG</div>
+        <div class="inst-val" id="v-cog">---</div>
+        <div class="inst-unit">° true</div>
+      </div>
+      <div class="inst" id="i-hdg">
+        <div class="inst-lbl">Heading</div>
+        <div class="inst-val" id="v-hdg">---</div>
+        <div class="inst-unit">° mag</div>
+      </div>
+      <div class="inst" id="i-baro">
+        <div class="inst-lbl">Baro</div>
+        <div class="inst-val" id="v-baro">----</div>
+        <div class="inst-unit">hPa</div>
+      </div>
+      <div class="inst" id="i-wind">
+        <div class="inst-lbl">Wind App</div>
+        <div class="inst-val" id="v-wind">--.-</div>
+        <div class="inst-unit">knots</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEMPERATURES -->
+  <section>
+    <div class="sec-label">Temperatures</div>
+    <div class="temp-row">
+      <div class="temp-card" id="tc-cabin">
+        <div class="temp-loc">Cabin</div>
+        <div class="temp-c" id="c-cabin">--.-°</div>
+        <div class="temp-f" id="f-cabin">-- °F</div>
+      </div>
+      <div class="temp-card" id="tc-engine">
+        <div class="temp-loc">Engine</div>
+        <div class="temp-c" id="c-engine">--.-°</div>
+        <div class="temp-f" id="f-engine">-- °F</div>
+      </div>
+      <div class="temp-card" id="tc-exhaust">
+        <div class="temp-loc">Exhaust</div>
+        <div class="temp-c" id="c-exhaust">--.-°</div>
+        <div class="temp-f" id="f-exhaust">-- °F</div>
+      </div>
+      <div class="temp-card" id="tc-water">
+        <div class="temp-loc">Water</div>
+        <div class="temp-c" id="c-water">--.-°</div>
+        <div class="temp-f" id="f-water">-- °F</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ELECTRICAL -->
+  <section>
+    <div class="sec-label">Electrical</div>
+    <div class="relay-grid" id="relay-grid"></div>
+  </section>
+
+  <!-- RESOURCES -->
+  <section>
+    <div class="sec-label">Resources</div>
+    <div class="links-grid">
+      <a class="link-btn" href="http://192.168.8.201:3000" target="_blank">
+        <div class="link-icon">⚓</div>
+        <div><div class="link-lbl">SignalK</div><div class="link-sub">Instruments</div></div>
+      </a>
+      <a class="link-btn" href="http://opencpn.sailboatserver.local" target="_blank">
+        <div class="link-icon">🗺️</div>
+        <div><div class="link-lbl">OpenCPN</div><div class="link-sub">Charts</div></div>
+      </a>
+      <a class="link-btn" href="http://192.168.8.201:8080" target="_blank">
+        <div class="link-icon">📚</div>
+        <div><div class="link-lbl">Library</div><div class="link-sub">Kiwix offline</div></div>
+      </a>
+      <a class="link-btn" href="/docs/books/" target="_blank">
+        <div class="link-icon">📖</div>
+        <div><div class="link-lbl">Books</div><div class="link-sub">PDFs & manuals</div></div>
+      </a>
+      <a class="link-btn" href="/docs/engine/" target="_blank">
+        <div class="link-icon">🔧</div>
+        <div><div class="link-lbl">Engine</div><div class="link-sub">Universal M18</div></div>
+      </a>
+      <a class="link-btn" href="/docs/audio/be-the-captain/" target="_blank">
+        <div class="link-icon">🎧</div>
+        <div><div class="link-lbl">Audiobooks</div><div class="link-sub">Be the Captain</div></div>
+      </a>
+      <a class="link-btn" href="/docs/sewing/" target="_blank">
+        <div class="link-icon">🧵</div>
+        <div><div class="link-lbl">Canvas</div><div class="link-sub">Sailrite guides</div></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- SYSTEM -->
+  <section>
+    <div class="sec-label">System</div>
+    <div class="sys-grid">
+      <button class="sys-btn" id="btn-hotspot" onclick="toggleHotspot()">
+        <div class="sys-ico">📡</div>
+        <div>
+          <div class="sys-lbl">Hotspot</div>
+          <div class="sys-sub" id="hotspot-sub">checking...</div>
+        </div>
+      </button>
+      <button class="sys-btn" onclick="window.open('http://192.168.8.1','_blank')">
+        <div class="sys-ico">🌐</div>
+        <div>
+          <div class="sys-lbl">Router</div>
+          <div class="sys-sub">192.168.8.1</div>
+        </div>
+      </button>
+      <button class="sys-btn amber" onclick="confirmAction('reboot')">
+        <div class="sys-ico">🔄</div>
+        <div>
+          <div class="sys-lbl">Reboot</div>
+          <div class="sys-sub">sailboatserver</div>
+        </div>
+      </button>
+      <button class="sys-btn red" onclick="confirmAction('shutdown')">
+        <div class="sys-ico">⏻</div>
+        <div>
+          <div class="sys-lbl">Shutdown</div>
+          <div class="sys-sub">power off</div>
+        </div>
+      </button>
+    </div>
+  </section>
+
+</div><!-- /wrap -->
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="s-item"><div class="dot" id="d-relay"></div><span class="s-lbl">Relay</span><span class="s-val" id="sb-relay">--</span></div>
+  <div class="s-item"><div class="dot" id="d-signalk"></div><span class="s-lbl">SK</span><span class="s-val" id="sb-sk">--</span></div>
+  <div class="s-item"><div class="dot" id="d-gps"></div><span class="s-lbl">GPS</span><span class="s-val" id="sb-gps">no fix</span></div>
+  <div class="s-item"><div class="dot" id="d-bilge"></div><span class="s-lbl">Bilge</span><span class="s-val" id="sb-bilge">--</span></div>
+  <div class="s-right" id="sb-time">--</div>
+</div>
+
+<script>
+// ── CONFIGURATION ────────────────────────────────────────────
+const RELAY   = 'http://192.168.8.201:5000';
+const SK      = 'http://192.168.8.201:3000/signalk/v1/api/vessels/self';
+
+const CHANNELS = [
+  { ch:1, name:'Cabin Lights',  icon:'💡' },
+  { ch:2, name:'Nav Lights',    icon:'🔦' },
+  { ch:3, name:'Anchor Light',  icon:'⚓' },
+  { ch:4, name:'Bilge Pump',    icon:'💧' },
+  { ch:5, name:'Unassigned',    icon:'—',  disabled:true },
+  { ch:6, name:'Water Pump',    icon:'🚿', disabled:true },
+  { ch:7, name:'Ventilation',   icon:'🌀' },
+  { ch:8, name:'Starlink',      icon:'🛰️' },
+];
+
+const TEMP_WARN = { engine:80, exhaust:90, cabin:45, water:null };
+
+let hotspotOn = false;
+
+// ── CLOCK ────────────────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.toLocaleTimeString('en-US',{hour12:false});
+  document.getElementById('dateline').textContent =
+    n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+setInterval(tick, 1000); tick();
+
+// ── TOAST ────────────────────────────────────────────────────
+let tt;
+function toast(msg, ms=2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(tt);
+  tt = setTimeout(()=>el.classList.remove('show'), ms);
+}
+
+// ── STATUS DOTS ──────────────────────────────────────────────
+function dot(id, state) { document.getElementById(id).className = 'dot ' + state; }
+
+// ── BUILD RELAY BUTTONS ──────────────────────────────────────
+function buildRelays() {
+  const grid = document.getElementById('relay-grid');
+  CHANNELS.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'relay-btn' + (r.disabled ? ' off-disabled' : '');
+    btn.id = `rb-${r.ch}`;
+    btn.disabled = !!r.disabled;
+    btn.innerHTML = `
+      <div class="relay-icon">${r.icon}</div>
+      <div class="relay-label">${r.name}</div>
+      <div class="relay-state" id="rs-${r.ch}">off</div>`;
+    if (!r.disabled) {
+      btn.addEventListener('click', () => toggleRelay(r.ch));
+    }
+    grid.appendChild(btn);
+  });
+}
+
+function setRelayUI(ch, on) {
+  const btn = document.getElementById(`rb-${ch}`);
+  const lbl = document.getElementById(`rs-${ch}`);
+  if (!btn) return;
+  btn.classList.toggle('on', on);
+  if (lbl) lbl.textContent = on ? 'on' : 'off';
+}
+
+async function toggleRelay(ch) {
+  const r = CHANNELS.find(r=>r.ch===ch);
+  const btn = document.getElementById(`rb-${ch}`);
+  const currently = btn.classList.contains('on');
+  try {
+    const res = await fetch(`${RELAY}/relay/${ch}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({state: !currently})
+    });
+    const d = await res.json();
+    setRelayUI(ch, d.state);
+    toast(`${r.name}: ${d.state ? 'ON ●' : 'OFF ○'}`);
+  } catch {
+    toast('Relay server offline');
+  }
+}
+
+async function pollRelays() {
+  try {
+    const res = await fetch(`${RELAY}/relays`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    Object.entries(data).forEach(([ch,info]) => setRelayUI(parseInt(ch), info.state));
+    dot('d-relay','ok');
+    document.getElementById('sb-relay').textContent = 'online';
+  } catch {
+    dot('d-relay','err');
+    document.getElementById('sb-relay').textContent = 'offline';
+  }
+}
+
+// ── TEMPERATURES ─────────────────────────────────────────────
+async function pollTemps() {
+  try {
+    const res = await fetch(`${RELAY}/temperatures`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    ['cabin','engine','exhaust','water'].forEach(loc => {
+      const d = data[loc];
+      if (!d || d.celsius === null) return;
+      document.getElementById(`c-${loc}`).textContent = d.celsius.toFixed(1) + '°';
+      document.getElementById(`f-${loc}`).textContent = d.fahrenheit.toFixed(1) + ' °F';
+      const thr = TEMP_WARN[loc];
+      document.getElementById(`tc-${loc}`)?.classList.toggle('hot', !!(thr && d.celsius > thr));
+    });
+  } catch {}
+}
+
+// ── SIGNALK ──────────────────────────────────────────────────
+function fmtCoord(deg, dirs) {
+  const d = Math.abs(deg), min = (d%1)*60;
+  return `${Math.floor(d)}°${min.toFixed(3)}'${deg>=0?dirs[0]:dirs[1]}`;
+}
+
+function setInst(vid, val, iid) {
+  document.getElementById(vid).textContent = val;
+  if (iid) document.getElementById(iid)?.classList.add('live');
+}
+
+async function pollSK() {
+  try {
+    const [nr, er] = await Promise.all([
+      fetch(`${SK}/navigation`),
+      fetch(`${SK}/environment`)
+    ]);
+    if (nr.ok) {
+      const nav = await nr.json();
+      const sog = nav.speedOverGround?.value;
+      const stw = nav.speedThroughWater?.value;
+      const cog = nav.courseOverGroundTrue?.value;
+      const hdg = nav.headingMagnetic?.value;
+      const pos = nav.position?.value;
+      if (sog!=null) setInst('v-sog',(sog*1.94384).toFixed(1),'i-sog');
+      if (stw!=null) setInst('v-stw',(stw*1.94384).toFixed(1),'i-stw');
+      if (cog!=null) setInst('v-cog',Math.round(cog*180/Math.PI),'i-cog');
+      if (hdg!=null) setInst('v-hdg',Math.round(hdg*180/Math.PI),'i-hdg');
+      if (pos?.latitude!=null) {
+        document.getElementById('coords').textContent =
+          `${fmtCoord(pos.latitude,'NS')}  ${fmtCoord(pos.longitude,'EW')}`;
+        dot('d-gps','ok');
+        document.getElementById('sb-gps').textContent = 'fix';
+      }
+    }
+    if (er.ok) {
+      const env = await er.json();
+      const p = env.outside?.pressure?.value;
+      const w = env.wind?.speedApparent?.value;
+      if (p!=null) setInst('v-baro',Math.round(p/100),'i-baro');
+      if (w!=null) setInst('v-wind',(w*1.94384).toFixed(1),'i-wind');
+    }
+    dot('d-signalk','ok');
+    document.getElementById('sb-sk').textContent = 'online';
+  } catch {
+    dot('d-signalk','err');
+    document.getElementById('sb-sk').textContent = 'offline';
+  }
+}
+
+// ── HOTSPOT ──────────────────────────────────────────────────
+async function toggleHotspot() {
+  try {
+    const res = await fetch(`${RELAY}/hotspot/${hotspotOn?'off':'on'}`,{method:'POST'});
+    const d = await res.json();
+    hotspotOn = d.active;
+    const btn = document.getElementById('btn-hotspot');
+    btn.classList.toggle('active', hotspotOn);
+    document.getElementById('hotspot-sub').textContent =
+      hotspotOn ? 'active · 10.42.0.1' : 'off';
+    toast(`Hotspot ${hotspotOn?'ON':'OFF'}`);
+  } catch { toast('Relay server offline'); }
+}
+
+// ── SYSTEM ───────────────────────────────────────────────────
+async function confirmAction(action) {
+  if (!confirm(action==='reboot'?'Reboot the server?':'Shut down the server?')) return;
+  try {
+    await fetch(`${RELAY}/system/${action}`,{method:'POST'});
+    toast(action==='reboot'?'Rebooting...':'Shutting down...', 4000);
+  } catch { toast('Command sent'); }
+}
+
+// ── POLL LOOP ────────────────────────────────────────────────
+async function poll() {
+  await Promise.allSettled([pollRelays(), pollTemps(), pollSK()]);
+  dot('d-bilge','ok');
+  document.getElementById('sb-bilge').textContent = 'dry';
+  document.getElementById('sb-time').textContent =
+    new Date().toLocaleTimeString('en-US',{hour12:false});
+}
+
+buildRelays();
+poll();
+setInterval(poll, 5000);
+</script>
+</body>
+</html>
