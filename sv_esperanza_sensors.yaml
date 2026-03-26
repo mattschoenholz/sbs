@@ -74,14 +74,14 @@ substitutions:
   # ── NETWORK ────────────────────────────────────────────────
   # Static IP for this ESP32 on the SV-Esperanza network
   # Must be outside the DHCP range assigned by GL.iNet router
-  device_ip:                    "192.168.8.50"
-  gateway_ip:                   "192.168.8.1"
+  device_ip:                    "192.168.42.50"
+  gateway_ip:                   "192.168.42.1"
   subnet_mask:                  "255.255.255.0"
 
   # ── SIGNALK SERVER ─────────────────────────────────────────
   # Use IP address not hostname — more reliable for TCP
   # Update to Pi 5 actual IP after first boot
-  signalk_host:                 "192.168.8.201"
+  signalk_host:                 "192.168.42.201"
   signalk_port:                 "10110"
 
   # ── OTA UPDATE PASSWORD ────────────────────────────────────

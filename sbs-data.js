@@ -13,7 +13,7 @@
 const SBSData = (() => {
 
   // ── SIGNALK CONFIG ────────────────────────────────────────
-  const SK_HOST     = window.location.hostname || '192.168.8.201';
+  const SK_HOST     = window.location.hostname || '192.168.42.201';
   const SK_WS_PORT  = 3000;
   const SK_API_PORT = 3000;
   const RELAY_PORT  = 5000;

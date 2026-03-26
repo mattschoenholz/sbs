@@ -22,7 +22,7 @@ When prompted, **enter your Pi password**. After this, you won't need the passwo
 ping -c 2 sailboatserver.local
 ```
 
-You should see replies from 192.168.8.201.
+You should see replies from 192.168.42.201.
 
 ---
 

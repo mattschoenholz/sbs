@@ -7,9 +7,9 @@
 import subprocess
 import time
 
-ROUTER_IP = '192.168.8.1'       # Default GL.iNet IP — change if yours differs
+ROUTER_IP = '192.168.42.1'      # GL.iNet boat router IP
 ROUTER_USER = 'root'             # GL.iNet default SSH user
-ROUTER_IFACE = 'eth0'           # WAN-side interface on GL.iNet 300M (may be eth1 — verify with: ssh root@192.168.8.1 cat /proc/net/dev)
+ROUTER_IFACE = 'eth0'           # WAN-side interface on GL.iNet 300M (may be eth1 — verify with: ssh root@192.168.42.1 cat /proc/net/dev)
 
 # Daily data tracking — resets at midnight
 _daily_rx = 0

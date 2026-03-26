@@ -87,7 +87,7 @@ W1_SENSORS = {
 W1_BASE = "/sys/bus/w1/devices/{}/w1_slave"
 
 # ── GL.INET ROUTER ───────────────────────────────────────────
-ROUTER_IP   = "192.168.8.1"
+ROUTER_IP   = "192.168.42.1"
 ROUTER_USER = "root"
 ROUTER_KEY  = os.path.expanduser("~/.ssh/id_rsa_router")
 ROUTER_IFACE = "eth0"

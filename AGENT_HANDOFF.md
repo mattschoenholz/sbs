@@ -36,9 +36,9 @@ The project is developed on a Mac in Cursor IDE and deployed to the Pi via SSH/S
 
 ### Network Topology
 ```
-Raspberry Pi → GLiNet router (192.168.8.x) → ASUS home router → Internet
+Raspberry Pi → GLiNet router (192.168.42.x) → ASUS home router → Internet
 ```
-- GLiNet router admin: `http://192.168.8.1`
+- GLiNet router admin: `http://192.168.42.1`
 - Pi is accessible on the boat network at `http://sailboatserver.local`
 - Pi is accessible remotely via Tailscale at `http://100.109.248.77`
 

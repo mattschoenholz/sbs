@@ -158,11 +158,11 @@
 
 ### GL.iNet Router
 - **Model:** (pocket travel router)
-- **LAN:** `192.168.8.x`
-- **Admin:** `http://192.168.8.1`
+- **LAN:** `192.168.42.x`
+- **Admin:** `http://192.168.42.1`
 - **Purpose:** Boat WiFi access point; Ethernet uplink to Pi
 - **Relay server integration:** `relay_server.py` can reboot WiFi via GL.iNet API
-- **SSH credentials:** root@192.168.8.1 (stored in `relay_server.py` config)
+- **SSH credentials:** root@192.168.42.1 (stored in `relay_server.py` config)
 
 ### Starlink
 - **Control:** CH8 relay (power cycling)

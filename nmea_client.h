@@ -2,7 +2,7 @@
 #include "esphome.h"
 #include "lwip/sockets.h"
 
-const char* SIGNALK_HOST = "192.168.8.201";
+const char* SIGNALK_HOST = "192.168.42.201";
 const int   SIGNALK_PORT = 10110;
 
 static int nmea_sock = -1;

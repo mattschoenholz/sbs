@@ -4,7 +4,7 @@
    ============================================================ */
 
 const SBSChart = (() => {
-  const SK_HOST = window.location.hostname || '192.168.8.201';
+  const SK_HOST = window.location.hostname || '192.168.42.201';
   const SK_PORT = 3000;
   const SK_BASE = `http://${SK_HOST}:${SK_PORT}`;
   const CHARTS_API = `${SK_BASE}/signalk/v1/api/resources/charts`;
