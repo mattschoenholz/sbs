@@ -3,7 +3,9 @@
 
 # ESPHome secrets and build artifacts — NEVER commit
 secrets.yaml
+**/secrets.yaml
 .esphome/
+esphome/.esphome/
 
 # Python
 __pycache__/

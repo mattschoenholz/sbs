@@ -2,7 +2,7 @@
 
 **Vessel:** SV-Esperanza · **Owner:** Matt Schoenholz
 
-This file is the **primary onboarding doc** for AI agents (Claude Code, Cursor, etc.). Read it first, then dive into `AGENT_HANDOFF.md` and `docs/` as needed.
+This file is the **primary onboarding doc** for AI agents (Claude Code, Cursor, etc.). Read it first, then dive into `docs/AGENT_HANDOFF.md` and `docs/` as needed.
 
 ---
 
@@ -18,11 +18,13 @@ Develop on macOS; deploy with `scripts/deploy.sh`.
 
 | File | Use |
 |------|-----|
-| `AGENT_HANDOFF.md` | Full context: topology, paths on Pi, data flows, credentials table |
+| `docs/AGENT_HANDOFF.md` | Full context: topology, paths on Pi, data flows, credentials table |
 | `docs/ARCHITECTURE.md` | Diagrams, nginx/MapServer, frontend module graph |
 | `docs/CODEBASE.md` | Per-file guide (`portal.js`, `sbs-chart.js`, etc.) |
-| `docs/SERVICES.md` | APIs, hardware, Tailscale, external services |
+| `docs/SERVICES.md` | APIs, hardware, Tailscale, external services (incl. Ollama + Kiwix) |
 | `docs/PENDING_WORK.md` | Prioritized roadmap and known bugs |
+| `docs/LESSONS_LEARNED.md` | Hard-won rules — read before touching nginx, Ollama, deploy, or GPIO |
+| `docs/CHANGELOG.md` | Session-by-session change log |
 | `docs/GPIO_PIN_MAPPING.md` | Relay / ESP32 / 1-Wire pins |
 
 ---
@@ -41,7 +43,7 @@ nginx’s FastCGI cache key includes the full WMS request URI, especially the **
 - **Do** use **`warm.html`** in a **desktop browser** (Chrome on x86 Mac is the tested combo). Same engine as typical chart use → bbox matches Leaflet → cache hits.
 - Any new “warmer” must compute bbox with the **exact same formula as Leaflet** in JS in a browser, or reuse Leaflet itself.
 
-See `warm.html` (tile math) and `js/sbs-chart.js` (`L.tileLayer.wms` — Leaflet builds requests).
+See `web/warm.html` (tile math) and `web/js/sbs-chart.js` (`L.tileLayer.wms` — Leaflet builds requests).
 
 ### 2. Raspberry Pi 5 GPIO: use `lgpio`, not `RPi.GPIO`
 
@@ -61,9 +63,9 @@ PI_HOST=100.109.248.77 bash scripts/deploy.sh
 
 **Decision (March 2026):** Implement Helm **Chart** panel as a **Leaflet map** (local WMS + ESRI underlay, boat marker, AIS, passage line) — same data sources as the portal map.
 
-**Do not** drop `sbs-chart.js` onto `helm.html` without refactoring: **`helm.js`** and **`sbs-chart.js`** both update DOM ids **`chart-sog`**, **`chart-cog`**, **`chart-depth`**, **`chart-tws`**, **`chart-twd`**, **`chart-pos`** — but with **different formatting** (e.g. pills vs numeric-only). Naive reuse **overwrites** Helm overlay copy.
+**Do not** drop `sbs-chart.js` onto `helm.html` without refactoring: **`web/js/helm.js`** and **`web/js/sbs-chart.js`** both update DOM ids **`chart-sog`**, **`chart-cog`**, **`chart-depth`**, **`chart-tws`**, **`chart-twd`**, **`chart-pos`** — but with **different formatting** (e.g. pills vs numeric-only). Naive reuse **overwrites** Helm overlay copy.
 
-**Preferred approach:** small **`HelmChart`** (or equivalent) in **`helm.js`**: Leaflet + same WMS options as `sbs-chart.js`, init on **first open** of Chart tab, then **`map.invalidateSize()`** when the tab becomes visible. Optionally later: refactor `sbs-chart.js` to accept a prefix or container config.
+**Preferred approach:** small **`HelmChart`** (or equivalent) in **`web/js/helm.js`**: Leaflet + same WMS options as `sbs-chart.js`, init on **first open** of Chart tab, then **`map.invalidateSize()`** when the tab becomes visible. Optionally later: refactor `sbs-chart.js` to accept a prefix or container config.
 
 ### 5. OpenCPN vs SBS web chart
 
@@ -77,17 +79,41 @@ PI_HOST=100.109.248.77 bash scripts/deploy.sh
 ### 7. Secrets and keys
 
 - **OpenWeatherMap** key is user-entered in UI → `localStorage` (`sbs-owm-key`). Avoid hardcoding new keys in repo.
-- **Tailscale / SSH / router:** see `AGENT_HANDOFF.md` — treat as sensitive.
+- **Tailscale / SSH / router:** see `docs/AGENT_HANDOFF.md` — treat as sensitive.
 
 ---
 
+## Repo structure
+
+```
+web/          ← everything nginx serves (/var/www/html/)
+  *.html      ← portal pages (index, helm, chart, crew, library, warm)
+  css/        ← stylesheets
+  js/         ← frontend modules
+  vendor/     ← Leaflet, leaflet-velocity (bundled, no CDN)
+server/       ← Raspberry Pi Flask API
+  relay_server.py
+  requirements.txt
+esphome/      ← ESP32 firmware config
+  sv_esperanza_sensors.yaml
+  nmea_client.h
+  secrets.yaml  (gitignored)
+scripts/      ← deploy + maintenance scripts
+docs/         ← all documentation + agent specs
+  AGENT_HANDOFF.md
+  agents/     ← per-domain agent context files
+archive/      ← old snapshots (reference only)
+CLAUDE.md     ← this file (must stay at root)
+package.json  ← npm scripts (serve, deploy)
+```
+
 ## Frontend load order (portal)
 
-1. Leaflet (+ velocity if needed)  
-2. `js/sbs-data.js`  
-3. `js/sbs-components.js`  
-4. `js/sbs-chart.js`  
-5. `js/portal.js`  
+1. Leaflet (+ velocity if needed)
+2. `web/js/sbs-data.js`
+3. `web/js/sbs-components.js`
+4. `web/js/sbs-chart.js`
+5. `web/js/portal.js`
 
 **Helm** today: `sbs-data.js`, `sbs-components.js`, `helm.js` only — **no** Leaflet until Chart tab work adds it.
 
@@ -97,20 +123,22 @@ PI_HOST=100.109.248.77 bash scripts/deploy.sh
 
 | Area | Files |
 |------|--------|
-| Portal UI | `index.html`, `js/portal.js`, `css/sbs-theme.css` |
-| Helm UI | `helm.html`, `js/helm.js`, `css/helm.css` |
-| Data / SK | `js/sbs-data.js` |
-| Map | `js/sbs-chart.js`, `warm.html` |
-| Pi API | `relay_server.py`, `requirements.txt` |
+| Portal UI | `web/index.html`, `web/js/portal.js`, `web/css/sbs-theme.css` |
+| Helm UI | `web/helm.html`, `web/js/helm.js`, `web/css/helm.css` |
+| Library / AI | `web/library.html`, `web/js/library.js`, `web/css/library.css` |
+| Data / SK | `web/js/sbs-data.js` |
+| Map | `web/js/sbs-chart.js`, `web/warm.html` |
+| Pi API | `server/relay_server.py`, `server/requirements.txt` |
+| ESPHome | `esphome/sv_esperanza_sensors.yaml`, `esphome/nmea_client.h` |
 | Deploy | `scripts/deploy.sh` |
-| ENC pipeline (on Pi) | `scripts/setup_enc_wms.py` (mapfile + GPKG path in docs) |
+| ENC pipeline (on Pi) | `scripts/setup_enc_wms.py` |
 
 ---
 
 ## When changing the chart stack
 
-- Keep **`LOCAL_WMS_LAYERS`** in sync between **`warm.html`** and **`js/sbs-chart.js`** (comment in `warm.html` warns about this).
-- After changing MapServer layers or coverage, re-run **`warm.html`** for affected zoom/region if you rely on a warm cache.
+- Keep **`LOCAL_WMS_LAYERS`** in sync between **`web/warm.html`** and **`web/js/sbs-chart.js`** (comment in `warm.html` warns about this).
+- After changing MapServer layers or coverage, re-run **`web/warm.html`** for affected zoom/region if you rely on a warm cache.
 
 ---
 

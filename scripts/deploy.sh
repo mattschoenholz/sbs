@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # SailboatServer Deploy Script
-# Deploys portal, helm, and relay_server from Cursor to Pi
+# Deploys web/, server/, and esphome/ from Mac to Pi
 #
 # Prerequisites:
 #   1. Run once: ssh-copy-id -i ~/.ssh/id_ed25519.pub pi@sailboatserver.local
@@ -13,6 +13,7 @@ set -e
 PI_HOST="${PI_HOST:-sailboatserver.local}"
 PI_USER="${PI_USER:-pi}"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WEB_DIR="$PROJECT_DIR/web"
 REMOTE_WWW="/var/www/html"
 REMOTE_HOME="/home/pi"
 
@@ -39,18 +40,18 @@ echo "   SSH OK"
 echo ""
 echo "[2/5] Deploying portal and helm to $REMOTE_WWW..."
 ssh -i "$SSH_KEY" "$PI_USER@$PI_HOST" "sudo mkdir -p $REMOTE_WWW/css $REMOTE_WWW/js $REMOTE_WWW/vendor/leaflet/images"
-scp -i "$SSH_KEY" -q "$PROJECT_DIR/index.html" "$PROJECT_DIR/helm.html" "$PROJECT_DIR/crew.html" "$PROJECT_DIR/chart.html" "$PROJECT_DIR/library.html" "$PROJECT_DIR/favicon.svg" "$PROJECT_DIR/warm.html" "$PI_USER@$PI_HOST:/tmp/"
-scp -i "$SSH_KEY" -q "$PROJECT_DIR/css/sbs-theme.css" "$PROJECT_DIR/css/helm.css" "$PROJECT_DIR/css/crew.css" "$PROJECT_DIR/css/library.css" "$PI_USER@$PI_HOST:/tmp/"
-scp -i "$SSH_KEY" -q "$PROJECT_DIR/js/sbs-data.js" "$PROJECT_DIR/js/sbs-components.js" \
-      "$PROJECT_DIR/js/sbs-chart.js" "$PROJECT_DIR/js/portal.js" "$PROJECT_DIR/js/helm.js" "$PROJECT_DIR/js/crew.js" "$PROJECT_DIR/js/library.js" "$PI_USER@$PI_HOST:/tmp/"
-scp -i "$SSH_KEY" -q "$PROJECT_DIR/vendor/leaflet/leaflet.js" \
-      "$PROJECT_DIR/vendor/leaflet/leaflet.css" \
-      "$PROJECT_DIR/vendor/leaflet-velocity/leaflet-velocity.min.js" \
-      "$PROJECT_DIR/vendor/leaflet-velocity/leaflet-velocity.min.css" \
+scp -i "$SSH_KEY" -q "$WEB_DIR/index.html" "$WEB_DIR/helm.html" "$WEB_DIR/crew.html" "$WEB_DIR/chart.html" "$WEB_DIR/library.html" "$WEB_DIR/favicon.svg" "$WEB_DIR/warm.html" "$PI_USER@$PI_HOST:/tmp/"
+scp -i "$SSH_KEY" -q "$WEB_DIR/css/sbs-theme.css" "$WEB_DIR/css/helm.css" "$WEB_DIR/css/crew.css" "$WEB_DIR/css/library.css" "$PI_USER@$PI_HOST:/tmp/"
+scp -i "$SSH_KEY" -q "$WEB_DIR/js/sbs-data.js" "$WEB_DIR/js/sbs-components.js" \
+      "$WEB_DIR/js/sbs-chart.js" "$WEB_DIR/js/portal.js" "$WEB_DIR/js/helm.js" "$WEB_DIR/js/crew.js" "$WEB_DIR/js/library.js" "$PI_USER@$PI_HOST:/tmp/"
+scp -i "$SSH_KEY" -q "$WEB_DIR/vendor/leaflet/leaflet.js" \
+      "$WEB_DIR/vendor/leaflet/leaflet.css" \
+      "$WEB_DIR/vendor/leaflet-velocity/leaflet-velocity.min.js" \
+      "$WEB_DIR/vendor/leaflet-velocity/leaflet-velocity.min.css" \
       "$PI_USER@$PI_HOST:/tmp/"
-scp -i "$SSH_KEY" -q "$PROJECT_DIR/vendor/leaflet/images/marker-icon.png" \
-      "$PROJECT_DIR/vendor/leaflet/images/marker-icon-2x.png" \
-      "$PROJECT_DIR/vendor/leaflet/images/marker-shadow.png" "$PI_USER@$PI_HOST:/tmp/"
+scp -i "$SSH_KEY" -q "$WEB_DIR/vendor/leaflet/images/marker-icon.png" \
+      "$WEB_DIR/vendor/leaflet/images/marker-icon-2x.png" \
+      "$WEB_DIR/vendor/leaflet/images/marker-shadow.png" "$PI_USER@$PI_HOST:/tmp/"
 V=$(date -u +%Y%m%d%H%M%S)
 ssh -i "$SSH_KEY" "$PI_USER@$PI_HOST" \
   "sudo cp /tmp/index.html /tmp/helm.html /tmp/crew.html /tmp/chart.html /tmp/library.html /tmp/favicon.svg /tmp/warm.html $REMOTE_WWW/ && \
@@ -72,10 +73,10 @@ echo "   Web files deployed (cache version: $V)"
 # Deploy relay_server — only restart service if file changed (restart causes GPIO float → relays glitch)
 echo ""
 echo "[3/5] Deploying relay_server.py..."
-LOCAL_HASH=$(md5 -q "$PROJECT_DIR/relay_server.py" 2>/dev/null || md5sum "$PROJECT_DIR/relay_server.py" | cut -d' ' -f1)
+LOCAL_HASH=$(md5 -q "$PROJECT_DIR/server/relay_server.py" 2>/dev/null || md5sum "$PROJECT_DIR/server/relay_server.py" | cut -d' ' -f1)
 REMOTE_HASH=$(ssh -i "$SSH_KEY" "$PI_USER@$PI_HOST" "md5sum $REMOTE_HOME/relay_server.py 2>/dev/null | cut -d' ' -f1" || echo "none")
 if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
-  scp -i "$SSH_KEY" -q "$PROJECT_DIR/relay_server.py" "$PI_USER@$PI_HOST:$REMOTE_HOME/relay_server.py"
+  scp -i "$SSH_KEY" -q "$PROJECT_DIR/server/relay_server.py" "$PI_USER@$PI_HOST:$REMOTE_HOME/relay_server.py"
   echo "   relay_server.py deployed (changed — restarting service)"
   echo ""
   echo "[4/5] Installing dependencies and restarting relay service..."
@@ -98,9 +99,9 @@ echo "   setup_enc_wms.py deployed → ~/setup_enc_wms.py"
 echo ""
 echo "[4c/5] Syncing ESPHome config to Pi ~/esphome/..."
 ssh -i "$SSH_KEY" "$PI_USER@$PI_HOST" "mkdir -p $REMOTE_HOME/esphome"
-scp -i "$SSH_KEY" -q "$PROJECT_DIR/sv_esperanza_sensors.yaml" "$PROJECT_DIR/nmea_client.h" "$PI_USER@$PI_HOST:$REMOTE_HOME/esphome/"
-if [ -f "$PROJECT_DIR/secrets.yaml" ]; then
-  scp -i "$SSH_KEY" -q "$PROJECT_DIR/secrets.yaml" "$PI_USER@$PI_HOST:$REMOTE_HOME/esphome/"
+scp -i "$SSH_KEY" -q "$PROJECT_DIR/esphome/sv_esperanza_sensors.yaml" "$PROJECT_DIR/esphome/nmea_client.h" "$PI_USER@$PI_HOST:$REMOTE_HOME/esphome/"
+if [ -f "$PROJECT_DIR/esphome/secrets.yaml" ]; then
+  scp -i "$SSH_KEY" -q "$PROJECT_DIR/esphome/secrets.yaml" "$PI_USER@$PI_HOST:$REMOTE_HOME/esphome/"
 fi
 echo "   ESPHome config synced → ~/esphome/"
 echo "   OTA flash: ssh pi@$PI_HOST 'cd ~/esphome && esphome upload sv_esperanza_sensors.yaml'"
