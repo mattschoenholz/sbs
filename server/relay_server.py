@@ -27,6 +27,13 @@ import paramiko
 import requests as http_requests
 import math
 
+# RAG — lazy imports so relay starts even if numpy/pypdf not installed yet
+try:
+    import numpy as np
+    _NUMPY_OK = True
+except ImportError:
+    _NUMPY_OK = False
+
 app = Flask(__name__)
 CORS(app)  # Required for portal (port 80) to reach relay API (port 5000)
 
@@ -658,6 +665,153 @@ def wind_grid():
     except Exception as e:
         app.logger.error('wind-grid error: %s', e)
         return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
+# RAG — Retrieval Augmented Generation
+# Serves top-k relevant document chunks for the AI assistant.
+# Index is built by scripts/index_docs.py on the Pi.
+# ============================================================
+
+RAG_CHUNKS_FILE = os.path.expanduser("~/rag_chunks.json")
+RAG_EMBED_FILE  = os.path.expanduser("~/rag_embeddings.npy")
+OLLAMA_EMBED_URL = "http://127.0.0.1:11434/api/embeddings"
+RAG_EMBED_MODEL  = "nomic-embed-text"
+
+_rag_chunks = None       # list of {source, page, text}
+_rag_matrix = None       # numpy array (N, dims)
+_rag_lock   = threading.Lock()
+
+
+def _load_rag_index():
+    """Load index from disk into memory. Returns True if successful."""
+    global _rag_chunks, _rag_matrix
+    if not _NUMPY_OK:
+        return False
+    if not os.path.exists(RAG_CHUNKS_FILE) or not os.path.exists(RAG_EMBED_FILE):
+        return False
+    try:
+        with open(RAG_CHUNKS_FILE) as f:
+            data = json.load(f)
+        _rag_chunks = data["chunks"]
+        _rag_matrix = np.load(RAG_EMBED_FILE).astype(np.float32)
+        # Normalise rows for fast cosine similarity via dot product
+        norms = np.linalg.norm(_rag_matrix, axis=1, keepdims=True)
+        norms[norms == 0] = 1
+        _rag_matrix = _rag_matrix / norms
+        app.logger.info("RAG index loaded: %d chunks", len(_rag_chunks))
+        return True
+    except Exception as e:
+        app.logger.error("RAG index load failed: %s", e)
+        return False
+
+
+def _get_embedding(text: str) -> "np.ndarray | None":
+    """Embed text via Ollama nomic-embed-text."""
+    try:
+        r = http_requests.post(
+            OLLAMA_EMBED_URL,
+            json={"model": RAG_EMBED_MODEL, "prompt": text},
+            timeout=15
+        )
+        r.raise_for_status()
+        vec = np.array(r.json()["embedding"], dtype=np.float32)
+        norm = np.linalg.norm(vec)
+        return vec / norm if norm else vec
+    except Exception as e:
+        app.logger.error("RAG embed error: %s", e)
+        return None
+
+
+# Load index at startup (non-blocking — fails silently if not built yet)
+threading.Thread(target=_load_rag_index, daemon=True).start()
+
+
+@app.route('/api/rag', methods=['GET'])
+def rag_query():
+    """
+    Query the RAG index.
+    GET /api/rag?q=<query>&k=3
+    Returns top-k relevant document chunks with source and page.
+    """
+    global _rag_chunks, _rag_matrix
+
+    if not _NUMPY_OK:
+        return jsonify({"error": "numpy not installed"}), 503
+
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({"error": "q parameter required"}), 400
+
+    k = min(int(request.args.get('k', 3)), 8)
+
+    with _rag_lock:
+        if _rag_chunks is None:
+            if not _load_rag_index():
+                return jsonify({
+                    "error": "Index not built yet",
+                    "hint": "Run python3 ~/index_docs.py on the Pi"
+                }), 503
+
+        vec = _get_embedding(query)
+        if vec is None:
+            return jsonify({"error": "Embedding failed — is Ollama running?"}), 503
+
+        # Cosine similarity (rows already normalised → pure dot product)
+        scores = _rag_matrix @ vec
+        top_idx = np.argsort(scores)[::-1][:k]
+
+        results = []
+        for i in top_idx:
+            i = int(i)
+            chunk = _rag_chunks[i]
+            results.append({
+                "score":  float(scores[i]),
+                "source": chunk["source"],
+                "page":   chunk["page"],
+                "text":   chunk["text"],
+            })
+
+    return jsonify({"query": query, "results": results})
+
+
+@app.route('/api/rag/status', methods=['GET'])
+def rag_status():
+    """Return index status — chunk count, model, created timestamp."""
+    if not os.path.exists(RAG_CHUNKS_FILE):
+        return jsonify({"indexed": False, "hint": "Run python3 ~/index_docs.py"})
+    try:
+        with open(RAG_CHUNKS_FILE) as f:
+            meta = json.load(f)
+        return jsonify({
+            "indexed":  True,
+            "count":    meta.get("count", 0),
+            "model":    meta.get("model"),
+            "created":  meta.get("created"),
+            "loaded":   _rag_chunks is not None,
+        })
+    except Exception as e:
+        return jsonify({"indexed": False, "error": str(e)})
+
+
+@app.route('/api/rag/reindex', methods=['POST'])
+def rag_reindex():
+    """Trigger a background reindex of /var/www/html/docs/."""
+    global _rag_chunks, _rag_matrix
+    script = os.path.expanduser("~/index_docs.py")
+    if not os.path.exists(script):
+        return jsonify({"error": f"{script} not found — run deploy first"}), 404
+
+    def _run():
+        global _rag_chunks, _rag_matrix
+        subprocess.run(["python3", script], capture_output=True)
+        with _rag_lock:
+            _rag_chunks = None
+            _rag_matrix = None
+            _load_rag_index()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"message": "Reindexing started — takes 1-3 min. Check /api/rag/status."})
 
 
 # ============================================================

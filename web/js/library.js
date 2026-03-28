@@ -1,8 +1,9 @@
 /* Library page logic */
 
-const HOST = window.location.hostname;
-const KIWIX_URL = `http://${HOST}:8080`;
-const OLLAMA_URL = `/ollama`; // nginx-proxied from 127.0.0.1:11434
+const HOST       = window.location.hostname;
+const KIWIX_URL  = `http://${HOST}:8080`;
+const OLLAMA_URL = `/ollama`;                   // nginx-proxied from 127.0.0.1:11434
+const RELAY_URL  = `http://${HOST}:5000`;       // relay_server.py
 
 // ── KIWIX STATUS CHECK ─────────────────────────────────────────
 async function checkKiwix() {
@@ -162,6 +163,39 @@ function buildBoatContext() {
   return lines.join('\n');
 }
 
+// ── RAG — document retrieval ───────────────────────────────────
+let ragIndexed = false; // true once we've confirmed index exists
+
+async function checkRagStatus() {
+  try {
+    const res  = await fetch(`${RELAY_URL}/api/rag/status`, { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    ragIndexed = data.indexed && data.loaded !== false;
+    const badge = document.getElementById('rag-status-badge');
+    if (badge) {
+      badge.textContent = ragIndexed ? `${data.count} chunks` : 'NOT INDEXED';
+      badge.style.color = ragIndexed ? 'var(--c-green)' : 'var(--c-amber-hi)';
+    }
+  } catch { /* relay offline */ }
+}
+
+async function fetchRagContext(query) {
+  if (!ragIndexed) return '';
+  try {
+    const res  = await fetch(
+      `${RELAY_URL}/api/rag?q=${encodeURIComponent(query)}&k=3`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    if (!data.results?.length) return '';
+    const blocks = data.results.map(r =>
+      `[${r.source}, p.${r.page}]\n${r.text.trim()}`
+    );
+    return `=== REFERENCE (from onboard library) ===\n${blocks.join('\n\n---\n')}\n===\n\n`;
+  } catch { return ''; }
+}
+
 let aiReady   = false;
 let aiTyping  = false;
 const aiMessages = []; // { role, content }
@@ -250,11 +284,15 @@ async function sendMessage(userText) {
   document.getElementById('ai-input').disabled = true;
 
   const context = buildBoatContext();
-  const fullContent = context ? context + userText : userText;
-  aiMessages.push({ role: 'user', content: fullContent });
-  appendMessage('user', userText); // show clean text in UI, context is invisible to user
 
+  // Fetch RAG chunks in parallel with showing typing indicator
+  appendMessage('user', userText); // show clean text in UI
   const typingEl = showTypingIndicator();
+
+  const ragContext = await fetchRagContext(userText);
+
+  const fullContent = [ragContext, context, userText].filter(Boolean).join('');
+  aiMessages.push({ role: 'user', content: fullContent });
 
   try {
     const body = {
@@ -350,12 +388,47 @@ function initAIChat() {
   });
 }
 
+// ── RAG REINDEX BUTTON ─────────────────────────────────────────
+function initRagReindex() {
+  const btn = document.getElementById('rag-reindex-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = '↺ Indexing…';
+    try {
+      const res  = await fetch(`${RELAY_URL}/api/rag/reindex`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        btn.textContent = '↺ Running…';
+        // Poll status until loaded
+        const poll = setInterval(async () => {
+          await checkRagStatus();
+          if (ragIndexed) {
+            clearInterval(poll);
+            btn.textContent = '✓ Indexed';
+            btn.disabled = false;
+            setTimeout(() => { btn.textContent = '↺ INDEX DOCS'; }, 5000);
+          }
+        }, 8000);
+      } else {
+        btn.textContent = '✗ Error';
+        btn.disabled = false;
+      }
+    } catch {
+      btn.textContent = '✗ Offline';
+      btn.disabled = false;
+    }
+  });
+}
+
 // ── INIT ───────────────────────────────────────────────────────
 checkKiwix();
 wireKiwixCards();
 initKiwixRestart();
 loadAudio();
 checkAI();
+checkRagStatus();
 initAIChat();
+initRagReindex();
 
 if (typeof SBSNav !== 'undefined') SBSNav.init();
