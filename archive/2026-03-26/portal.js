@@ -18,29 +18,13 @@ const RELAY_BASE = `http://${window.location.hostname}:5000`;
 // ── TABS ──────────────────────────────────────────────────
 document.querySelectorAll('.sbs-tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    const id = tab.dataset.tab;
+    if (tab.dataset.tab === 'helm') { window.location.href = 'helm.html'; return; }
     document.querySelectorAll('.sbs-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.sbs-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
-    document.querySelector(`[data-panel="${id}"]`).classList.add('active');
-    onTabShow(id);
+    document.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.add('active');
   });
 });
-
-function onTabShow(id) {
-  if (id === 'charts') {
-    if (typeof SBSChart !== 'undefined') { SBSChart.init(); SBSChart.update(); }
-  } else if (id === 'instruments') {
-    updateInstTiles(); updateSkDiag();
-  } else if (id === 'weather') {
-    fetchWeather();
-  } else if (id === 'plan') {
-    renderPassage(); fetchWeather(); fetchTides();
-    setTimeout(() => { initPlanMap(); planMap?.invalidateSize(); }, 120);
-  } else if (id === 'controls') {
-    pollTemps(); checkHotspot();
-  }
-}
 
 // ── TOAST ─────────────────────────────────────────────────
 let _tt;
@@ -70,7 +54,7 @@ async function allRelaysOff() {
 // ── HOTSPOT ───────────────────────────────────────────────
 let hotspotOn = false;
 // ── TEMPERATURES ─────────────────────────────────────────────
-const TEMP_THRESHOLDS = { cabin: 113, engine: 176, exhaust: 194, water: 140 }; // °F
+const TEMP_THRESHOLDS = { cabin: 45, engine: 80, exhaust: 90, water: 60 };
 
 async function pollTemps() {
   try {
@@ -80,7 +64,7 @@ async function pollTemps() {
       const cEl  = document.getElementById(`c-${name}`);
       const card = document.getElementById(`tc-${name}`);
       if (!cEl) continue;
-      const c = obj?.fahrenheit;
+      const c = obj?.celsius;
       if (c != null && !isNaN(c)) {
         cEl.textContent = c.toFixed(1) + '°';
         const thresh = TEMP_THRESHOLDS[name];
@@ -115,6 +99,19 @@ async function toggleHotspot() {
   } catch(e) { toast('Hotspot toggle failed'); }
 }
 
+// ── CONTROLS DRAWER ───────────────────────────────────────
+let _controlsOpen = false;
+function toggleControls() {
+  _controlsOpen = !_controlsOpen;
+  const drawer  = document.getElementById('controls-drawer');
+  const toggle  = document.getElementById('controls-toggle');
+  if (drawer) drawer.classList.toggle('open', _controlsOpen);
+  if (toggle) toggle.classList.toggle('open', _controlsOpen);
+  // Give the Leaflet map a moment to see its new size after the drawer animates
+  if (typeof SBSChart !== 'undefined') {
+    setTimeout(() => SBSChart.invalidateSize?.(), 400);
+  }
+}
 
 // ── SYSTEM ────────────────────────────────────────────────
 async function confirmAction(action) {
@@ -177,7 +174,6 @@ function renderPassage() {
   buildSafetyBars();
   buildWatchSchedule();
   renderManagePassage();
-  updatePlanMap();
 
   if (active) SBSData.setPassage({waypoints:passage.waypoints,
     planSOG:passage.planSOG, planETA:eta ? eta.getTime() : null});
@@ -203,122 +199,7 @@ function addWaypoint() {
 }
 
 function removeWaypoint(i) {
-  passage.waypoints.splice(i, 1); savePassage(); renderPassage(); updatePlanMap();
-}
-
-// ── PLAN MAP ─────────────────────────────────────────────────
-let planMap = null, planRouteLine = null, planMarkers = [];
-
-const PLAN_WMS_BASE = `http://${window.location.hostname}/cgi-bin/mapserv`;
-const HAZARD_LAYERS = ['WRECKS', 'UWTROC', 'OBSTRN'];
-const HAZARD_BUF = 0.002; // ~200m buffer
-
-async function checkWaypointHazard(lat, lon) {
-  const b = HAZARD_BUF;
-  const bbox = `${lon-b},${lat-b},${lon+b},${lat+b}`;
-  const layers = HAZARD_LAYERS.join(',');
-  const url = `${PLAN_WMS_BASE}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo` +
-    `&LAYERS=${layers}&QUERY_LAYERS=${layers}&STYLES=` +
-    `&BBOX=${bbox}&WIDTH=101&HEIGHT=101&X=50&Y=50` +
-    `&INFO_FORMAT=text%2Fplain&FEATURE_COUNT=1`;
-  try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(4000) });
-    const text = await resp.text();
-    // MapServer plain text: lines like "Layer 'WRECKS'" appear when features found
-    return /Layer '(WRECKS|UWTROC|OBSTRN)'/i.test(text);
-  } catch { return false; }
-}
-
-async function checkAllHazards() {
-  const wps = passage.waypoints;
-  if (!wps.length) return;
-  await Promise.all(wps.map((wp, i) =>
-    checkWaypointHazard(wp.lat, wp.lon).then(h => { wps[i].hazard = h; })
-  ));
-  updatePlanMap();
-}
-
-function initPlanMap() {
-  if (planMap || typeof L === 'undefined') return;
-  const pos = SBSData.position;
-  const center = pos ? [pos.latitude, pos.longitude] : [47.6062, -122.3321];
-  planMap = L.map('plan-map', { zoomControl: true, attributionControl: false }).setView(center, 9);
-
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 13
-  }).addTo(planMap);
-
-  // Tap to add waypoint
-  planMap.on('click', e => {
-    const n = passage.waypoints.length + 1;
-    passage.waypoints.push({ name: `WP${n}`, lat: e.latlng.lat, lon: e.latlng.lng });
-    savePassage(); renderPassage(); updatePlanMap();
-    checkAllHazards();
-  });
-
-  // Popup remove button
-  planMap.on('popupopen', e => {
-    const btn = e.popup.getElement()?.querySelector('[data-wp-remove]');
-    if (btn) btn.addEventListener('click', () => {
-      removeWaypoint(parseInt(btn.dataset.wpRemove));
-      planMap.closePopup();
-    });
-  });
-
-  updatePlanMap();
-  checkAllHazards();
-}
-
-function updatePlanMap() {
-  if (!planMap) return;
-
-  // Clear existing overlays
-  planMarkers.forEach(m => planMap.removeLayer(m));
-  planMarkers = [];
-  if (planRouteLine) { planMap.removeLayer(planRouteLine); planRouteLine = null; }
-
-  const wps = passage.waypoints;
-  if (!wps.length) return;
-
-  // Route line
-  const latlngs = wps.map(wp => [wp.lat, wp.lon]);
-  planRouteLine = L.polyline(latlngs, { color: '#e8940a', weight: 2.5, opacity: 0.85 }).addTo(planMap);
-
-  // Waypoint markers
-  wps.forEach((wp, i) => {
-    const isFirst = i === 0, isLast = i === wps.length - 1;
-    // Red if hazard, otherwise positional color
-    const color = wp.hazard ? '#ef4444'
-      : isFirst ? '#22c55e' : isLast ? '#e8940a' : '#60a8d0';
-    const icon = L.divIcon({
-      className: '',
-      html: `<div style="width:13px;height:13px;border-radius:50%;background:${color};border:2px solid #080c10;box-shadow:0 0 6px ${color}88"></div>`,
-      iconSize: [13, 13], iconAnchor: [6, 6]
-    });
-    const hazardNote = wp.hazard ? `<div style="font-size:10px;color:#ef4444;font-weight:700;margin-bottom:6px;letter-spacing:0.06em">⚠ HAZARD NEARBY</div>` : '';
-    const m = L.marker([wp.lat, wp.lon], { draggable: true, icon }).addTo(planMap);
-    m.bindPopup(
-      `<div style="font-family:'Barlow Condensed',sans-serif;min-width:120px">
-        <div style="font-size:13px;font-weight:700;color:#e8940a;letter-spacing:0.06em;margin-bottom:6px">${wp.name}</div>
-        ${hazardNote}<div style="font-size:10px;color:#8fa3b3;font-family:'Share Tech Mono',monospace;margin-bottom:8px">${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}</div>
-        <button data-wp-remove="${i}" style="background:#1e2e3a;border:1px solid #ef4444;color:#ef4444;border-radius:4px;padding:3px 10px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;cursor:pointer">REMOVE</button>
-      </div>`,
-      { className: 'plan-wp-popup' }
-    );
-    m.on('dragend', () => {
-      const ll = m.getLatLng();
-      passage.waypoints[i].lat = ll.lat;
-      passage.waypoints[i].lon = ll.lng;
-      savePassage(); renderPassage(); updatePlanMap();
-      checkAllHazards();
-    });
-    planMarkers.push(m);
-  });
-
-  // Only auto-fit on first route draw (2 waypoints); preserve zoom after that
-  if (wps.length === 2) {
-    planMap.fitBounds(planRouteLine.getBounds(), { padding: [24, 24], maxZoom: 12 });
-  }
+  passage.waypoints.splice(i, 1); savePassage(); renderPassage();
 }
 
 function renderWaypoints() {
@@ -441,6 +322,32 @@ function buildWatchSchedule() {
   sumEl.textContent = crew.map((c,i)=>`${c}: ${counts[i]*3}h`).join('  ·  ');
 }
 
+function showPlanSub(id) {
+  document.querySelectorAll('.plan-sub').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.pstab').forEach(t => t.classList.remove('active'));
+  const sub = document.getElementById('psub-' + id);
+  const tab = document.querySelector(`.pstab[data-plan-sub="${id}"]`);
+  if (sub) sub.classList.add('active');
+  if (tab) tab.classList.add('active');
+  if (id === 'tides') fetchTides();
+}
+
+// ── MANAGE SUB-TABS ─────────────────────────────────────────
+function showManageSub(id) {
+  document.querySelectorAll('.manage-sub').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.mstab').forEach(t => t.classList.remove('active'));
+  const sub = document.getElementById('msub-' + id);
+  const tab = document.querySelector(`.mstab[data-manage-sub="${id}"]`);
+  if (sub) sub.classList.add('active');
+  if (tab) tab.classList.add('active');
+  if (id === 'charts' && typeof SBSChart !== 'undefined') {
+    SBSChart.init();
+    SBSChart.update();
+  }
+  if (id === 'weather') fetchWeather();
+  if (id === 'instruments') { updateInstTiles(); updateSkDiag(); }
+  if (id === 'passage') { fetchWeather(); renderManagePassage(); }
+}
 
 function renderManagePassage() {
   const routeEl = document.getElementById('manage-pass-route');
@@ -452,7 +359,7 @@ function renderManagePassage() {
   routeEl.textContent = active ? `${passage.from} → ${passage.to}` : 'No passage planned';
   metaEl.textContent  = active && passage.departureTime
     ? `DEPART ${new Date(passage.departureTime).toUTCString().slice(5,11)} UTC`
-    : '';
+    : 'Go to Plan tab to create a passage';
 
   const dist  = calcTotalDist();
   const hours = passage.planSOG > 0 ? dist / passage.planSOG : null;
@@ -991,7 +898,7 @@ function updateSkDiag() {
   setRow('sk-d-twd',   d.twd   != null ? d.twd.toFixed(1)  : null,  '°');
   setRow('sk-d-aws',   d.aws   != null ? d.aws.toFixed(2)  : null,  'kt');
   setRow('sk-d-pres',  d.pressure != null ? d.pressure.toFixed(1) : null, 'hPa');
-  setRow('sk-d-temp',  d.temp  != null ? d.temp.toFixed(1)  : null, '°F');
+  setRow('sk-d-temp',  d.temp  != null ? d.temp.toFixed(1)  : null, '°C');
   if (pos?.latitude != null) {
     const posRow = document.getElementById('sk-d-pos');
     const vEl = posRow?.querySelector('.sk-val');
@@ -1008,18 +915,18 @@ function updateSkDiag() {
 }
 
 SBSData.on('update', () => {
-  if (typeof SBSChart !== 'undefined' && document.querySelector('[data-panel="charts"]')?.classList.contains('active')) {
+  if (typeof SBSChart !== 'undefined' && document.getElementById('msub-charts')?.classList.contains('active')) {
     SBSChart.update();
   }
   const pos = SBSData.position;
   const el  = document.getElementById('header-coords');
   if (el && pos && pos.latitude != null && pos.longitude != null)
     el.textContent = `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`;
-  if (document.querySelector('[data-panel="instruments"]')?.classList.contains('active')) {
+  if (document.getElementById('msub-instruments')?.classList.contains('active')) {
     updateInstTiles();
     updateSkDiag();
   }
-  if (document.querySelector('[data-panel="plan"]')?.classList.contains('active')) {
+  if (document.getElementById('msub-passage')?.classList.contains('active')) {
     renderPassageLive();
     drawPassageMap();
     buildPassageAlerts();
@@ -1072,8 +979,8 @@ async function fetchWeather(force = false) {
       const cached = JSON.parse(localStorage.getItem(WX_CACHE_KEY) || 'null');
       if (cached && Date.now() - cached.ts < 90 * 60000 && cached.lat === Math.round(lat * 10)) {
         wxData = cached.data;
-        // Defer slightly so the panel finishes layout before canvas size is read
-        setTimeout(renderWeather, 80);
+        // Defer canvas draw by one animation frame so the panel finishes layout first
+        requestAnimationFrame(renderWeather);
         return;
       }
     } catch (e) {}
@@ -1115,23 +1022,6 @@ function renderWeather() {
     return d.getHours() === curHour && d.getDate() === now.getDate();
   });
   const si = startIdx >= 0 ? startIdx : 0;
-
-  // Populate current-conditions hero from forecast when live SK data isn't available
-  const wxCond = document.getElementById('wx-cond');
-  const wxWind = document.getElementById('wx-wind');
-  const wxIcon = document.getElementById('wx-icon');
-  const wxSub  = document.getElementById('wx-sub');
-  if (SBSData.tws == null && speeds[si] != null) {
-    const kt  = speeds[si];
-    const dir = h.winddirection_10m[si];
-    const dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-    const dirStr = dirs16[Math.round(dir / 22.5) % 16];
-    const force = Math.min(12, Math.ceil(kt / 2.5));
-    if (wxCond) wxCond.textContent = `${dirStr} · FORCE ${force || '0'} · FORECAST`;
-    if (wxWind) wxWind.innerHTML = `${Math.round(kt)} <span style="font-size:var(--s-sm);color:var(--t-muted)">KT</span>`;
-    if (wxIcon) wxIcon.textContent = kt >= 34 ? '🌀' : kt >= 22 ? '⛵' : kt >= 11 ? '🌬' : '😌';
-    if (wxSub)  wxSub.textContent  = WX_CODES[codes[si]] ? `${WX_CODES[codes[si]]} Open-Meteo Forecast` : 'Open-Meteo Forecast';
-  }
 
   // Forecast strip: NOW, +6, +12, +18, +24
   const strip = document.getElementById('wx-strip');
@@ -1433,20 +1323,13 @@ function drawTideChart(vals, times, curIdx) {
   });
 }
 
-// Set hostname-relative links for services running on the Pi
-(function initResourceLinks() {
-  const h = window.location.hostname;
-  const sk = document.getElementById('link-signalk');
-  if (sk) sk.href = `http://${h}:3000`;
-})();
-
 // Open Plan tab when landing with #plan hash (e.g. from REPLAN button)
 if (window.location.hash === '#plan') {
   document.querySelector('[data-tab="plan"]')?.click();
 }
 
-// Init chart on default active panel
-if (document.querySelector('[data-panel="charts"]')?.classList.contains('active') && typeof SBSChart !== 'undefined') {
+// Init chart when Charts is the default visible sub-tab
+if (document.getElementById('msub-charts')?.classList.contains('active') && typeof SBSChart !== 'undefined') {
   SBSChart.init();
   SBSChart.update();
 }

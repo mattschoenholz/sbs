@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SV-Esperanza — Portal</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="css/sbs-theme.css?v=2">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="vendor/leaflet-velocity/leaflet-velocity.min.css">
+</head>
+<body>
+<div class="sbs-app">
+
+  <alert-banner></alert-banner>
+
+  <div class="sbs-statusbar">
+    <span class="sbs-title">⚓ SV-Esperanza</span>
+    <span class="sbs-coords" id="header-coords">--- ---</span>
+    <connection-status></connection-status>
+    <span class="sbs-clock"></span>
+    <night-toggle></night-toggle>
+    <button class="controls-toggle" id="controls-toggle" onclick="toggleControls()">
+      ⚡ <span class="ct-label">Controls</span><span class="ct-arrow">▾</span>
+    </button>
+  </div>
+
+  <!-- ── GLOBAL CONTROLS DRAWER ─────────────────────────────── -->
+  <div class="controls-drawer" id="controls-drawer">
+    <div class="controls-drawer-inner">
+
+      <!-- Electrical relays -->
+      <div class="cd-section">
+        <div class="cd-section-label">
+          Electrical
+          <button class="sbs-btn" style="padding:2px 10px;font-size:10px;margin-left:auto" onclick="allRelaysOff()">All Off</button>
+        </div>
+        <div class="relay-grid" id="relay-grid"></div>
+      </div>
+
+      <!-- Temperatures (compact) -->
+      <div class="cd-section">
+        <div class="cd-section-label">Temperatures</div>
+        <div class="cd-temps">
+          <div class="cd-temp-cell" id="tc-cabin">
+            <span class="cd-temp-loc">Cabin</span>
+            <span class="cd-temp-val" id="c-cabin">--.-°</span>
+          </div>
+          <div class="cd-temp-cell" id="tc-engine">
+            <span class="cd-temp-loc">Engine</span>
+            <span class="cd-temp-val" id="c-engine">--.-°</span>
+          </div>
+          <div class="cd-temp-cell" id="tc-exhaust">
+            <span class="cd-temp-loc">Exhaust</span>
+            <span class="cd-temp-val" id="c-exhaust">--.-°</span>
+          </div>
+          <div class="cd-temp-cell" id="tc-water">
+            <span class="cd-temp-loc">Water</span>
+            <span class="cd-temp-val" id="c-water">--.-°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Network + System (compact row) -->
+      <div class="cd-section">
+        <div class="cd-section-label">Network &amp; System</div>
+        <div class="cd-bottom-row">
+          <button class="sbs-btn" id="hotspot-btn" onclick="toggleHotspot()">
+            📡 Hotspot: <span id="hotspot-state">checking…</span>
+          </button>
+          <a class="resource-link" href="http://192.168.42.201:3000" target="_blank">🗂 SignalK</a>
+          <a class="resource-link" href="http://192.168.42.201:8080" target="_blank">📚 Library</a>
+          <a class="resource-link" href="http://192.168.42.1" target="_blank">🌐 Router</a>
+          <a class="resource-link" href="/docs/books/" target="_blank">📖 Books</a>
+          <a class="resource-link" href="/docs/engine/" target="_blank">🔧 Engine</a>
+          <a class="resource-link" href="/docs/audio/" target="_blank">🎧 Audiobooks</a>
+          <button class="sys-btn warn" onclick="confirmAction('reboot')">🔄 Reboot</button>
+          <button class="sys-btn danger" onclick="confirmAction('shutdown')">⏻ Shutdown</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="sbs-tabs">
+    <button class="sbs-tab active" data-tab="manage">Manage</button>
+    <button class="sbs-tab" data-tab="plan" id="tab-plan">Plan</button>
+    <button class="sbs-tab" data-tab="helm"
+      style="max-width:100px;color:#60a8d0">⎋ Helm</button>
+  </div>
+
+  <!-- MANAGE TAB -->
+  <div class="sbs-panel active" data-panel="manage">
+
+    <div class="manage-subtabs">
+      <button class="mstab active" data-manage-sub="charts" onclick="showManageSub('charts')">🗺 Charts</button>
+      <button class="mstab" data-manage-sub="instruments" onclick="showManageSub('instruments')">📡 Instruments</button>
+      <button class="mstab" data-manage-sub="weather" onclick="showManageSub('weather')">🌬 Weather</button>
+      <button class="mstab" data-manage-sub="passage" onclick="showManageSub('passage')">⚓ Passage</button>
+    </div>
+
+    <!-- Sub-panel: Charts (map + overlays) -->
+    <div class="manage-sub active" id="msub-charts">
+      <div class="chart-screen">
+        <div class="chart-map-wrap" id="chart-map-wrap">
+          <div id="chart-map" class="chart-map"></div>
+        </div>
+        <button class="chart-mob-btn" id="chart-mob-btn" onclick="triggerChartMOB()" title="Man Overboard">
+          <span class="chart-mob-icon">👤</span>MOB
+        </button>
+        <div class="chart-wind-rose" id="chart-wind-rose">
+          <svg viewBox="0 0 84 84">
+            <circle cx="42" cy="42" r="39" fill="rgba(6,8,6,.6)" stroke="var(--c-border)" stroke-width="1"/>
+            <circle cx="42" cy="42" r="30" fill="none" stroke="var(--c-void)" stroke-width=".5"/>
+            <text x="42" y="11" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--t-muted)">N</text>
+            <text x="75" y="46" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--t-muted)">E</text>
+            <text x="42" y="78" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--t-muted)">S</text>
+            <text x="9" y="46" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--t-muted)">W</text>
+            <g id="chart-wind-arrow" transform="translate(42,42)">
+              <line x1="0" y1="20" x2="0" y2="-20" stroke="var(--c-amber)" stroke-width="3"/>
+              <polygon points="0,-24 -6,-11 6,-11" fill="var(--c-amber)"/>
+            </g>
+            <text x="42" y="50" text-anchor="middle" font-family="var(--font-mono)" font-size="12" fill="var(--c-amber)" font-weight="bold" id="chart-wind-val">--kt</text>
+          </svg>
+        </div>
+        <div class="chart-nav-panel">
+          <div class="chart-ndc"><span class="chart-ndc-lbl">COG</span><div class="chart-ndc-val" id="chart-cog">---°</div></div>
+          <div class="chart-ndc"><span class="chart-ndc-lbl">SOG</span><div class="chart-ndc-val" id="chart-sog">--.-<span class="chart-ndc-unit">kt</span></div></div>
+          <div class="chart-ndc"><span class="chart-ndc-lbl">BTW</span><div class="chart-ndc-val" id="chart-btw">---°</div></div>
+          <div class="chart-ndc"><span class="chart-ndc-lbl">DTW</span><div class="chart-ndc-val" id="chart-dtw">--.-<span class="chart-ndc-unit">nm</span></div></div>
+        </div>
+        <button class="chart-center-btn" onclick="SBSChart.centerOnBoat()" title="Center on boat">⊕</button>
+        <button class="chart-base-btn" id="chart-base-btn" onclick="SBSChart.cycleBaseLayer()" title="Switch chart source — LOCAL / ESRI / NOAA">LOCAL</button>
+        <button class="chart-grib-btn" id="chart-grib-btn" onclick="SBSChart.toggleGrib()" title="GFS wind forecast (NOAA)">🌬</button>
+        <button class="chart-wx-btn" id="chart-wx-btn" onclick="SBSChart.toggleWeather()" title="Toggle weather overlay">☁</button>
+        <div class="chart-wx-picker" id="chart-wx-picker" style="display:none">
+          <button class="chart-wxl active" onclick="SBSChart.selectWxLayer(0)">WIND</button>
+          <button class="chart-wxl" onclick="SBSChart.selectWxLayer(1)">RAIN</button>
+          <button class="chart-wxl" onclick="SBSChart.selectWxLayer(2)">PRES</button>
+          <button class="chart-wxl" onclick="SBSChart.selectWxLayer(3)">CLDS</button>
+          <button class="chart-wxl chart-wxl-key" onclick="SBSChart.setWeatherApiKey()" title="Set OWM API key">🔑</button>
+        </div>
+        <div class="chart-inst-strip">
+          <div class="chart-sg chart-sg-hi"><div class="chart-sg-lbl">TWS</div><div class="chart-sg-val" id="chart-tws">--</div><div class="chart-sg-unit">KT</div></div>
+          <div class="chart-sg chart-sg-hi"><div class="chart-sg-lbl">TWD</div><div class="chart-sg-val" id="chart-twd">---°</div><div class="chart-sg-unit">--</div></div>
+          <div class="chart-sg chart-sg-bl"><div class="chart-sg-lbl">DEPTH</div><div class="chart-sg-val" id="chart-depth">--.-</div><div class="chart-sg-unit">M</div></div>
+          <div class="chart-sg"><div class="chart-sg-lbl">BARO</div><div class="chart-sg-val" id="chart-baro">---</div><div class="chart-sg-unit">hPa</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-panel: Instruments -->
+    <div class="manage-sub" id="msub-instruments">
+
+      <div class="inst-section-label">Navigation</div>
+      <div class="inst-tiles">
+        <div class="inst-tile amber" id="itile-sog">
+          <span class="it-label">SOG</span>
+          <span class="it-value" id="it-sog">---</span>
+          <span class="it-unit">KN</span>
+        </div>
+        <div class="inst-tile" id="itile-cog">
+          <span class="it-label">COG</span>
+          <span class="it-value" id="it-cog">---</span>
+          <span class="it-unit">°T</span>
+        </div>
+        <div class="inst-tile" id="itile-hdg">
+          <span class="it-label">HDG</span>
+          <span class="it-value" id="it-hdg">---</span>
+          <span class="it-unit">°T</span>
+        </div>
+        <div class="inst-tile green" id="itile-stw">
+          <span class="it-label">STW</span>
+          <span class="it-value" id="it-stw">---</span>
+          <span class="it-unit">KN</span>
+        </div>
+        <div class="inst-tile depth-itile" id="itile-depth">
+          <span class="it-label">DEPTH</span>
+          <span class="it-value" id="it-depth">---</span>
+          <span class="it-unit">M</span>
+        </div>
+      </div>
+
+      <div class="inst-section-label">Wind</div>
+      <div class="inst-tiles">
+        <div class="inst-tile amber" id="itile-tws">
+          <span class="it-label">TWS</span>
+          <span class="it-value" id="it-tws">---</span>
+          <span class="it-unit">KN</span>
+        </div>
+        <div class="inst-tile" id="itile-twd">
+          <span class="it-label">TWD</span>
+          <span class="it-value" id="it-twd">---</span>
+          <span class="it-unit">°T</span>
+        </div>
+        <div class="inst-tile" id="itile-aws">
+          <span class="it-label">AWS</span>
+          <span class="it-value" id="it-aws">---</span>
+          <span class="it-unit">KN</span>
+        </div>
+        <div class="inst-tile" id="itile-awa">
+          <span class="it-label">AWA</span>
+          <span class="it-value" id="it-awa">---</span>
+          <span class="it-unit">°</span>
+        </div>
+      </div>
+
+      <div class="inst-section-label">Environment</div>
+      <div class="inst-tiles">
+        <div class="inst-tile" id="itile-baro">
+          <span class="it-label">BARO</span>
+          <span class="it-value" id="it-baro">---</span>
+          <span class="it-unit">hPa</span>
+        </div>
+        <div class="inst-tile" id="itile-temp">
+          <span class="it-label">TEMP</span>
+          <span class="it-value" id="it-temp">---</span>
+          <span class="it-unit">°C</span>
+        </div>
+        <div class="inst-tile" id="itile-hum">
+          <span class="it-label">HUMIDITY</span>
+          <span class="it-value" id="it-hum">---</span>
+          <span class="it-unit">%</span>
+        </div>
+        <div class="inst-tile green" id="itile-bilge">
+          <span class="it-label">BILGE</span>
+          <span class="it-value" id="it-bilge">DRY</span>
+          <span class="it-unit">STATUS</span>
+        </div>
+      </div>
+
+      <details class="sk-details">
+        <summary class="sk-details-sum">
+          SignalK Diagnostics
+          <span id="sk-conn-dot" class="sk-dot sk-dot-off" title="Disconnected"></span>
+        </summary>
+        <div class="sk-details-body">
+          <div id="sk-diag-grid" class="sk-diag-grid">
+            <div class="sk-diag-row" id="sk-d-sog"><span class="sk-path">navigation.speedOverGround</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-cog"><span class="sk-path">navigation.courseOverGroundTrue</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-hdg"><span class="sk-path">navigation.headingTrue</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-pos"><span class="sk-path">navigation.position</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-depth"><span class="sk-path">environment.depth.belowTransducer</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-tws"><span class="sk-path">environment.wind.speedTrue</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-twd"><span class="sk-path">environment.wind.directionTrue</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-aws"><span class="sk-path">environment.wind.speedApparent</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-pres"><span class="sk-path">environment.outside.pressure</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-temp"><span class="sk-path">environment.outside.temperature</span><span class="sk-val">—</span></div>
+            <div class="sk-diag-row" id="sk-d-ctx"><span class="sk-path">self context (URN)</span><span class="sk-val" id="sk-d-ctx-val">—</span></div>
+          </div>
+          <div style="margin-top:var(--sp-sm);font-size:var(--s-xs);color:var(--t-muted);font-family:var(--font-mono)">
+            Last update: <span id="sk-last-update">—</span>
+          </div>
+        </div>
+      </details>
+
+    </div>
+
+    <!-- Sub-panel: Weather -->
+    <div class="manage-sub" id="msub-weather">
+      <div class="sbs-card">
+        <div class="wx-hero">
+          <div class="wx-icon" id="wx-icon">🌬</div>
+          <div class="wx-hd">
+            <div class="wx-cond" id="wx-cond">CURRENT CONDITIONS</div>
+            <div class="wx-wind" id="wx-wind">--- <span style="font-size:var(--s-sm);color:var(--t-muted)">KT</span></div>
+            <div class="wx-sub" id="wx-sub">Live from SignalK</div>
+          </div>
+          <div class="wx-fr">
+            <div class="wx-fr-l">FORECAST</div>
+            <div class="wx-fr-v" id="wx-fr-updated">—</div>
+            <div class="wx-fr-d" id="wx-fr-src">Open-Meteo</div>
+          </div>
+        </div>
+      </div>
+      <div class="sbs-card">
+        <div class="sbs-card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Wind Forecast — 24 hrs</span>
+          <button class="sbs-btn" style="padding:3px 10px;font-size:10px" onclick="fetchWeather(true)">↻ Refresh</button>
+        </div>
+        <canvas id="wx-wind-chart" style="width:100%;display:block;height:clamp(70px,20vw,110px)"></canvas>
+      </div>
+      <div class="sbs-card">
+        <div class="sbs-card-header">6-Hour Forecast Strip</div>
+        <div class="wx-strip" id="wx-strip">
+          <div class="wx-cell"><div class="wt">—</div><div class="wi">⋯</div><div class="ww">--</div><div class="wv">--</div></div>
+        </div>
+      </div>
+      <div class="sbs-card">
+        <div class="sbs-card-header">Precipitation &amp; Conditions — 24 hrs</div>
+        <canvas id="wx-precip-chart" style="width:100%;display:block;height:clamp(40px,12vw,60px)"></canvas>
+      </div>
+    </div>
+
+    <!-- Sub-panel: Passage (active passage monitoring) -->
+    <div class="manage-sub" id="msub-passage">
+
+      <!-- Header: route name + top-line stats -->
+      <div class="sbs-card">
+        <div class="pass-header">
+          <div class="pass-route" id="manage-pass-route">No passage planned</div>
+          <div class="pass-meta" id="manage-pass-meta">Go to Plan tab to create a passage</div>
+          <div class="pass-stats" id="manage-pass-stats"></div>
+        </div>
+      </div>
+
+      <!-- Route map + live status (2-col on tablet+, stacked on phone) -->
+      <div class="pass-map-grid">
+        <div class="sbs-card">
+          <div class="sbs-card-header">Route Overview</div>
+          <div class="pass-route-map-wrap">
+            <svg id="pass-route-svg" class="pass-route-svg" viewBox="0 0 400 220"></svg>
+          </div>
+        </div>
+        <div class="sbs-card">
+          <div class="sbs-card-header">Live Status</div>
+          <div id="pass-live-panel">
+            <div class="pass-no-data">No active passage</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Passage alerts (weather + nav) -->
+      <div class="sbs-card">
+        <div class="sbs-card-header">Passage Alerts</div>
+        <div id="pass-alerts-list">
+          <div class="pass-no-alerts">No active alerts</div>
+        </div>
+      </div>
+
+      <!-- Leg-by-leg breakdown with weather -->
+      <div class="sbs-card">
+        <div class="sbs-card-header">Leg Breakdown</div>
+        <div id="pass-legs">
+          <div class="pass-no-data">Add waypoints in the Plan tab</div>
+        </div>
+      </div>
+
+      <!-- Safety assessment -->
+      <div class="sbs-card">
+        <div class="sbs-card-header">Safety Assessment</div>
+        <div class="safety-bars" id="manage-safety-bars"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- PLAN TAB -->
+  <div class="sbs-panel" data-panel="plan">
+
+    <div class="sbs-card">
+      <div style="display:flex;align-items:center;gap:var(--sp-md);flex-wrap:wrap">
+        <div style="flex:1">
+          <div style="font-family:var(--font-display);font-size:var(--s-xs);
+            letter-spacing:0.1em;text-transform:uppercase;color:var(--t-muted);margin-bottom:4px">
+            Active Passage</div>
+          <div style="font-family:var(--font-display);font-size:var(--s-xl);
+            font-weight:700;color:var(--t-primary)" id="route-title">No passage planned</div>
+        </div>
+        <button class="sbs-btn primary" onclick="newPassage()">+ New</button>
+        <button class="sbs-btn" onclick="clearPassage()" id="clear-btn" style="display:none">Clear</button>
+      </div>
+      <div class="plan-kpi-grid" style="margin-top:var(--sp-md)">
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-dist">---</div><div class="kpi-lbl">Total nm</div></div>
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-time">---</div><div class="kpi-lbl">Est. Hours</div></div>
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-sog">---</div> <div class="kpi-lbl">Plan SOG kn</div></div>
+        <div class="kpi-cell"><div class="kpi-val" id="kpi-eta">---</div> <div class="kpi-lbl">ETA</div></div>
+      </div>
+    </div>
+
+    <div class="plan-subtabs">
+      <button class="pstab active" data-plan-sub="overview" onclick="showPlanSub('overview')">Overview</button>
+      <button class="pstab" data-plan-sub="windows" onclick="showPlanSub('windows')">Windows</button>
+      <button class="pstab" data-plan-sub="tides" onclick="showPlanSub('tides')">Tides</button>
+      <button class="pstab" data-plan-sub="fuel" onclick="showPlanSub('fuel')">Fuel/Range</button>
+      <button class="pstab" data-plan-sub="watches" onclick="showPlanSub('watches')">Watches</button>
+    </div>
+
+    <div class="plan-sub active" id="psub-overview">
+    <div class="sbs-card">
+      <div class="sbs-card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Waypoints</span>
+        <button class="sbs-btn" style="padding:4px 10px;font-size:11px" onclick="toggleWPForm()">+ Add</button>
+      </div>
+      <div id="add-wp-form" style="display:none;margin-bottom:var(--sp-md)">
+        <div class="wp-form">
+          <div>
+            <label class="sbs-label">Name</label>
+            <input class="sbs-input" id="wp-name" placeholder="Cape Flattery">
+          </div>
+          <div>
+            <label class="sbs-label">Lat, Lon</label>
+            <input class="sbs-input" id="wp-coord" placeholder="48.384, -124.721">
+          </div>
+          <button class="sbs-btn primary" onclick="addWaypoint()" style="align-self:flex-end">Add</button>
+        </div>
+      </div>
+      <table class="wp-table">
+        <thead><tr>
+          <th class="wp-num">#</th><th>Name</th><th>Coordinates</th>
+          <th>Dist nm</th><th>ETA</th><th></th>
+        </tr></thead>
+        <tbody id="wp-tbody">
+          <tr><td colspan="6" style="color:var(--t-muted);text-align:center;padding:var(--sp-xl)">
+            No waypoints</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sbs-card">
+      <div class="sbs-card-header">Safety Assessment</div>
+      <div class="safety-bars" id="safety-bars"></div>
+    </div>
+    </div>
+
+    <div class="plan-sub" id="psub-windows">
+      <div class="sbs-card">
+        <div class="sbs-card-header">Departure Windows — 48hrs</div>
+        <div class="window-grid" id="dep-windows"></div>
+      </div>
+    </div>
+
+    <div class="plan-sub" id="psub-tides">
+      <div class="sbs-card">
+        <div class="sbs-card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span id="tide-station-name">Tides — Seattle</span>
+          <button class="sbs-btn" style="padding:3px 10px;font-size:10px" onclick="fetchTides(true)">↻ Refresh</button>
+        </div>
+        <canvas id="tide-chart" style="width:100%;display:block;height:clamp(80px,22vw,130px)"></canvas>
+      </div>
+      <div class="sbs-card">
+        <div class="sbs-card-header">Today's Tides</div>
+        <div class="wx-strip" id="tide-strip">
+          <div class="wx-cell"><div class="wt">—</div><div class="wi">⋯</div><div class="ww">--</div><div class="wv">ft</div></div>
+        </div>
+      </div>
+      <div class="sbs-card">
+        <div class="sbs-card-header">Tidal Gates</div>
+        <div class="gate-placeholder" style="color:var(--t-muted);font-family:var(--font-display);
+          font-size:var(--s-sm);letter-spacing:0.06em;padding:var(--sp-xl);text-align:center">
+          Tidal gate data — configure with passage waypoints for gate locations
+        </div>
+      </div>
+    </div>
+
+    <div class="plan-sub" id="psub-fuel">
+      <div class="sbs-card">
+        <div class="sbs-card-header">Fuel &amp; Range</div>
+        <div class="fuel-placeholder" style="color:var(--t-muted);font-family:var(--font-display);
+          font-size:var(--s-sm);letter-spacing:0.06em;padding:var(--sp-xl);text-align:center">
+          Fuel status and range — connect tank sensors or enter manually
+        </div>
+      </div>
+    </div>
+
+    <div class="plan-sub" id="psub-watches">
+      <div class="sbs-card">
+        <div class="sbs-card-header" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Watch Schedule</span>
+          <button class="sbs-btn" style="padding:4px 10px;font-size:11px" onclick="buildWatchSchedule()">Regenerate</button>
+        </div>
+        <div class="watch-grid" id="watch-grid"></div>
+        <div style="font-family:var(--font-display);font-size:var(--s-xs);
+          letter-spacing:0.06em;color:var(--t-muted);margin-top:var(--sp-sm)"
+          id="watch-summary"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- HELM TAB -->
+  <div class="sbs-panel" data-panel="helm"
+    style="align-items:center;justify-content:center;gap:var(--sp-xl)">
+    <div style="text-align:center">
+      <div style="font-family:var(--font-display);font-size:var(--s-xl);
+        letter-spacing:0.1em;text-transform:uppercase;
+        color:var(--t-secondary);margin-bottom:var(--sp-md)">Helm Display</div>
+      <div style="font-family:var(--font-body);font-size:var(--s-sm);
+        color:var(--t-muted);max-width:300px;margin:0 auto var(--sp-xl)">
+        Full-screen instrument view optimised for cockpit use.</div>
+      <a href="helm.html" class="helm-launch">⎋&nbsp;&nbsp;Launch Helm Display</a>
+    </div>
+    <div style="display:flex;gap:var(--sp-md);flex-wrap:wrap;justify-content:center">
+      <instrument-cell key="sog" label="SOG" unit="kn" size="xl" decimals="1"></instrument-cell>
+      <instrument-cell key="cog" label="COG" unit=""   size="xl" decimals="0" bearing></instrument-cell>
+      <instrument-cell key="tws" label="TWS" unit="kn" size="xl" decimals="1"></instrument-cell>
+      <depth-display shallow="3" critical="1"></depth-display>
+    </div>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script src="vendor/leaflet/leaflet.js?v=1"></script>
+<script src="vendor/leaflet-velocity/leaflet-velocity.min.js?v=1"></script>
+<script src="js/sbs-data.js?v=1"></script>
+<script src="js/sbs-components.js?v=1"></script>
+<script src="js/sbs-chart.js?v=1"></script>
+<script src="js/portal.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,331 @@
+/* ============================================================
+   CREW.CSS — Crew View styles
+   Mobile-first, single-column scroll. Tablet (≥768px): 2-col grid.
+   ============================================================ */
+
+/* ── APP SHELL ───────────────────────────────────────────────── */
+.crew-app {
+  min-height: 100dvh;
+  background: var(--c-void);
+  color: var(--t-primary);
+  font-family: var(--font-display);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOP BAR ─────────────────────────────────────────────────── */
+.crew-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sp-md);
+  height: 52px;
+  background: var(--c-deep);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+  gap: var(--sp-sm);
+}
+.crew-topbar-left {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-sm);
+}
+.crew-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+}
+.crew-vessel {
+  font-size: var(--s-lg);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--c-amber-hi);
+}
+.crew-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--t-muted);
+  text-transform: uppercase;
+}
+
+/* ── SECTIONS ────────────────────────────────────────────────── */
+.crew-section {
+  padding: var(--sp-md);
+  border-bottom: 1px solid var(--c-border);
+}
+.crew-section-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--t-muted);
+  text-transform: uppercase;
+  margin: 0 0 var(--sp-sm) 0;
+}
+
+/* ── CABIN RELAY GRID ────────────────────────────────────────── */
+.crew-relay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-sm);
+}
+/* relay-button custom element fills grid cell; inner button fills it too */
+.crew-relay-grid relay-button {
+  display: block;
+}
+.crew-relay-grid relay-button .relay-btn {
+  width: 100%;
+  min-height: 64px;
+}
+
+/* ── INSTRUMENT GRID ─────────────────────────────────────────── */
+.crew-inst-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-sm);
+}
+.crew-inst-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm) var(--sp-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+}
+.crew-val {
+  font-size: 2.4rem;
+  font-family: var(--font-mono);
+  color: var(--t-primary);
+  line-height: 1;
+}
+
+/* Depth card — shallow state */
+.crew-depth-card { border-color: var(--c-border); }
+.crew-depth-shallow {
+  border-color: var(--c-amber) !important;
+  box-shadow: 0 0 10px var(--c-amber-glow);
+}
+.crew-depth-shallow .crew-val { color: var(--c-amber-hi); }
+.crew-shallow-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--c-amber-hi);
+  background: var(--c-amber-glow);
+  border: 1px solid var(--c-amber-dim);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* Wind secondary row */
+.crew-wind-secondary {
+  display: flex;
+  gap: var(--sp-sm);
+  font-size: 10px;
+  color: var(--t-secondary);
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+/* ── PASSAGE ─────────────────────────────────────────────────── */
+.crew-no-passage,
+.crew-no-forecast {
+  color: var(--t-muted);
+  font-size: var(--s-sm);
+  padding: var(--sp-sm) 0;
+}
+
+.crew-next-wp {
+  margin-bottom: var(--sp-md);
+}
+.crew-next-wp-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--t-muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.crew-next-wp-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--c-amber-hi);
+  letter-spacing: 0.04em;
+  margin-bottom: var(--sp-sm);
+}
+
+.crew-wp-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-sm);
+}
+.crew-wp-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.crew-wp-stat .value {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  color: var(--t-primary);
+}
+
+/* Progress bar */
+.crew-progress-bar { margin-bottom: var(--sp-md); }
+.crew-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--t-muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+.crew-progress-track {
+  height: 6px;
+  background: var(--c-raised);
+  border-radius: 3px;
+  position: relative;
+  overflow: visible;
+}
+.crew-progress-fill {
+  height: 100%;
+  background: var(--c-amber);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+.crew-progress-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  background: var(--c-amber-hi);
+  border: 2px solid var(--c-void);
+  border-radius: 50%;
+  transition: left 0.6s ease;
+}
+.crew-progress-pct {
+  font-size: 9px;
+  color: var(--t-secondary);
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* Waypoint list */
+.crew-wp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--sp-sm);
+}
+.crew-wp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  font-size: var(--s-sm);
+  color: var(--t-muted);
+}
+.crew-wp-row--current {
+  border-color: var(--c-amber-dim);
+  background: rgba(232, 148, 10, 0.06);
+  color: var(--t-primary);
+}
+.crew-wp-row--current .crew-wp-row-name { color: var(--c-amber-hi); }
+.crew-wp-row-num  { width: 18px; flex-shrink: 0; font-family: var(--font-mono); }
+.crew-wp-row-name { flex: 1; font-weight: 600; letter-spacing: 0.04em; }
+.crew-wp-row-dist { font-family: var(--font-mono); font-size: 11px; color: var(--t-secondary); }
+
+/* ── WEATHER GRID ────────────────────────────────────────────── */
+.crew-weather-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-sm);
+}
+
+/* Baro trend */
+.crew-baro-trend {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--t-secondary);
+  margin-top: 2px;
+}
+.crew-baro-trend.rising  { color: var(--c-green); }
+.crew-baro-trend.falling { color: var(--c-amber); }
+
+/* ── FORECAST STRIP ──────────────────────────────────────────── */
+.crew-forecast-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.crew-forecast-strip::-webkit-scrollbar { display: none; }
+
+.crew-forecast-cell {
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  padding: 6px 4px;
+}
+.crew-forecast-cell--now {
+  border-color: var(--c-amber-dim);
+  background: rgba(232, 148, 10, 0.06);
+}
+.crew-fc-time { font-size: 9px; color: var(--t-muted); letter-spacing: 0.08em; }
+.crew-forecast-cell--now .crew-fc-time { color: var(--c-amber); }
+.crew-fc-wind { font-family: var(--font-mono); font-size: 1.1rem; color: var(--t-primary); }
+.crew-fc-unit { font-size: 8px; color: var(--t-muted); letter-spacing: 0.1em; }
+.crew-fc-dir  { font-size: 9px; color: var(--t-secondary); letter-spacing: 0.06em; }
+.crew-fc-bar-wrap {
+  width: 24px;
+  height: 40px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.crew-fc-bar {
+  width: 8px;
+  background: var(--c-amber-dim);
+  border-radius: 2px 2px 0 0;
+  min-height: 3px;
+  transition: height 0.3s ease;
+}
+.crew-forecast-cell--now .crew-fc-bar { background: var(--c-amber); }
+
+/* ── TABLET LAYOUT (≥768px) ──────────────────────────────────── */
+@media (min-width: 768px) {
+  .crew-app {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .crew-inst-grid,
+  .crew-weather-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .crew-relay-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .crew-wp-stats {
+    grid-template-columns: repeat(4, auto);
+    justify-content: flex-start;
+    gap: var(--sp-lg);
+  }
+}

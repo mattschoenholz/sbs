@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SV-Esperanza — Crew</title>
+<link rel="stylesheet" href="css/sbs-theme.css">
+<link rel="stylesheet" href="css/crew.css">
+</head>
+<body>
+<div class="crew-app" id="crew-app">
+
+  <alert-banner></alert-banner>
+
+  <!-- ── TOP BAR ─────────────────────────────────────────────── -->
+  <header class="crew-topbar">
+    <div class="crew-topbar-left">
+      <span class="crew-vessel">SV-ESPERANZA</span>
+      <span class="crew-label">CREW VIEW</span>
+    </div>
+    <div class="crew-topbar-right">
+      <connection-status></connection-status>
+      <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary);margin-left:var(--sp-sm)"></span>
+      <night-toggle></night-toggle>
+    </div>
+  </header>
+
+  <!-- ── CABIN CONTROLS ─────────────────────────────────────── -->
+  <section class="crew-section" id="crew-controls">
+    <h2 class="crew-section-title">CABIN</h2>
+    <div class="crew-relay-grid">
+      <relay-button channel="1" name="Cabin Lights" icon="💡"></relay-button>
+      <relay-button channel="6" name="Vent Fan"     icon="🌀"></relay-button>
+      <relay-button channel="5" name="Water Pump"   icon="💧"></relay-button>
+      <relay-button channel="8" name="Starlink"     icon="📡"></relay-button>
+    </div>
+  </section>
+
+  <!-- ── NAVIGATION ─────────────────────────────────────────── -->
+  <section class="crew-section" id="crew-nav">
+    <h2 class="crew-section-title">NAVIGATION</h2>
+    <div class="crew-inst-grid">
+
+      <div class="crew-inst-card">
+        <span class="label">SOG</span>
+        <span class="value crew-val" id="c-sog">--.-</span>
+        <span class="unit">KT</span>
+      </div>
+
+      <div class="crew-inst-card">
+        <span class="label">COG</span>
+        <span class="value crew-val" id="c-cog">---</span>
+        <span class="unit">° TRUE</span>
+      </div>
+
+      <div class="crew-inst-card crew-depth-card" id="c-depth-card">
+        <span class="label">DEPTH</span>
+        <span class="value crew-val" id="c-depth">--.-</span>
+        <span class="unit" id="c-depth-unit">M</span>
+        <span class="crew-shallow-badge" id="c-shallow" style="display:none">SHALLOW</span>
+      </div>
+
+      <div class="crew-inst-card">
+        <span class="label">TWS</span>
+        <span class="value crew-val" id="c-tws">--</span>
+        <span class="unit">KT</span>
+        <div class="crew-wind-secondary" id="c-wind-secondary">
+          <span id="c-aws-label">AWS --kt</span>
+          <span id="c-awa-label">AWA --°</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── PASSAGE ────────────────────────────────────────────── -->
+  <section class="crew-section" id="crew-passage">
+    <h2 class="crew-section-title">PASSAGE</h2>
+    <div id="c-passage-content" class="crew-passage-content">
+      <div class="crew-no-passage">No active passage</div>
+    </div>
+  </section>
+
+  <!-- ── WEATHER ────────────────────────────────────────────── -->
+  <section class="crew-section" id="crew-weather">
+    <h2 class="crew-section-title">WEATHER</h2>
+    <div class="crew-weather-grid">
+
+      <div class="crew-inst-card">
+        <span class="label">BARO</span>
+        <span class="value crew-val" style="font-size:1.6rem" id="c-baro">----</span>
+        <span class="unit">HPA</span>
+        <span class="crew-baro-trend" id="c-baro-trend"></span>
+      </div>
+
+      <div class="crew-inst-card">
+        <span class="label">AIR TEMP</span>
+        <span class="value crew-val" id="c-airtemp">--.-</span>
+        <span class="unit">°C</span>
+      </div>
+
+      <div class="crew-inst-card">
+        <span class="label">CABIN TEMP</span>
+        <span class="value crew-val" id="c-cabintemp">--.-</span>
+        <span class="unit">°C</span>
+      </div>
+
+      <div class="crew-inst-card">
+        <span class="label">TWD</span>
+        <span class="value crew-val" id="c-twd">---</span>
+        <span class="unit">° TRUE</span>
+      </div>
+
+      <div class="crew-inst-card">
+        <span class="label">HUMIDITY</span>
+        <span class="value crew-val" id="c-humidity">--</span>
+        <span class="unit">%</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── FORECAST STRIP ─────────────────────────────────────── -->
+  <section class="crew-section" id="crew-forecast">
+    <h2 class="crew-section-title">24H FORECAST</h2>
+    <div id="c-forecast-strip" class="crew-forecast-strip">
+      <div class="crew-no-forecast">No forecast data</div>
+    </div>
+  </section>
+
+  <!-- spacer so last section clears nav bar -->
+  <div style="height:60px"></div>
+
+</div>
+
+<script src="js/sbs-data.js?v=1"></script>
+<script src="js/sbs-components.js?v=1"></script>
+<script src="js/crew.js?v=1"></script>
+</body>
+</html>

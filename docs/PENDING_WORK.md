@@ -1,222 +1,158 @@
 # SailboatServer — Pending Work & Roadmap
 
-Status as of March 2026. Items are ordered roughly by priority.
+Status as of 2026-03-28. Items ordered by priority.
 
 ---
 
-## 🔴 High Priority
+## 🔴 Immediate — Physical Installation (Today)
 
-### UX Architecture Redesign — Navigation Overhaul
-**Problem:** Three levels of navigation (tabs → subtabs → within-panel controls) makes the app difficult to use, especially on a phone in a moving boat.
+### Connect Core Hardware to Pi
+- Mount Pi 5 aboard SV-Esperanza
+- Wire Waveshare relay board GPIO
+- Connect DS18B20 temperature sensors (cabin, engine, exhaust, water)
+- Connect ESP32 sensor node via USB (BME280 pressure/temp, paddlewheel STW, bilge sensor)
+- Connect NMEA 0183 instruments to SignalK (GPS, wind transducer, depth sounder)
+- Verify relay channels match `GPIO_PIN_MAPPING.md`
+- Test each relay manually via the Systems page
 
-**Decision pending:** Three options were presented to the user:
+### Starlink / BoonDocker Dishy Dualie DC Power
+- Install BoonDocker DC power supply for Dishy
+- Power up Starlink and verify internet connectivity
+- Verify `relay_server.py` Starlink status endpoint returns valid data
+- Test Tailscale remote access over Starlink IP
 
-**Option A — Three Scenes (Before Sail · Underway · At Anchor)**
-- Replace all tabs with three contextual "scenes"
-- Before Sail: Plan + weather + pre-departure checklist
-- Underway: Chart + instruments + passage + MOB
-- At Anchor: Systems + environment + anchor watch
-- Pros: Perfectly contextual, no hunting
-- Cons: Requires major restructure, context switching if needs change
+---
 
-**Option B — Persistent Controls Dock + 3 Clean Pages** *(Recommended)*
-- Bottom dock always visible: relay quick-toggles + critical instruments (SOG/DEPTH/WIND)
-- 3 main pages: Chart (map + AIS) | Plan (waypoints, weather, tides) | Status (systems, temps, detailed instruments)
-- Helm stays as full-screen overlay (separate page, same approach as today)
-- Pros: Minimal restructure, dock solves the "three levels" problem, scales to mobile well
-- Cons: Bottom dock competes with Leaflet map controls
+## 🔴 High Priority — Software (Next Sessions)
 
-**Option C — Cockpit / Cabin Mode Toggle**
-- Single toggle in status bar switches between two distinct layouts
-- Cockpit mode: Chart + instruments focused, minimal controls
-- Cabin mode: Full controls, planning, systems
-- Pros: Simple mental model
-- Cons: Still two separate contexts, doesn't fully solve nav depth problem
+### RAG (Retrieval Augmented Generation) for AI Assistant
+The AI assistant currently has no access to your actual PDF library — it only knows what was in phi4-mini's training data. RAG fixes this by retrieving relevant passages from your documents at query time and injecting them into context.
 
-**Implementation work:**
-- Likely involves restructuring `index.html` layout
-- May need a new `dock.js` for persistent instrument strip
-- `portal.js` tab logic would need updating
+**Stack:**
+- `nomic-embed-text` via Ollama — embedding model (~270MB, fast on Pi)
+- `chromadb` or `sqlite-vec` — vector store on NVMe
+- Python indexer script — chunk PDFs → embed → store
+- `/api/rag-search` endpoint on relay_server (or separate service)
+- `library.js` — call retrieval before sending to Ollama, inject chunks into context
+
+**Source documents to index first:**
+1. USCG Navigation Rules / COLREGS
+2. Bowditch Vol. 1
+3. Pub. 229 Vol. 1
+4. Engine manual (when available)
+
+**Implementation note:** Keep chunk size ~400 tokens, overlap ~50. Retrieve top-3 chunks per query. Prepend as `=== REFERENCE ===` block before the VESSEL STATE block.
 
 ---
 
 ### Helm Chart Tab
-**Status:** Helm **Chart** panel still shows the placeholder (“OpenCPN integration pending”). Portal **Manage → Charts** already has a full Leaflet + local WMS map (`sbs-chart.js`).
+The Helm page Chart tab still shows a placeholder. Decision already made (March 2026): implement a Leaflet map in `helm.js` using the same local WMS + ESRI underlay as `sbs-chart.js`.
 
-**Decision (March 2026):** Implement **Option A — Leaflet chart in Helm** (local WMS + ESRI underlay, boat marker, AIS, passage polyline), aligned with the warmed nginx tile cache. **Do not** simply load `sbs-chart.js` on `helm.html` without addressing DOM id clashes (see below).
+**Critical:** Do NOT import `sbs-chart.js` directly — it writes to the same DOM ids (`#chart-sog`, `#chart-cog`, etc.) that `helm.js` uses with different formatting. Build a lightweight `HelmChart` init in `helm.js` instead.
 
-**Rejected / deferred for now:**
-- **OpenCPN via VNC/iframe** — optional later; native OpenCPN on the Pi can use `/data/charts/noaa_enc/` independently of the web UI.
-- **Boat-only placeholder map** — unnecessary given WMS is already the standard stack.
-
-**Implementation notes (read `CLAUDE.md` § Helm Chart tab):**
-- `helm.js` updates overlay pills as `#chart-sog`, `#chart-cog`, `#chart-depth`, `#chart-tws`, `#chart-twd`, `#chart-pos` with **labeled** strings (e.g. `SOG 5.2 kn`).
-- `sbs-chart.js` `updateOverlays()` writes the **same element ids** with **different** formatting (mostly raw numbers). Importing `sbs-chart.js` as-is will **fight** `helm.js`.
-- **Preferred:** dedicated thin init in `helm.js` (e.g. `HelmChart`) + Leaflet vendor scripts on `helm.html`, init on **first** Chart tab activation, then `map.invalidateSize()` when the tab is shown.
-- **Alternative:** refactor `sbs-chart.js` to accept configurable element id prefix or optional overlay updates.
+**Steps:**
+1. Add Leaflet vendor scripts to `helm.html`
+2. Add `HelmChart` init in `helm.js` — fires on first Chart tab open, `invalidateSize()` on tab show
+3. Add boat position marker (live from `SBSData.position`)
+4. Add planned passage polyline from `SBSData.passage`
+5. Add AIS targets (reuse pattern from `sbs-chart.js`)
 
 ---
 
-### WMS Tile Coverage Gap
-**Status:** Some tile areas still missing, especially at higher zoom levels or new cruising regions.
-
-**Warming:** Use **`warm.html` in a desktop browser** (not Python/Node on the Pi — see `CLAUDE.md` / `docs/ARCHITECTURE.md` on bbox floating-point). The nginx cache directory on NVMe usually **survives reboots**; re-warm when you expand coverage, clear the cache, or change layer/bbox behavior — not necessarily after every restart.
-
-**Improvement needed:** Auto-warm tiles around the boat's current position and the planned passage route whenever the passage plan changes.
+### Anchor Watch Mode
+- Set anchor position (button tap or auto-detect when SOG < 0.2 kt)
+- Configurable drag radius (50m / 100m / custom)
+- Alert via `alert-banner` when boat exits radius
+- Show anchor marker + radius circle on chart
+- Distance and bearing from anchor shown in instruments
 
 ---
 
 ## 🟡 Medium Priority
 
-### Weather Routing for Passage Planning
-**Requested by user.** Currently passage planning uses a fixed planned SOG. Real weather routing would:
-1. Download GRIB files for forecast period
-2. Use polar diagram (boat performance data) to calculate VMG at each wind angle/speed
-3. Compute optimal route with weather avoidance
-4. Show routing result overlaid on chart
+### Starlink Status Card
+`relay_server.py` already has `/starlink` endpoint. Wire it into the Systems page:
+- Signal quality, obstruction %, download/upload speed
+- Show on a card in the Systems (formerly Controls) tab
 
-**Dependencies needed:**
-- Polar data for SV-Esperanza (user does not have this yet — needs measurement/research)
-- Weather routing algorithm (consider porting from OpenCPN plugin logic)
-- GRIB file storage and management on Pi
-- Consider integrating `pypolarroute` or similar Python library
+### Weather-Based Departure Windows
+Departure Windows in Plan currently shows tide windows only. Integrate Open-Meteo forecast:
+- For each candidate departure slot, fetch wind at departure point
+- Highlight favorable (beam/downwind) vs unfavorable (hard beat, gale) windows
+- Show weather icon + wind speed/direction per slot
 
-**OpenCPN weather routing plugin** is an option but requires headless OpenCPN execution or exposing its API.
+### AIS CPA / TCPA Alerts
+- Calculate Closest Point of Approach and Time to CPA for each AIS target
+- Alert via `alert-banner` when CPA < configurable threshold (default 0.5 nm)
+- Show CPA/TCPA in AIS target popup on chart
 
----
+### MOB Position Persistence
+MOB position is currently in-memory only — lost on page refresh. Persist to `localStorage`. On load, restore active MOB state and continue the clock.
 
-### Anchor Watch Mode
-**Not yet implemented.** Key features:
-- Set anchor position (button or auto-detect when SOG < 0.2 kn)
-- Configurable drag radius (e.g., 50m, 100m)
-- Alert when boat exits radius
-- Display anchor circle on chart
-- Show distance and bearing from anchor
+### Route Library (Save/Load Passages)
+- Save named routes to `localStorage`
+- Load route UI in Plan > Overview
+- Useful for common passages (e.g. "Sausalito → Drakes Bay")
 
-**Implementation:**
-- `sbs-data.js`: add anchor position and drag detection
-- `sbs-chart.js`: add anchor marker and radius circle
-- `alert-banner`: trigger anchor drag alert
-- Helm display: show anchor watch status when active
-
----
-
-### Departures Windows — Real Weather Integration
-**Current state:** Departure windows in Plan > Windows are based on calculated tide windows only.
-
-**Needed:** Integrate Open-Meteo forecast into departure windows:
-- For each potential departure time slot, fetch wind speed and direction at departure point
-- Highlight slots with favorable winds (downwind/beam reach) vs. unfavorable (beat into strong wind)
-- Show confidence rating based on forecast uncertainty
-
----
-
-### Offline Chart Coverage Expansion
-**Current state:** `enc_merged.gpkg` covers the NOAA ENC charts that were downloaded (~22MB). The warm.html cache covers approximately the local area.
-
-**Needed:** 
-- Verify coverage extends 500nm from home port (Seattle) — run warm.html for full PNW coverage including BC waters
-- NOAA ENCs don't cover Canadian waters — need Canadian DFO charts or S-57 charts from another source
-- Consider downloading BSB/RNC raster charts as fallback
-
----
-
-### Fuel Calculator
-**Status:** Plan > Fuel subtab exists but is minimal/stub.
-
-**Needed:**
-- Fuel burn rate per engine RPM (manual input or from engine instruments)
-- Distance to destination from current passage plan
-- Estimated fuel consumption for passage
-- Reserve calculation (USCG recommends 1/3 out, 1/3 back, 1/3 reserve rule)
-- Fuel dock lookup (integration with marine fuel dock APIs?)
-
----
-
-### Watch Schedule Enhancement
-**Current state:** Watch schedule in Plan > Watches generates a basic rotation.
-
-**Improvements requested:**
-- Integration with passage ETA (show which crew member is on watch at each waypoint)
-- Watch duty checklist (log entries, weather observations, position fixes)
-- Off-watch notifications
+### WMS Tile Coverage Expansion
+- Run `warm.html` in desktop Chrome to warm cache for intended cruising area
+- Verify NOAA ENC coverage extends to planned destinations
+- Note: NOAA ENCs don't cover Canadian waters — research DFO chart sources for BC passages
 
 ---
 
 ## 🟢 Lower Priority / Nice to Have
 
-### Remote SignalK Access
-**Current state:** SignalK on Pi is accessible on local network at port 3000. Not exposed via Tailscale.
-
-**To do:** Expose SignalK admin UI on Tailscale IP. May need to configure SignalK to bind to `0.0.0.0` instead of `localhost`. Verify firewall rules.
-
-### NMEA 2000 Integration
-**Current state:** All data comes via NMEA 0183 serial. N2K would provide more data and faster updates.
-
-**Needed:** USB-to-NMEA 2000 adapter (e.g., Actisense NGT-1 or Yacht Devices YDNU-02) + SignalK canboat-js plugin.
-
-### AIS Target Details
-**Current state:** AIS targets shown on map as icons with basic info on click.
-
-**Improvements:**
-- CPA (closest point of approach) calculation and warning
-- TCPA (time to CPA) display
-- Alert if CPA < configured threshold
-- Show vessel names on map at certain zoom levels
-- Filter AIS by type (cargo, sailing, fishing, etc.)
+### Weather Routing for Passage Planning
+Full polar-diagram-based routing against GRIB forecast. Blocked on: obtaining SV-Esperanza polar data (requires measurement or research), GRIB file management, routing algorithm. Consider `pypolarroute` or OpenCPN plugin API.
 
 ### Logbook
-**Not yet started.**
-- Auto-log position, speed, course every N minutes during passage
-- Manual log entry support
-- Export to CSV/KML
-- Show track on chart
+Auto-log position/speed/course every N minutes during passage. Manual entries. Export CSV/KML. Show track on chart.
 
-### MOB Position Storage
-**Original priority list item.** Currently MOB position is stored in memory (lost on page refresh).
+### Watch Schedule Enhancements
+- Show active watch crew member in Helm topbar
+- Watch duty checklist (log entries, weather obs, position fixes)
+- Off-watch crew notifications
 
-**Fix:** Persist MOB position and activation time to `localStorage`. On page load, check if active MOB was set and restore the state (continue counting time, show marker).
+### Fuel Calculator
+- Fuel burn rate per RPM (manual input)
+- Consumption estimate for active passage
+- 1/3 rule reserve calculation
 
-### Passagemaker Route Library
-**Not yet started.** Save/load named routes. Useful for common passages (e.g., "Seattle to Victoria", "Friday Harbor Loop"). Currently each session starts fresh and must re-enter waypoints.
+### Remote SignalK Access via Tailscale
+Configure SignalK to bind to `0.0.0.0` so it's accessible on Tailscale IP (currently only localhost). Check firewall. Would allow remote instrument monitoring.
 
-**Implementation:** Store routes in `localStorage` as named route objects. Add "Save Route As" and "Load Route" UI elements to Plan > Overview.
+### NMEA 2000 Integration
+USB-to-N2K adapter (Actisense NGT-1 or Yacht Devices YDNU-02) + SignalK canboat-js plugin. Provides faster updates and richer data than NMEA 0183.
 
-### Dark Mode / Night Mode Improvements
-**Current state:** Night mode (`body.night-mode`) toggles to amber-only palette. Works via `<night-toggle>` component.
-
-**Reported issue:** Not tested thoroughly on all sub-panels. Some elements may not properly inherit night mode colors.
-
-### Starlink Status Integration
-**Current state:** `relay_server.py` has Starlink API endpoint constants (`starlink_endpoints.py`). Actual status polling not integrated into portal UI.
-
-**To do:** Add Starlink status card to Controls Drawer showing signal quality, obstruction %, download speed.
+### Dark Mode Testing Pass
+Night mode has not been tested thoroughly across all sub-panels. Do a systematic pass — especially new Library page, Helm weather strip, AI chat panel.
 
 ---
 
-## Known Bugs / Issues
+## ✅ Recently Completed
 
-### SignalK Charts Endpoint 404
-`/signalk/v1/api/resources/charts` returns 404. The SignalK charts plugin may need reconfiguration. Currently handled gracefully in `sbs-chart.js` (falls through to local WMS). Not causing user-visible issues.
-
-### WMS Performance — First Render
-MapServer is slow on cache miss (200-500ms per tile). Fast on cache hit (<5ms via nginx cache). Solution is warming the cache via `warm.html` before use. No fix needed unless real-time rendering for new areas becomes critical (could add streaming tile download).
-
-### relay_server.py Manual Override Switches
-The physical manual override switch integration in `relay_server.py` has not been tested since the NVMe migration. Verify GPIO input pins still read correctly after Pi 5 / lgpio migration.
-
-### Mobile Safari Layout
-The app has been primarily tested in Chrome on Mac and iPad Safari. Some layout edge cases may exist on iPhone Safari, particularly with `100dvh` behavior in Safari's variable viewport height handling (URL bar appearing/disappearing).
+- **Library page** — 4th nav tab with AI assistant, Kiwix collections, PDF references, audio browser
+- **Offline AI assistant** — Ollama + phi4-mini, streaming chat, live boat context injection
+- **Kiwix offline library** — 29 ZIM files, collection cards with direct links, ↺ REINDEX button
+- **Autoindex styling** — Dark-themed `/docs/` directory listings
+- **Instruments grid** — Full-width fill with 2/3/4/5-column breakpoints
+- **Helm weather strip** — Real Open-Meteo data (wind + ocean currents + waves)
+- **Helm passage** — Passage plan from Nav Station now appears on Helm page
+- **All temperatures → °F** — Instruments, helm, diagnostics
+- **Plan map zoom fix** — No longer zooms out on every waypoint add
+- **Waypoint hazard markers** — Red markers when WMS detects WRECKS/UWTROC/OBSTRN nearby
+- **Night mode button** — Compact size in topbar
+- **SD card content recovery** — 15 PDFs + 29 ZIM files restored to NVMe
+- **Controls → Systems rename**
 
 ---
 
-## Deferred from Original Priority List
+## Known Bugs
 
-These were identified early in the project but not yet implemented:
-- **Center-on-boat button** — ✅ DONE
-- **Open-Meteo weather** — ✅ DONE
-- **NOAA Tides** — ✅ DONE
-- **AIS into single WebSocket** — ✅ DONE
-- **Relay naming consistency** — ✅ DONE
-- **Auto cache-busting** — ✅ DONE
-- **MOB position storage** — ⏳ Partial (in-memory only, not persisted)
+| Bug | Severity | Notes |
+|-----|----------|-------|
+| SignalK charts endpoint 404 | Low | `/signalk/v1/api/resources/charts` returns 404. Falls back gracefully to local WMS. |
+| Manual override switches untested | Medium | Physical GPIO inputs not tested since NVMe migration. Verify on-boat. |
+| Mobile Safari layout edge cases | Low | Tested primarily Chrome/iPad Safari. iPhone URL-bar viewport height may cause issues. |
+| Helm Chart tab placeholder | High | Still shows "OpenCPN pending" — see roadmap above. |

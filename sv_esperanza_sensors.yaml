@@ -9,11 +9,9 @@
 #   - Paddlewheel speed       (GPIO4)
 #   - BME280 weather          (I2C GPIO21/22)
 #   - Bilge water sensor      (GPIO26)
-#
-# SENSORS — WAITING FOR PARTS (uncomment blocks below):
-#   - Engine RPM              (GPIO25)  — needs optocoupler module
-#   - Fuel sender             (I2C)     — needs INA219 module
-#   - AC shore power          (GPIO32)  — needs ZMPT101B module
+#   - Engine RPM              (GPIO18)  — optocoupler on alternator W terminal
+#   - Battery monitor         (I2C GPIO21/22, INA226 @ 0x40)
+#   - AC shore power          (GPIO34)  — ZMPT101B
 #
 # NMEA0183 OUTPUT → SignalK TCP port 10110:
 #   $IIVHW  — speed through water
@@ -38,23 +36,26 @@
 #     Wire 1  → GPIO26  (internal pull-up enabled)
 #     Wire 2  → GND
 #
-#   [FUTURE] INA219 fuel sender:
+#   INA226 battery monitor:
 #     VCC     → 3.3V
 #     GND     → GND
 #     SDA     → GPIO21  (shared I2C bus)
 #     SCL     → GPIO22  (shared I2C bus)
-#     3.3V → 240Ω resistor → INA219 V+ → fuel sender (190Ω) → GND
+#     V+      → battery positive (after fuse)
+#     V-/GND  → battery negative / shunt
+#     Shunt   → 0.1Ω 1% between V- and load GND (or use onboard shunt)
+#     A0/A1   → GND (I2C address 0x40)
 #
-#   [FUTURE] Optocoupler RPM:
-#     Signal  → GPIO25  (internal pull-up enabled)
+#   Optocoupler RPM:
+#     Signal  → GPIO18  (internal pull-up enabled)
 #     GND     → GND
 #     Input+  → alternator W terminal (via 1kΩ series resistor)
 #     Input-  → GND
 #
-#   [FUTURE] ZMPT101B AC voltage:
+#   ZMPT101B AC voltage:
 #     VCC     → 3.3V
 #     GND     → GND
-#     OUT     → GPIO32
+#     OUT     → GPIO34  (ADC1 — safe with Wi-Fi)
 #     AC in   → shore power hot + neutral (fused, use caution)
 # ============================================================
 
@@ -80,9 +81,8 @@ substitutions:
   subnet_mask:                  "255.255.255.0"
 
   # ── SIGNALK SERVER ─────────────────────────────────────────
-  # Use IP address not hostname — more reliable for TCP
-  # Update to Pi 5 actual IP after first boot
-  signalk_host:                 "192.168.42.201"
+  # Use mDNS hostname — resolves correctly regardless of Pi's DHCP IP
+  signalk_host:                 "sailboatserver.local"
   signalk_port:                 "10110"
 
   # ── OTA UPDATE PASSWORD ────────────────────────────────────
@@ -97,10 +97,9 @@ substitutions:
   pin_paddlewheel:              "GPIO4"   # digital interrupt — ADC2 safe for digital
   pin_i2c_sda:                  "GPIO21"
   pin_i2c_scl:                  "GPIO22"
-  pin_rpm:                      "GPIO25"  # digital interrupt
+  pin_rpm:                      "GPIO18"  # digital interrupt — optocoupler (ADC2, safe for digital)
   pin_bilge:                    "GPIO26"  # digital input
-  pin_shore_power:              "GPIO32"  # ADC1 ✅ safe with Wi-Fi
-  pin_fuel_adc:                 "GPIO34"  # ADC1 ✅ input-only, ideal for analog
+  pin_shore_power:              "GPIO34"  # ADC1 ✅ safe with Wi-Fi — ZMPT101B
   pin_spare_adc_1:              "GPIO36"  # ADC1 ✅ reserved
   pin_spare_adc_2:              "GPIO39"  # ADC1 ✅ reserved
 
@@ -138,16 +137,14 @@ substitutions:
   # M18 max rated RPM — used to calculate RPM percentage
   rpm_max:                      "3600.0"
 
-  # ── FUEL SENDER CALIBRATION ────────────────────────────────
-  # Standard US marine sender: 33Ω = full, 240Ω = empty
-  # With 240Ω fixed pull-up resistor from 3.3V:
-  #   Full  (33Ω sender):  V+ ≈ 2.93V → 100%
-  #   Empty (240Ω sender): V+ ≈ 1.65V → 0%
-  # Verify against your actual tank at a known fuel level
-  fuel_voltage_full:            "2.93"
-  fuel_voltage_empty:           "1.65"
-  # INA219 I2C address — default 0x40 with no address pins bridged
-  ina219_address:               "0x40"
+  # ── BATTERY MONITOR (INA226) ───────────────────────────────
+  # I2C address: 0x40 with A0+A1 tied to GND
+  ina226_address:               "0x40"
+  # Shunt resistance in ohms — match your shunt module spec
+  # Common: 0.002Ω (2mΩ) for 20A modules, 0.0001Ω for 100A shunts
+  ina226_shunt_resistance:      "0.002"
+  # Max expected current in amps — sets ADC range
+  ina226_max_current:           "20.0"
 
   # ── SHORE POWER CALIBRATION ────────────────────────────────
   # ZMPT101B scaling multiplier — tune against a known AC voltmeter
@@ -238,6 +235,18 @@ globals:
     type: float
     restore_value: no
     initial_value: '0.0'
+  - id: g_battery_voltage
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_battery_current
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_battery_power
+    type: float
+    restore_value: no
+    initial_value: '0.0'
 
 binary_sensor:
 
@@ -325,102 +334,100 @@ sensor:
       return spd;
 
   # ── ENGINE RPM ──────────────────────────────────────────────
-  # WAITING FOR PARTS — remove comment markers when optocoupler arrives
-  #
-  # - platform: pulse_counter
-  #   pin:
-  #     number: "${pin_rpm}"
-  #     mode:
-  #       input: true
-  #       pullup: true
-  #   id: engine_rpm
-  #   name: "Engine RPM"
-  #   unit_of_measurement: "RPM"
-  #   icon: "mdi:engine"
-  #   accuracy_decimals: 0
-  #   update_interval: 2s
-  #   filters:
-  #     - multiply: !lambda 'return ${rpm_multiplier};'
-  #     # After calibration against your tachometer, replace
-  #     # the multiply filter with calibrate_linear pairs:
-  #     # - calibrate_linear:
-  #     #     - 0    -> 0
-  #     #     - 1500 -> 1500
-  #     #     - 3000 -> 3000
-  #   on_value:
-  #     then:
-  #       - lambda: 'id(g_rpm) = x;'
+  - platform: pulse_counter
+    pin:
+      number: "${pin_rpm}"
+      mode:
+        input: true
+        pullup: true
+    id: engine_rpm
+    name: "Engine RPM"
+    unit_of_measurement: "RPM"
+    icon: "mdi:engine"
+    accuracy_decimals: 0
+    update_interval: 2s
+    filters:
+      - multiply: !lambda 'return ${rpm_multiplier};'
+      # After calibration against your tachometer, replace
+      # the multiply filter with calibrate_linear pairs:
+      # - calibrate_linear:
+      #     - 0    -> 0
+      #     - 1500 -> 1500
+      #     - 3000 -> 3000
+    on_value:
+      then:
+        - lambda: 'id(g_rpm) = x;'
 
   # ── ENGINE HOURS ────────────────────────────────────────────
-  # WAITING FOR PARTS — uncomment with RPM sensor above
-  #
-  # - platform: template
-  #   name: "Engine Hours"
-  #   id: engine_hours
-  #   unit_of_measurement: "h"
-  #   icon: "mdi:timer"
-  #   accuracy_decimals: 1
-  #   update_interval: 60s
-  #   lambda: |-
-  #     if (id(g_rpm) > ${rpm_running_threshold}) {
-  #       id(g_engine_hours) += (1.0 / 60.0);
-  #     }
-  #     return id(g_engine_hours);
+  - platform: template
+    name: "Engine Hours"
+    id: engine_hours
+    unit_of_measurement: "h"
+    icon: "mdi:timer"
+    accuracy_decimals: 1
+    update_interval: 60s
+    lambda: |-
+      if (id(g_rpm) > ${rpm_running_threshold}) {
+        id(g_engine_hours) += (1.0 / 60.0);
+      }
+      return id(g_engine_hours);
 
-  # ── FUEL LEVEL via INA219 ────────────────────────────────────
-  # WAITING FOR PARTS — uncomment when INA219 arrives
-  #
-  # - platform: ina219
-  #   address: "${ina219_address}"
-  #   update_interval: 30s
-  #   bus_voltage:
-  #     name: "Fuel Sender Voltage"
-  #     id: fuel_voltage
-  #     internal: true
-  #     on_value:
-  #       then:
-  #         - lambda: |-
-  #             float empty_v = ${fuel_voltage_empty};
-  #             float full_v  = ${fuel_voltage_full};
-  #             float pct = ((x - empty_v) / (full_v - empty_v)) * 100.0;
-  #             if (pct < 0)   pct = 0;
-  #             if (pct > 100) pct = 100;
-  #             id(g_fuel_pct) = pct;
-  #
-  # - platform: template
-  #   name: "Fuel Level"
-  #   id: fuel_level
-  #   unit_of_measurement: "%"
-  #   icon: "mdi:fuel"
-  #   accuracy_decimals: 0
-  #   update_interval: 30s
-  #   lambda: 'return id(g_fuel_pct);'
+  # ── BATTERY MONITOR via INA226 ───────────────────────────────
+  # GPIO21/22 I2C — shared bus with BME280
+  # INA226 measures house bank voltage, current, and power
+  - platform: ina226
+    address: "${ina226_address}"
+    shunt_resistance: "${ina226_shunt_resistance}"
+    max_current: "${ina226_max_current}"
+    update_interval: 5s
+    bus_voltage:
+      name: "Battery Voltage"
+      id: battery_voltage
+      unit_of_measurement: "V"
+      accuracy_decimals: 2
+      on_value:
+        then:
+          - lambda: 'id(g_battery_voltage) = x;'
+    current:
+      name: "Battery Current"
+      id: battery_current
+      unit_of_measurement: "A"
+      accuracy_decimals: 1
+      on_value:
+        then:
+          - lambda: 'id(g_battery_current) = x;'
+    power:
+      name: "Battery Power"
+      id: battery_power
+      unit_of_measurement: "W"
+      accuracy_decimals: 0
+      on_value:
+        then:
+          - lambda: 'id(g_battery_power) = x;'
 
   # ── AC SHORE POWER via ZMPT101B ──────────────────────────────
-  # WAITING FOR PARTS — uncomment when ZMPT101B arrives
-  # GPIO32 is ADC1 — safe for analog reads with Wi-Fi active
-  #
-  # - platform: adc
-  #   pin: "${pin_shore_power}"
-  #   name: "Shore Power Voltage"
-  #   id: shore_power
-  #   unit_of_measurement: "V"
-  #   icon: "mdi:power-plug"
-  #   accuracy_decimals: 0
-  #   attenuation: 11db
-  #   update_interval: 5s
-  #   filters:
-  #     - multiply: !lambda 'return ${shore_power_multiplier};'
-  #   on_value:
-  #     then:
-  #       - if:
-  #           condition:
-  #             lambda: 'return x < ${shore_power_low_threshold};'
-  #           then:
-  #             - logger.log:
-  #                 level: WARN
-  #                 format: "⚠ SHORE POWER LOW OR LOST: %.0fV"
-  #                 args: ['x']
+  # GPIO34 is ADC1 — safe for analog reads with Wi-Fi active
+  - platform: adc
+    pin: "${pin_shore_power}"
+    name: "Shore Power Voltage"
+    id: shore_power
+    unit_of_measurement: "V"
+    icon: "mdi:power-plug"
+    accuracy_decimals: 0
+    attenuation: 12db
+    update_interval: 5s
+    filters:
+      - multiply: !lambda 'return ${shore_power_multiplier};'
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return x < ${shore_power_low_threshold};'
+            then:
+              - logger.log:
+                  level: WARN
+                  format: "⚠ SHORE POWER LOW OR LOST: %.0fV"
+                  args: ['x']
 
 # ── NMEA0183 OUTPUT ───────────────────────────────────────────
 interval:
@@ -483,28 +490,28 @@ interval:
           }
 
           // ── RPM: Engine RPM ───────────────────────────────
-          // Uncomment when optocoupler arrives
-          // {
-          //   float pct = (id(g_rpm) / ${rpm_max}) * 100.0;
-          //   char s[64];
-          //   snprintf(s, sizeof(s),
-          //     "IIRPM,E,1,%.0f,%.0f,A", id(g_rpm), pct);
-          //   uint8_t cs = 0;
-          //   for (int i = 0; s[i]; i++) cs ^= s[i];
-          //   char f[80];
-          //   snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
-          //   nmea_push(f);
-          // }
+          {
+            float pct = (id(g_rpm) / ${rpm_max}) * 100.0;
+            char s[64];
+            snprintf(s, sizeof(s),
+              "IIRPM,E,1,%.0f,%.0f,A", id(g_rpm), pct);
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[80];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
 
-          // ── XDR: Fuel Level ───────────────────────────────
-          // Uncomment when INA219 arrives
-          // {
-          //   char s[64];
-          //   snprintf(s, sizeof(s),
-          //     "IIXDR,V,%.0f,P,Fuel", id(g_fuel_pct));
-          //   uint8_t cs = 0;
-          //   for (int i = 0; s[i]; i++) cs ^= s[i];
-          //   char f[80];
-          //   snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
-          //   nmea_push(f);
-          // }
+          // ── XDR: Battery voltage + current ────────────────
+          // SignalK maps XDR,U → electrical.batteries.house.voltage
+          {
+            char s[128];
+            snprintf(s, sizeof(s),
+              "IIXDR,U,%.2f,V,BattVolt,I,%.1f,A,BattCurr",
+              id(g_battery_voltage), id(g_battery_current));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[148];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }

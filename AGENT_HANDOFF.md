@@ -149,9 +149,9 @@ Active-LOW relays. Jumpers physically moved from Waveshare defaults to clear Mac
 See `docs/GPIO_PIN_MAPPING.md` for full conflict history and pin justifications.
 | Channel | GPIO Pin | Function |
 |---|---|---|
-| CH1 | 20 | Cabin Lights |
+| CH1 | 5 | Cabin Lights |
 | CH2 | 6 | Navigation Lights |
-| CH3 | 21 | Anchor Light |
+| CH3 | 13 | Anchor Light |
 | CH4 | 16 | Bilge Pump (SAFETY CRITICAL) |
 | CH5 | 25 | Water Pump |
 | CH6 | 24 | Vent Fan |

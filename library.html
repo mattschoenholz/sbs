@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SV-Esperanza — Library</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="css/sbs-theme.css">
+<link rel="stylesheet" href="css/library.css">
+</head>
+<body>
+<div class="lib-app">
+
+  <alert-banner></alert-banner>
+
+  <header class="lib-topbar">
+    <div class="lib-topbar-left">
+      <span class="lib-vessel">SV-ESPERANZA</span>
+      <span class="lib-label">LIBRARY</span>
+    </div>
+    <div class="lib-topbar-right">
+      <connection-status></connection-status>
+      <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary)"></span>
+      <night-toggle></night-toggle>
+    </div>
+  </header>
+
+  <main class="lib-content">
+
+    <!-- ── AI ASSISTANT ──────────────────────────────────────── -->
+    <section class="lib-section" id="ai-section">
+      <h2 class="lib-section-title">
+        AI ASSISTANT
+        <span class="lib-badge ai-model-badge" id="ai-model-badge">OFFLINE</span>
+      </h2>
+      <div class="ai-chat-panel">
+        <!-- status bar -->
+        <div class="ai-chat-status">
+          <span class="kiwix-dot" id="ai-dot"></span>
+          <span id="ai-status-text" style="font-family:var(--font-display);font-size:var(--s-xs);font-weight:700;letter-spacing:0.08em;color:var(--t-secondary)">Checking…</span>
+          <span class="ai-model-label" id="ai-model-label"></span>
+        </div>
+        <!-- message thread -->
+        <div class="ai-messages" id="ai-messages">
+          <div class="ai-msg ai-msg-system">
+            <div class="ai-msg-bubble">Ask me anything about seamanship, COLREGS, navigation, weather, engine troubleshooting, or first aid at sea.</div>
+          </div>
+        </div>
+        <!-- quick prompts -->
+        <div class="ai-quick-prompts" id="ai-quick-prompts">
+          <button class="ai-qp-btn" data-prompt="What are the COLREGS rules for a sailing vessel in a narrow channel?">COLREGS narrow channel</button>
+          <button class="ai-qp-btn" data-prompt="How do I take a celestial sight reduction using Pub. 229?">Celestial sight reduction</button>
+          <button class="ai-qp-btn" data-prompt="What are the symptoms of engine overheating and how do I troubleshoot it?">Engine overheating</button>
+          <button class="ai-qp-btn" data-prompt="How do I read a barometric pressure trend to predict weather?">Weather from barometer</button>
+          <button class="ai-qp-btn" data-prompt="What are the steps for a man overboard recovery under sail?">MOB recovery</button>
+          <button class="ai-qp-btn" data-prompt="How do I set an anchor properly and calculate scope?">Anchoring scope</button>
+        </div>
+        <!-- input -->
+        <div class="ai-input-row">
+          <textarea class="ai-input" id="ai-input" placeholder="Ask the sailing assistant…" rows="1"></textarea>
+          <button class="ai-send-btn" id="ai-send-btn" title="Send">➤</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── OFFLINE LIBRARY (KIWIX) ───────────────────────────── -->
+    <section class="lib-section">
+      <h2 class="lib-section-title">OFFLINE LIBRARY</h2>
+      <div class="kiwix-hero" id="kiwix-hero">
+        <div class="kiwix-hero-info">
+          <div class="kiwix-status" id="kiwix-status">
+            <span class="kiwix-dot" id="kiwix-dot"></span>
+            <span id="kiwix-status-text">Checking…</span>
+          </div>
+          <div class="kiwix-collections" id="kiwix-collections">29 collections · Wikipedia · WikiBooks · iFixit · StackExchange · Gutenberg</div>
+        </div>
+        <div class="kiwix-hero-actions">
+          <a class="kiwix-open-btn" id="kiwix-open-btn" href="#" target="_blank">OPEN LIBRARY →</a>
+          <button class="kiwix-restart-btn" id="kiwix-restart-btn" title="Restart Kiwix to pick up new ZIM files">↺ REINDEX</button>
+        </div>
+      </div>
+      <div class="lib-collection-grid">
+        <a class="lib-collection-card" id="kcc-wikipedia" href="#" target="_blank">
+          <div class="lcc-icon">🌍</div>
+          <div class="lcc-name">Wikipedia</div>
+          <div class="lcc-desc">Full English, no images</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-wikibooks" href="#" target="_blank">
+          <div class="lcc-icon">📖</div>
+          <div class="lcc-name">WikiBooks</div>
+          <div class="lcc-desc">Free textbooks &amp; manuals</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-wikivoyage" href="#" target="_blank">
+          <div class="lcc-icon">🗺</div>
+          <div class="lcc-name">Wikivoyage</div>
+          <div class="lcc-desc">Travel &amp; port guides</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-ifixit" href="#" target="_blank">
+          <div class="lcc-icon">🔧</div>
+          <div class="lcc-name">iFixit</div>
+          <div class="lcc-desc">Repair &amp; teardown guides</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-diy" href="#" target="_blank">
+          <div class="lcc-icon">⚙️</div>
+          <div class="lcc-name">DIY / Engineering</div>
+          <div class="lcc-desc">StackExchange Q&amp;A</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-medical" href="#" target="_blank">
+          <div class="lcc-icon">🩺</div>
+          <div class="lcc-name">Medical Sciences</div>
+          <div class="lcc-desc">StackExchange Q&amp;A</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-mechanics" href="#" target="_blank">
+          <div class="lcc-icon">🔩</div>
+          <div class="lcc-name">Mechanics</div>
+          <div class="lcc-desc">StackExchange Q&amp;A</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-ham" href="#" target="_blank">
+          <div class="lcc-icon">📡</div>
+          <div class="lcc-name">Ham Radio</div>
+          <div class="lcc-desc">StackExchange Q&amp;A</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-cooking" href="#" target="_blank">
+          <div class="lcc-icon">🍳</div>
+          <div class="lcc-name">Cooking</div>
+          <div class="lcc-desc">StackExchange Q&amp;A</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-outdoors" href="#" target="_blank">
+          <div class="lcc-icon">🏕</div>
+          <div class="lcc-name">Outdoors</div>
+          <div class="lcc-desc">StackExchange Q&amp;A</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-knots" href="#" target="_blank">
+          <div class="lcc-icon">🪢</div>
+          <div class="lcc-name">Knots</div>
+          <div class="lcc-desc">Illustrated knot guide</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-medicine" href="#" target="_blank">
+          <div class="lcc-icon">💊</div>
+          <div class="lcc-name">Medicine Guide</div>
+          <div class="lcc-desc">Offline medical reference</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-water" href="#" target="_blank">
+          <div class="lcc-icon">💧</div>
+          <div class="lcc-name">Water Treatment</div>
+          <div class="lcc-desc">Purification &amp; filtration</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-food" href="#" target="_blank">
+          <div class="lcc-icon">🌿</div>
+          <div class="lcc-name">Food Preparation</div>
+          <div class="lcc-desc">Preservation &amp; foraging</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-postdisaster" href="#" target="_blank">
+          <div class="lcc-icon">🛟</div>
+          <div class="lcc-name">Post-Disaster</div>
+          <div class="lcc-desc">Survival &amp; recovery</div>
+        </a>
+        <a class="lib-collection-card" id="kcc-gutenberg" href="#" target="_blank">
+          <div class="lcc-icon">📚</div>
+          <div class="lcc-name">Gutenberg Books</div>
+          <div class="lcc-desc">Fiction, poetry, science</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- ── NAVIGATION REFERENCES ─────────────────────────────── -->
+    <section class="lib-section">
+      <h2 class="lib-section-title">NAVIGATION REFERENCES</h2>
+      <div class="lib-doc-list">
+        <a class="lib-doc" href="/docs/books/Bowditch_Vol_1.pdf" target="_blank">
+          <span class="lib-doc-icon">📘</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Bowditch Vol. 1 — American Practical Navigator</div>
+            <div class="lib-doc-meta">NIMA Pub. 9 · Piloting, celestial, weather, oceanography</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/books/Bowditch_Vol_2.pdf" target="_blank">
+          <span class="lib-doc-icon">📘</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Bowditch Vol. 2 — Tables</div>
+            <div class="lib-doc-meta">NIMA Pub. 9 · Sight reduction, celestial tables</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/books/USCG_Navigation_Rules_COLREGS.pdf" target="_blank">
+          <span class="lib-doc-icon">⚓</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">USCG Navigation Rules — COLREGS</div>
+            <div class="lib-doc-meta">International &amp; Inland Rules of the Road</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/books/V1_Pub229Vol1.pdf" target="_blank">
+          <span class="lib-doc-icon">🌐</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Pub. 229 Vol. 1–6 — Sight Reduction Tables</div>
+            <div class="lib-doc-meta">For Marine Navigation (volumes 1–6 available)</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/books/navigation_mode.pdf" target="_blank">
+          <span class="lib-doc-icon">🧭</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Navigation Mode Reference</div>
+            <div class="lib-doc-meta">Onboard navigation modes &amp; procedures</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/books/" target="_blank">
+          <span class="lib-doc-icon">📁</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Browse all PDFs…</div>
+            <div class="lib-doc-meta">Full directory listing</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ── ENGINE & SYSTEMS ───────────────────────────────────── -->
+    <section class="lib-section">
+      <h2 class="lib-section-title">ENGINE &amp; SYSTEMS</h2>
+      <div class="lib-doc-list">
+        <a class="lib-doc" href="/docs/engine/GX2000-GX2150-Manual.pdf" target="_blank">
+          <span class="lib-doc-icon">📻</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Standard Horizon GX2000 / GX2150</div>
+            <div class="lib-doc-meta">VHF Marine Radio — Owner's Manual</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/engine/victron-raspi-stetson.pdf" target="_blank">
+          <span class="lib-doc-icon">⚡</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Victron / Raspberry Pi Wiring</div>
+            <div class="lib-doc-meta">Electrical integration reference</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/books/Slow+Sand+Filter_6.26.2021.pdf" target="_blank">
+          <span class="lib-doc-icon">💧</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Slow Sand Filter Guide</div>
+            <div class="lib-doc-meta">Water filtration system reference</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+        <a class="lib-doc" href="/docs/engine/" target="_blank">
+          <span class="lib-doc-icon">📁</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">Browse engine docs…</div>
+            <div class="lib-doc-meta">Full directory listing</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ── AUDIOBOOKS ─────────────────────────────────────────── -->
+    <section class="lib-section">
+      <h2 class="lib-section-title">AUDIOBOOKS</h2>
+      <div class="lib-doc-list" id="audio-list">
+        <div class="lib-empty">No audiobooks loaded yet. Add .mp3 / .m4b files to <code>/var/www/html/docs/audio/</code></div>
+      </div>
+    </section>
+
+    <!-- ── ADMIN ──────────────────────────────────────────────── -->
+    <section class="lib-section">
+      <h2 class="lib-section-title">ADMIN</h2>
+      <div class="lib-doc-list">
+        <a class="lib-doc" id="lib-signalk-link" href="#" target="_blank">
+          <span class="lib-doc-icon">🔀</span>
+          <div class="lib-doc-info">
+            <div class="lib-doc-title">SignalK Admin</div>
+            <div class="lib-doc-meta">Instrument data hub · port 3000</div>
+          </div>
+          <span class="lib-doc-arrow">→</span>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+<script src="js/sbs-data.js"></script>
+<script src="js/sbs-components.js"></script>
+<script src="js/library.js"></script>
+</body>
+</html>

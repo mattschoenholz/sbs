@@ -1,5 +1,121 @@
 /* Helm-specific logic — runs after sbs-data.js and sbs-components.js */
 
+// ── HELM CHART ─────────────────────────────────────────────
+const HelmChart = (() => {
+  const HOST = window.location.hostname || '192.168.42.201';
+
+  // Keep in sync with warm.html and sbs-chart.js LOCAL_WMS_LAYERS
+  const LOCAL_WMS_LAYERS = [
+    'DEPARE_verydeep','DEPARE_deep','DEPARE_mid',
+    'DEPARE_shallow','DEPARE_vshallow','DEPARE_drying','DEPARE_neg',
+    'SBDARE','LNDARE','DRGARE',
+    'DEPCNT','COALNE','SLCONS',
+    'WRECKS','OBSTRN','UWTROC','SOUNDG',
+  ].join(',');
+
+  let map = null, boatMarker = null, aisMarkers = {}, passageLayer = null;
+  let initialized = false, lastCog = null;
+
+  function makeBoatIcon(cog) {
+    const a = cog != null ? cog : 0;
+    return L.divIcon({
+      className: '',
+      html: `<svg width="24" height="24" viewBox="-12 -12 24 24" style="transform:rotate(${a}deg);overflow:visible">
+        <polygon points="0,-10 7,8 0,4 -7,8" fill="#e8940a" stroke="#080c10" stroke-width="1.5"/>
+      </svg>`,
+      iconSize: [24, 24], iconAnchor: [12, 12],
+    });
+  }
+
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
+    const pos = SBSData.position;
+    const center = pos ? [pos.latitude, pos.longitude] : [47.6, -122.3];
+
+    map = L.map('helm-map', { center, zoom: 13, zoomControl: true, attributionControl: false });
+
+    map.createPane('hBasePane'); map.getPane('hBasePane').style.zIndex = 200;
+    map.createPane('hWmsPane');  map.getPane('hWmsPane').style.zIndex  = 250;
+    map.createPane('hOverPane'); map.getPane('hOverPane').style.zIndex = 300;
+
+    // ESRI underlay — always on
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
+      { maxNativeZoom: 13, maxZoom: 18, pane: 'hBasePane' }
+    ).addTo(map);
+
+    // Local NOAA ENC WMS
+    L.tileLayer.wms(`http://${HOST}/cgi-bin/mapserv`, {
+      layers: LOCAL_WMS_LAYERS, styles: '', format: 'image/png',
+      transparent: true, version: '1.1.1', pane: 'hWmsPane',
+    }).addTo(map);
+
+    passageLayer = L.layerGroup().addTo(map);
+    boatMarker = L.marker(center, { icon: makeBoatIcon(SBSData.cog), pane: 'hOverPane', zIndexOffset: 1000 }).addTo(map);
+
+    update();
+  }
+
+  function invalidate() {
+    if (map) setTimeout(() => map.invalidateSize(), 100);
+  }
+
+  function update() {
+    if (!map) return;
+
+    // Boat position and heading icon
+    const pos = SBSData.position;
+    if (pos) {
+      const ll = [pos.latitude, pos.longitude];
+      boatMarker.setLatLng(ll);
+      if (SBSData.cog !== lastCog) {
+        boatMarker.setIcon(makeBoatIcon(SBSData.cog));
+        lastCog = SBSData.cog;
+      }
+    }
+
+    // AIS targets
+    const vessels = SBSData.aisVessels;
+    const seen = new Set();
+    Object.entries(vessels).forEach(([ctx, v]) => {
+      if (v.lat == null || v.lon == null) return;
+      seen.add(ctx);
+      const ll = [v.lat, v.lon];
+      if (aisMarkers[ctx]) {
+        aisMarkers[ctx].setLatLng(ll);
+      } else {
+        aisMarkers[ctx] = L.circleMarker(ll, {
+          radius: 5, color: '#06b6d4', fillColor: '#06b6d4',
+          fillOpacity: 0.7, weight: 1, pane: 'hOverPane',
+        }).bindPopup(`<b>${v.name || ctx.split(':').pop()}</b><br>SOG: ${v.sog != null ? v.sog.toFixed(1) : '—'} kn`)
+          .addTo(map);
+      }
+    });
+    Object.keys(aisMarkers).forEach(ctx => {
+      if (!seen.has(ctx)) { map.removeLayer(aisMarkers[ctx]); delete aisMarkers[ctx]; }
+    });
+
+    // Passage route line
+    passageLayer.clearLayers();
+    const p = SBSData.passage;
+    if (p.active && p.waypoints.length >= 2) {
+      const lls = p.waypoints.map(wp => [wp.lat, wp.lon]);
+      L.polyline(lls, { color: '#e8940a', weight: 2, opacity: 0.6, dashArray: '6 4', pane: 'hOverPane' })
+        .addTo(passageLayer);
+      const nwp = p.waypoints[p.nextWPIndex];
+      if (nwp) {
+        L.circleMarker([nwp.lat, nwp.lon], {
+          radius: 7, color: '#e8940a', fillColor: 'transparent', weight: 2, pane: 'hOverPane',
+        }).addTo(passageLayer);
+      }
+    }
+  }
+
+  return { init, invalidate, update };
+})();
+
 // ── TAB SWITCHING ─────────────────────────────────────────
 document.querySelectorAll('.helm-tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -7,6 +123,13 @@ document.querySelectorAll('.helm-tab').forEach(tab => {
     document.querySelectorAll('.helm-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     document.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.add('active');
+    if (tab.dataset.tab === 'chart') {
+      // rAF x2 ensures browser has laid out the panel before Leaflet reads container size
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        HelmChart.init();
+        HelmChart.invalidate();
+      }));
+    }
   });
 });
 
@@ -62,6 +185,7 @@ SBSData.on('update', () => {
 
   updateBaroHistory();
   updatePassageTab();
+  HelmChart.update();
 });
 
 // ── AUTOPILOT STATE ───────────────────────────────────────
@@ -148,21 +272,107 @@ function drawBaroChart() {
   ctx.fill();
 }
 
+// ── HELM WEATHER ──────────────────────────────────────────
+let helmWx = null; // { wind: {...hourly}, marine: {...hourly} }
+const HELM_WX_KEY = 'sbs-helm-wx';
+const DIRS16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+
+async function fetchHelmWeather() {
+  const pos = SBSData.position;
+  const lat = pos?.latitude  ?? 47.6062;
+  const lon = pos?.longitude ?? -122.3321;
+
+  // Serve from cache if same position and <30 min old
+  try {
+    const cached = JSON.parse(localStorage.getItem(HELM_WX_KEY) || 'null');
+    if (cached && Date.now() - cached.ts < 30*60*1000 &&
+        Math.abs(cached.lat - Math.round(lat * 10)) <= 1) {
+      helmWx = cached.data;
+      buildForecastStrip();
+      return;
+    }
+  } catch(_) {}
+
+  try {
+    const [windRes, marineRes] = await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}`
+        + `&hourly=windspeed_10m,winddirection_10m,weathercode&forecast_days=2&wind_speed_unit=kn&timezone=UTC&forecast_hours=25`),
+      fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}`
+        + `&hourly=wave_height,ocean_current_velocity,ocean_current_direction&wind_speed_unit=kn&timezone=UTC&forecast_days=2`),
+    ]);
+    const wind   = windRes.ok   ? await windRes.json()   : null;
+    const marine = marineRes.ok ? await marineRes.json() : null;
+    helmWx = { wind, marine };
+    localStorage.setItem(HELM_WX_KEY, JSON.stringify({ ts: Date.now(), lat: Math.round(lat * 10), data: helmWx }));
+  } catch(e) { console.warn('helm weather fetch failed', e); }
+  buildForecastStrip();
+}
+
 function buildForecastStrip() {
   const strip = document.getElementById('wx-strip');
   if (!strip) return;
-  const now   = Date.now();
-  const slots = Array.from({length: 8}, (_, i) => {
-    const t    = new Date(now + i * 3 * 3600000);
-    const ts   = t.toUTCString().slice(17,22) + 'z';
-    const wind = 12 + Math.round(Math.sin(i * 0.8) * 5);
-    const wave = (0.8 + Math.sin(i * 0.5) * 0.4).toFixed(1);
-    return `<div class="wx-strip-cell">
-      <span class="wsc-time">${ts}</span>
-      <span class="wsc-wind">${wind}kn</span>
-      <span class="wsc-wave">${wave}m</span>
-    </div>`;
-  });
+
+  // Build a set of route-aware time slots if passage is planned
+  const p = SBSData.passage;
+  const slots = [];
+  const now = Date.now();
+
+  // Time slots: current + next 7 hours
+  for (let i = 0; i < 8; i++) {
+    const slotMs  = now + i * 3600000;
+    const slotDt  = new Date(slotMs);
+    const isoHour = slotDt.toISOString().slice(0, 13); // "2025-03-27T14"
+
+    let windKt = null, windDir = null, currentKt = null, currentDir = null, waveM = null;
+
+    if (helmWx?.wind?.hourly) {
+      const h = helmWx.wind.hourly;
+      const idx = h.time?.findIndex(t => t.startsWith(isoHour));
+      if (idx >= 0) {
+        windKt  = Math.round(h.windspeed_10m[idx]);
+        windDir = DIRS16[Math.round(h.winddirection_10m[idx] / 22.5) % 16];
+      }
+    }
+    if (helmWx?.marine?.hourly) {
+      const m = helmWx.marine.hourly;
+      const idx = m.time?.findIndex(t => t.startsWith(isoHour));
+      if (idx >= 0) {
+        currentKt  = m.ocean_current_velocity[idx]?.toFixed(1) ?? null;
+        currentDir = m.ocean_current_direction[idx] != null
+          ? DIRS16[Math.round(m.ocean_current_direction[idx] / 22.5) % 16] : null;
+        waveM = m.wave_height[idx]?.toFixed(1) ?? null;
+      }
+    }
+
+    // Label: time or upcoming waypoint name
+    let label = slotDt.toUTCString().slice(17, 22) + 'z';
+    if (i === 0) label = 'NOW';
+
+    // Check if a waypoint falls in this 1-hour window
+    if (p.active && p.waypoints.length && p.planETA && p.planSOG) {
+      const wp = p.waypoints[p.nextWPIndex];
+      if (wp?.distance != null && p.planSOG > 0) {
+        const etaMs = now + (wp.distance / p.planSOG) * 3600000;
+        if (etaMs >= slotMs && etaMs < slotMs + 3600000) {
+          label = wp.name || `WP${p.nextWPIndex + 1}`;
+        }
+      }
+    }
+
+    const windStr    = windKt != null ? `${windKt}kt ${windDir ?? ''}` : '--';
+    const currentStr = currentKt != null ? `${currentKt}kt ${currentDir ?? ''}` : null;
+    const waveStr    = waveM != null ? `${waveM}m` : null;
+
+    let extras = '';
+    if (currentStr) extras += `<span class="wsc-current">${currentStr}</span>`;
+    if (waveStr)    extras += `<span class="wsc-wave">${waveStr}</span>`;
+
+    slots.push(`<div class="wx-strip-cell${i === 0 ? ' wsc-now' : ''}">
+      <span class="wsc-time">${label}</span>
+      <span class="wsc-wind">${windStr}</span>
+      ${extras}
+    </div>`);
+  }
   strip.innerHTML = slots.join('');
 }
 
@@ -353,5 +563,26 @@ function clearMOB() {
   SBSData.dismissAlert('mob');
 }
 
-buildForecastStrip();
+// ── STARTUP ───────────────────────────────────────────────
+// Load passage from localStorage so helm page shows planned route
+// without requiring a visit to the Nav Station Plan tab first
+(function loadPassageFromStorage() {
+  try {
+    const raw = localStorage.getItem('sbs-passage');
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved.waypoints?.length && (saved.from || saved.to)) {
+      SBSData.setPassage({
+        waypoints: saved.waypoints,
+        planSOG:   saved.planSOG || 5,
+        planETA:   saved.departureTime || null,
+      });
+    }
+  } catch(e) {}
+})();
+
 updatePassageTab();
+fetchHelmWeather();
+
+// Bottom nav
+if (typeof SBSNav !== 'undefined') SBSNav.init();

@@ -13,7 +13,7 @@
 const SBSData = (() => {
 
   // ── SIGNALK CONFIG ────────────────────────────────────────
-  const SK_HOST     = window.location.hostname || '192.168.42.201';
+  const SK_HOST     = window.location.hostname || 'sailboatserver.local';
   const SK_WS_PORT  = 3000;
   const SK_API_PORT = 3000;
   const RELAY_PORT  = 5000;
@@ -54,6 +54,9 @@ const SBSData = (() => {
     pressure: null,   // hPa
     temp:     null,   // °C
     humidity: null,   // %
+
+    // DS18B20 1-Wire temps (from relay_server /temperatures)
+    ds18b20: { cabin: null, engine: null, exhaust: null, water: null }, // °C
 
     // ESP32 direct
     stw:      null,   // knots speed through water
@@ -107,7 +110,7 @@ const SBSData = (() => {
     msToKnots:    ms  => ms != null ? ms * 1.94384 : null,
     radToDeg:     rad => rad != null ? (rad * 180 / Math.PI + 360) % 360 : null,
     paToHpa:      pa  => pa  != null ? pa / 100 : null,
-    kToC:         k   => k   != null ? k - 273.15 : null,
+    kToF:         k   => k   != null ? (k - 273.15) * 9/5 + 32 : null,
   };
 
   // ── SIGNALK PATH → STATE MAPPING ──────────────────────────
@@ -137,7 +140,7 @@ const SBSData = (() => {
       case 'environment.outside.pressure':
         state.pressure = conv.paToHpa(value); break;
       case 'environment.outside.temperature':
-        state.temp = conv.kToC(value); break;
+        state.temp = conv.kToF(value); break;
       case 'environment.outside.humidity':
         state.humidity = value != null ? value * 100 : null; break;
     }
@@ -276,6 +279,23 @@ const SBSData = (() => {
       console.warn('SBSData: WebSocket error', e);
       ws.close();
     };
+  }
+
+  // ── DS18B20 TEMPERATURES ──────────────────────────────────
+  async function fetchTemperatures() {
+    try {
+      const res = await fetch(`http://${SK_HOST}:${RELAY_PORT}/temperatures`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const t = state.ds18b20;
+      t.cabin   = data.cabin?.fahrenheit   ?? null;
+      t.engine  = data.engine?.fahrenheit  ?? null;
+      t.exhaust = data.exhaust?.fahrenheit ?? null;
+      t.water   = data.water?.fahrenheit   ?? null;
+      emit('temperatures', t);
+    } catch(e) {
+      // relay server not reachable
+    }
   }
 
   // ── RELAY API ─────────────────────────────────────────────
@@ -439,6 +459,9 @@ const SBSData = (() => {
   // Relay state and system status poll (less frequent — REST)
   setInterval(fetchRelayStates, 5000);
 
+  // DS18B20 temperature poll every 30s (sensors update ~1Hz but we don't need that fast)
+  setInterval(fetchTemperatures, 30000);
+
   // Connection watchdog — if no update in 10s, flag stale
   setInterval(() => {
     if (state.lastUpdate && Date.now() - state.lastUpdate > 10000) {
@@ -474,6 +497,7 @@ const SBSData = (() => {
   function init() {
     wsConnect();
     fetchRelayStates();
+    fetchTemperatures();
   }
 
   // Auto-init when DOM is ready
@@ -498,6 +522,7 @@ const SBSData = (() => {
     get pressure() { return state.pressure; },
     get temp()     { return state.temp; },
     get humidity() { return state.humidity; },
+    get ds18b20()  { return state.ds18b20; },
     get stw()      { return state.stw; },
     get bilge()    { return state.bilge; },
     get position() { return state.position; },

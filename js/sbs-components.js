@@ -539,4 +539,58 @@ customElements.define('next-waypoint', class extends SBSComponent {
   }
 });
 
+// ── SBS NAV ───────────────────────────────────────────────────
+// Scroll-reveal bottom navigation bar — shared across all three screens.
+// Shows when the user scrolls (or swipes on touch), auto-hides after 3s.
+// Call SBSNav.init() once per page after DOM ready.
+
+const SBSNav = (() => {
+  const PAGES = [
+    { label: 'NAV STATION', href: '/index.html',   matches: ['/', '/index.html'] },
+    { label: 'HELM',        href: '/helm.html',    matches: ['/helm.html'] },
+    { label: 'CREW',        href: '/crew.html',    matches: ['/crew.html'] },
+    { label: 'LIBRARY',     href: '/library.html', matches: ['/library.html'] },
+  ];
+  const HIDE_DELAY = 3000;
+  let nav = null, hideTimer = null;
+
+  function show() {
+    if (!nav) return;
+    nav.classList.add('sbs-nav--visible');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => nav.classList.remove('sbs-nav--visible'), HIDE_DELAY);
+  }
+
+  function init() {
+    if (nav) return;
+    const path = window.location.pathname;
+
+    nav = document.createElement('nav');
+    nav.id = 'sbs-nav';
+    nav.setAttribute('aria-label', 'Main navigation');
+    nav.innerHTML = PAGES.map(p => {
+      const active = p.matches.includes(path) || (path === '/' && p.matches.includes('/index.html'));
+      return `<a href="${p.href}" class="sbs-nav-item${active ? ' sbs-nav-item--active' : ''}"
+        aria-current="${active ? 'page' : 'false'}">${p.label}</a>`;
+    }).join('');
+    document.body.appendChild(nav);
+
+    // Scroll / touch / click reveal — covers fixed-height layouts (portal, helm)
+    // that never fire window scroll events
+    window.addEventListener('scroll',     show, { passive: true });
+    window.addEventListener('touchstart', show, { passive: true });
+    document.addEventListener('click',    show);
+
+    // Mouse near bottom edge — desktop trigger
+    document.addEventListener('mousemove', e => {
+      if (e.clientY > window.innerHeight - 80) show();
+    }, { passive: true });
+
+    // Show briefly on first load so users know it exists
+    show();
+  }
+
+  return { init, show };
+})();
+
 console.log('SBS Components loaded ✓');

@@ -19,11 +19,14 @@ node_modules/
 
 # macOS
 .DS_Store
+.AppleDouble
 
 # Large chart data — lives on the Pi, not in this repo
 /data/
 *.mbtiles
 *.gpkg
+*.pmtiles
 
-# Logs
+# Logs / temp
 *.log
+/tmp/

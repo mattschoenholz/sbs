@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SV-Esperanza — Vector Chart</title>
+<link rel="stylesheet" href="lib/maplibre-gl.css">
+<link rel="stylesheet" href="css/sbs-theme.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #080c10; }
+  #chart-map { position: absolute; inset: 0; }
+
+  #chart-topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    background: rgba(13,19,24,0.92);
+    border-bottom: 1px solid #1e2e3a;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 12px;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+  }
+  #chart-topbar .title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #f5a820;
+  }
+  #chart-topbar .pill {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #4a6070;
+    background: #111920;
+    border: 1px solid #1e2e3a;
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+  #chart-topbar a {
+    margin-left: auto;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #4a6070;
+    text-decoration: none;
+  }
+  #chart-topbar a:hover { color: #8fa3b3; }
+
+  /* Night mode button */
+  #night-btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #4a6070;
+    background: #111920;
+    border: 1px solid #1e2e3a;
+    border-radius: 4px;
+    padding: 2px 7px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #night-btn:hover { color: #8fa3b3; border-color: #3a5060; }
+  #night-btn.active { color: #cc3300; border-color: #661800; background: #1a0800; }
+
+  /* Layer toggle panel */
+  #layer-panel {
+    position: absolute;
+    top: 54px;
+    right: 10px;
+    background: rgba(13,19,24,0.92);
+    border: 1px solid #1e2e3a;
+    border-radius: 6px;
+    padding: 8px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 120px;
+    backdrop-filter: blur(6px);
+  }
+  #layer-panel label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: #8fa3b3;
+    cursor: pointer;
+    user-select: none;
+  }
+  #layer-panel input[type=checkbox] { accent-color: #e8940a; }
+</style>
+</head>
+<body>
+
+<div id="chart-map"></div>
+
+<div id="chart-topbar">
+  <span class="title">VECTOR CHART</span>
+  <span class="pill">BETA</span>
+  <span class="pill" id="zoom-pill">Z--</span>
+  <span id="night-btn">NIGHT</span>
+  <a href="helm.html">← HELM</a>
+</div>
+
+<div id="layer-panel">
+  <label><input type="checkbox" id="tog-esri" checked> ESRI BASE</label>
+  <label><input type="checkbox" id="tog-land" checked> LAND</label>
+  <label><input type="checkbox" id="tog-depth" checked> DEPTH AREAS</label>
+  <label><input type="checkbox" id="tog-contours" checked> CONTOURS</label>
+  <label><input type="checkbox" id="tog-hazards" checked> HAZARDS</label>
+  <label><input type="checkbox" id="tog-soundings" checked> SOUNDINGS</label>
+</div>
+
+<script src="lib/pmtiles.js"></script>
+<script src="lib/maplibre-gl.js"></script>
+<script src="js/sbs-data.js"></script>
+<script>
+// ── PMTiles protocol ─────────────────────────────────────────
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol('pmtiles', protocol.tile.bind(protocol));
+
+const HOST = window.location.hostname || 'sailboatserver.local';
+const PMTILES_URL = `pmtiles://http://${HOST}/charts/enc.pmtiles`;
+
+// ── Night mode palette ────────────────────────────────────────
+// Day = S-52 standard colours; Night = red-safe dark palette
+const PALETTE = {
+  day: {
+    'esri-base':       { 'raster-brightness-max': 1,    'raster-saturation':  0,   'raster-contrast':  0 },
+    'land':            { 'fill-color': '#f7f3e3' },
+    'depare-verydeep': { 'fill-color': '#a8c8e0', 'fill-opacity': 0.75 },
+    'depare-deep':     { 'fill-color': '#b8d0e8', 'fill-opacity': 0.80 },
+    'depare-mid':      { 'fill-color': '#cde3f0', 'fill-opacity': 0.85 },
+    'depare-shallow':  { 'fill-color': '#d9eef7', 'fill-opacity': 0.90 },
+    'depare-vshallow': { 'fill-color': '#e4f4fb', 'fill-opacity': 0.95 },
+    'depare-drying':   { 'fill-color': '#9ecf9e', 'fill-opacity': 0.90 },
+    'drgare':          { 'fill-color': '#b0d4e8', 'fill-opacity': 0.60 },
+    'sbdare':          { 'circle-color': '#8fa3b3', 'circle-opacity': 0.60 },
+    'depcnt':          { 'line-color': '#1a6b93', 'line-opacity': 0.90 },
+    'coalne':          { 'line-color': '#2a3f30' },
+    'slcons':          { 'line-color': '#5a6a5a' },
+    'wrecks':          { 'circle-color': '#cc0000', 'circle-stroke-color': '#800000' },
+    'uwtroc':          { 'circle-color': '#cc0000', 'circle-stroke-color': '#800000' },
+    'obstrn':          { 'circle-color': '#994400', 'circle-stroke-color': '#662200' },
+    'soundg-circle':   { 'circle-color': '#2255aa', 'circle-opacity': 0.80 },
+  },
+  night: {
+    // ESRI raster: nearly black, desaturated
+    'esri-base':       { 'raster-brightness-max': 0.06, 'raster-saturation': -1,   'raster-contrast': -0.3 },
+    // Land: very dark warm brown
+    'land':            { 'fill-color': '#1a1208' },
+    // Water areas: near-black with faint blue gradient preserved
+    'depare-verydeep': { 'fill-color': '#060a10', 'fill-opacity': 0.95 },
+    'depare-deep':     { 'fill-color': '#080d14', 'fill-opacity': 0.95 },
+    'depare-mid':      { 'fill-color': '#0a1018', 'fill-opacity': 0.95 },
+    'depare-shallow':  { 'fill-color': '#0d141c', 'fill-opacity': 0.95 },
+    'depare-vshallow': { 'fill-color': '#10181e', 'fill-opacity': 0.95 },
+    'depare-drying':   { 'fill-color': '#0d1a10', 'fill-opacity': 0.95 },
+    'drgare':          { 'fill-color': '#080e14', 'fill-opacity': 0.70 },
+    'sbdare':          { 'circle-color': '#3a2800', 'circle-opacity': 0.50 },
+    // Lines: dark red — red-safe, preserves dark adaptation
+    'depcnt':          { 'line-color': '#7a2200', 'line-opacity': 0.80 },
+    'coalne':          { 'line-color': '#4a2800' },
+    'slcons':          { 'line-color': '#3a1c00' },
+    // Hazards: dimmed red
+    'wrecks':          { 'circle-color': '#880000', 'circle-stroke-color': '#440000' },
+    'uwtroc':          { 'circle-color': '#880000', 'circle-stroke-color': '#440000' },
+    'obstrn':          { 'circle-color': '#5a2200', 'circle-stroke-color': '#3a1200' },
+    // Soundings: dark red-brown
+    'soundg-circle':   { 'circle-color': '#5a2200', 'circle-opacity': 0.60 },
+  },
+};
+
+let _chartMode = localStorage.getItem('sbs-chart-mode') || 'day';
+
+function applyPalette(mode) {
+  const p = PALETTE[mode];
+  Object.entries(p).forEach(([layerId, props]) => {
+    if (!map.getLayer(layerId)) return;
+    Object.entries(props).forEach(([prop, val]) => {
+      map.setPaintProperty(layerId, prop, val);
+    });
+  });
+  const btn = document.getElementById('night-btn');
+  btn.textContent = mode === 'night' ? 'DAY' : 'NIGHT';
+  btn.classList.toggle('active', mode === 'night');
+  localStorage.setItem('sbs-chart-mode', mode);
+  _chartMode = mode;
+}
+
+// ── Map init ─────────────────────────────────────────────────
+const map = new maplibregl.Map({
+  container: 'chart-map',
+  style: {
+    version: 8,
+    sources: {
+      'esri-ocean': {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256,
+        maxzoom: 13,
+        attribution: 'ESRI Ocean Basemap',
+      },
+      'enc': {
+        type: 'vector',
+        url: PMTILES_URL,
+      },
+    },
+    layers: [
+      // ── Base ────────────────────────────────────────────────
+      { id: 'esri-base', type: 'raster', source: 'esri-ocean' },
+
+      // ── Land ────────────────────────────────────────────────
+      { id: 'land', type: 'fill', source: 'enc', 'source-layer': 'LNDARE',
+        paint: { 'fill-color': '#f7f3e3', 'fill-opacity': 1 } },
+
+      // ── Depth areas (S-52 color scheme) ─────────────────────
+      { id: 'depare-verydeep', type: 'fill', source: 'enc', 'source-layer': 'DEPARE',
+        filter: ['>=', ['get', 'DRVAL1'], 30],
+        paint: { 'fill-color': '#a8c8e0', 'fill-opacity': 0.75 } },
+      { id: 'depare-deep', type: 'fill', source: 'enc', 'source-layer': 'DEPARE',
+        filter: ['all', ['>=', ['get', 'DRVAL1'], 10], ['<', ['get', 'DRVAL1'], 30]],
+        paint: { 'fill-color': '#b8d0e8', 'fill-opacity': 0.8 } },
+      { id: 'depare-mid', type: 'fill', source: 'enc', 'source-layer': 'DEPARE',
+        filter: ['all', ['>=', ['get', 'DRVAL1'], 5], ['<', ['get', 'DRVAL1'], 10]],
+        paint: { 'fill-color': '#cde3f0', 'fill-opacity': 0.85 } },
+      { id: 'depare-shallow', type: 'fill', source: 'enc', 'source-layer': 'DEPARE',
+        filter: ['all', ['>=', ['get', 'DRVAL1'], 2], ['<', ['get', 'DRVAL1'], 5]],
+        paint: { 'fill-color': '#d9eef7', 'fill-opacity': 0.9 } },
+      { id: 'depare-vshallow', type: 'fill', source: 'enc', 'source-layer': 'DEPARE',
+        filter: ['all', ['>=', ['get', 'DRVAL1'], 0], ['<', ['get', 'DRVAL1'], 2]],
+        paint: { 'fill-color': '#e4f4fb', 'fill-opacity': 0.95 } },
+      { id: 'depare-drying', type: 'fill', source: 'enc', 'source-layer': 'DEPARE',
+        filter: ['<', ['get', 'DRVAL2'], 0],
+        paint: { 'fill-color': '#9ecf9e', 'fill-opacity': 0.9 } },
+
+      // ── Dredged areas ───────────────────────────────────────
+      { id: 'drgare', type: 'fill', source: 'enc', 'source-layer': 'DRGARE',
+        paint: { 'fill-color': '#b0d4e8', 'fill-opacity': 0.6 } },
+
+      // ── Seabed ──────────────────────────────────────────────
+      { id: 'sbdare', type: 'circle', source: 'enc', 'source-layer': 'SBDARE',
+        minzoom: 13,
+        paint: { 'circle-color': '#8fa3b3', 'circle-radius': 2, 'circle-opacity': 0.6 } },
+
+      // ── Depth contours ──────────────────────────────────────
+      { id: 'depcnt', type: 'line', source: 'enc', 'source-layer': 'DEPCNT',
+        paint: { 'line-color': '#1a6b93', 'line-width': 1.2, 'line-opacity': 0.9 } },
+
+      // ── Coastline + structures ──────────────────────────────
+      { id: 'coalne', type: 'line', source: 'enc', 'source-layer': 'COALNE',
+        paint: { 'line-color': '#2a3f30', 'line-width': 1.5 } },
+      { id: 'slcons', type: 'line', source: 'enc', 'source-layer': 'SLCONS',
+        paint: { 'line-color': '#5a6a5a', 'line-width': 1, 'line-dasharray': [3, 2] } },
+
+      // ── Hazards ─────────────────────────────────────────────
+      { id: 'wrecks', type: 'circle', source: 'enc', 'source-layer': 'WRECKS',
+        paint: { 'circle-color': '#cc0000', 'circle-radius': 5,
+                 'circle-stroke-color': '#800000', 'circle-stroke-width': 1 } },
+      { id: 'uwtroc', type: 'circle', source: 'enc', 'source-layer': 'UWTROC',
+        paint: { 'circle-color': '#cc0000', 'circle-radius': 4,
+                 'circle-stroke-color': '#800000', 'circle-stroke-width': 1 } },
+      { id: 'obstrn', type: 'circle', source: 'enc', 'source-layer': 'OBSTRN',
+        paint: { 'circle-color': '#994400', 'circle-radius': 3,
+                 'circle-stroke-color': '#662200', 'circle-stroke-width': 1 } },
+
+      // ── Soundings (circles at z12+, labels need glyphs) ─────
+      { id: 'soundg-circle', type: 'circle', source: 'enc', 'source-layer': 'SOUNDG',
+        minzoom: 12,
+        paint: { 'circle-color': '#2255aa', 'circle-radius': 2, 'circle-opacity': 0.8 } },
+
+    ],
+  },
+  center: [-122.5, 47.8],
+  zoom: 10,
+});
+
+// ── Add boat position source + layer after map loads ─────────
+map.on('load', () => {
+  map.addSource('boat-pos', {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} },
+  });
+  map.addLayer({
+    id: 'boat', type: 'circle', source: 'boat-pos',
+    paint: { 'circle-color': '#e8940a', 'circle-radius': 7,
+             'circle-stroke-color': '#080c10', 'circle-stroke-width': 2 },
+  });
+
+  // Apply saved palette on load
+  if (_chartMode === 'night') applyPalette('night');
+
+  // Zoom pill
+  map.on('zoom', () => {
+    document.getElementById('zoom-pill').textContent = 'Z' + Math.round(map.getZoom());
+  });
+  document.getElementById('zoom-pill').textContent = 'Z' + Math.round(map.getZoom());
+
+  // Layer toggles
+  const toggleGroups = {
+    'tog-esri':     ['esri-base'],
+    'tog-land':     ['land'],
+    'tog-depth':    ['depare-verydeep','depare-deep','depare-mid','depare-shallow','depare-vshallow','depare-drying','drgare'],
+    'tog-contours': ['depcnt','coalne','slcons'],
+    'tog-hazards':  ['wrecks','uwtroc','obstrn'],
+    'tog-soundings':['soundg-circle','sbdare'],
+  };
+  Object.entries(toggleGroups).forEach(([cbId, layerIds]) => {
+    document.getElementById(cbId).addEventListener('change', e => {
+      layerIds.forEach(id => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', e.target.checked ? 'visible' : 'none');
+      });
+    });
+  });
+});
+
+// ── Night mode toggle ─────────────────────────────────────────
+document.getElementById('night-btn').addEventListener('click', () => {
+  applyPalette(_chartMode === 'night' ? 'day' : 'night');
+});
+
+// Restore button label before map loads (in case page re-renders)
+if (_chartMode === 'night') {
+  const btn = document.getElementById('night-btn');
+  btn.textContent = 'DAY';
+  btn.classList.add('active');
+}
+
+// ── Boat position from SBSData ────────────────────────────────
+SBSData.on('update', () => {
+  const pos = SBSData.position;
+  if (!pos || !map.getSource('boat-pos')) return;
+  map.getSource('boat-pos').setData({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [pos.longitude, pos.latitude] },
+    properties: {},
+  });
+  // Center on first fix
+  if (!window._chartCentered) {
+    map.setCenter([pos.longitude, pos.latitude]);
+    window._chartCentered = true;
+  }
+});
+
+// ── Nav controls ─────────────────────────────────────────────
+map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-left');
+map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'nautical' }), 'bottom-right');
+</script>
+</body>
+</html>

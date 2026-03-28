@@ -39,6 +39,29 @@
 - **GPIO library:** `lgpio` (Pi 5 compatible)
 - **Endpoints:** See `docs/ARCHITECTURE.md` for full endpoint list
 
+### Ollama (On-Pi)
+- **URL:** `http://sailboatserver.local:11434` (direct) or `http://sailboatserver.local/ollama/` (nginx proxy)
+- **Purpose:** Local LLM inference for offline AI sailing assistant
+- **Model:** `phi4-mini:latest` — 3.8B params, Q4_K_M quantization, 2.5 GB
+- **Model storage:** `/usr/share/ollama/.ollama/models/`
+- **systemd unit:** `ollama.service`
+- **CORS config:** `/etc/systemd/system/ollama.service.d/override.conf` — sets `OLLAMA_ORIGINS=*` (required for browser access)
+- **nginx proxy:** `location /ollama/` → `http://127.0.0.1:11434/` with `proxy_buffering off`, `proxy_read_timeout 300s`
+- **Key endpoints:**
+  - `GET /ollama/api/tags` — list loaded models
+  - `POST /ollama/api/chat` — chat with streaming NDJSON response
+- **Adding models:** `ssh pi@sailboatserver.local "ollama pull <model-name>"`
+
+### Kiwix (On-Pi)
+- **URL:** `http://sailboatserver.local:8080`
+- **Purpose:** Offline Wikipedia, WikiBooks, iFixit, StackExchange, Gutenberg and survival guides
+- **ZIM files:** `/home/pi/zims/*.zim` — 29 collections (~87 GB total)
+- **systemd unit:** `kiwix.service` — `ExecStart=/usr/bin/kiwix-serve --port=8080 /home/pi/zims/*.zim`
+- **Adding content:** Drop `.zim` files into `/home/pi/zims/`, then tap ↺ REINDEX on Library page (or `sudo systemctl restart kiwix`)
+- **ZIM source:** https://library.kiwix.org
+- **Sudoers:** `/etc/sudoers.d/kiwix-restart` — pi user can `sudo systemctl restart kiwix` without password (used by relay_server restart endpoint)
+- **Bad ZIMs:** Two corrupted files in `/home/pi/zims-bad/` (security.stackexchange, wikispecies) — can be re-downloaded
+
 ### nginx (On-Pi)
 - **Port:** 80
 - **Purpose:** Static file serving, FastCGI proxy for MapServer, caching

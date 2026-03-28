@@ -35,20 +35,25 @@ CORS(app)  # Required for portal (port 80) to reach relay API (port 5000)
 # ============================================================
 
 # ── RELAY PINS (Waveshare Relay Board B — active LOW) ────────
-# Jumpers physically moved from Waveshare defaults to avoid MacArthur HAT conflicts.
-# CH1 moved: GPIO5 (UART2 RX / VHF in)  → GPIO20 (pin 38)
-# CH3 moved: GPIO13 (UART4 RX / TP22 in) → GPIO21 (pin 40)
-# CH5–CH8 moved earlier to clear 1-Wire and UART conflicts.
-# See docs/GPIO_PIN_MAPPING.md for full history.
+# Current assignments are conflict-free for all hardware currently wired.
+#
+# LATENT CONFLICTS — require jumper moves on Waveshare board before wiring:
+#   CH1 GPIO5  (pin 29): shares UART2 RX with MacArthur HAT VHF radio input.
+#     → When VHF TX is wired: move CH1 jumper from GPIO5 (pin 29) to GPIO14 (pin 8).
+#   CH3 GPIO13 (pin 33): shares UART4 RX with MacArthur HAT TP22 autotiller input.
+#     → When TP22 TX is wired: move CH3 jumper from GPIO13 (pin 33) to GPIO15 (pin 10).
+#
+# Jumper moves require no soldering — Waveshare board uses 2-pin header jumpers.
+# See docs/GPIO_PIN_MAPPING.md for full history and HAT pin audit.
 RELAY_PINS = {
-    1: 20,    # CH1 — Cabin Lights        (jumper: GPIO5 → GPIO20)
-    2:  6,    # CH2 — Navigation Lights
-    3: 21,    # CH3 — Anchor Light        (jumper: GPIO13 → GPIO21)
-    4: 16,    # CH4 — Bilge Pump          ← SAFETY CRITICAL
-    5: 25,    # CH5 — Water Pump          (jumper: GPIO17 → GPIO25)
-    6: 24,    # CH6 — Vent Fan            (jumper: GPIO18 → GPIO24)
-    7: 18,    # CH7 — Instruments         (jumper: GPIO24 → GPIO18)
-    8: 17,    # CH8 — Starlink Power      (jumper: GPIO25 → GPIO17)
+    1: 14,    # CH1 — Cabin Lights        GPIO14 / pin 8   (jumper moved from GPIO5 — VHF radio wired)
+    2:  6,    # CH2 — Navigation Lights   GPIO6  / pin 31
+    3: 13,    # CH3 — Anchor Light        GPIO13 / pin 33  (TP22 not yet wired — safe at GPIO13)
+    4: 16,    # CH4 — Bilge Pump          GPIO16 / pin 36  ← SAFETY CRITICAL
+    5: 25,    # CH5 — Water Pump          GPIO25 / pin 22  (rewired: 17→25)
+    6: 24,    # CH6 — Vent Fan            GPIO24 / pin 18  (rewired: 18→24)
+    7: 18,    # CH7 — Instruments         GPIO18 / pin 12  (rewired: 24→18)
+    8: 17,    # CH8 — Starlink Power      GPIO17 / pin 11  (rewired: 25→17)
 }
 
 RELAY_NAMES = {
@@ -64,15 +69,19 @@ RELAY_NAMES = {
 
 # ── MANUAL OVERRIDE SWITCH PINS ─────────────────────────────
 # Physical toggle switches wired to GPIO, other end to GND.
-# Internal pull-ups enabled — LOW = switch ON.
-# Switches not yet wired; pins chosen to avoid all active conflicts.
-# Key = relay channel number controlled by that switch.
+# Internal pull-ups enabled — LOW = switch closed = ON.
+# Switches not yet physically wired; all pins confirmed conflict-free.
+# Key = relay channel number the switch controls.
+#
+# GPIO26 (SW4): previously conflicted with gpio-poweroff kernel overlay.
+# Resolved: removed gpio-poweroff from /boot/firmware/config.txt (2026-03-26).
+# GeeekPi UPS Gen 6 uses I2C only — gpio-poweroff overlay was not needed.
 SWITCH_PINS = {
-    4:  6,   # SW1 → CH4 Bilge Pump        ← SAFETY CRITICAL (GPIO6 / pin 31)
-    2: 22,   # SW2 → CH2 Navigation Lights  (GPIO22 / pin 15)
-    3: 23,   # SW3 → CH3 Anchor Light       (GPIO23 / pin 16)
-    1: 26,   # SW4 → CH1 Cabin Lights       (GPIO26 / pin 37)
-    6: 27,   # SW5 → CH6 Vent Fan           (GPIO27 / pin 13)
+    4: 20,   # SW1 → CH4 Bilge Pump          GPIO20 / pin 38  ← SAFETY CRITICAL
+    2: 22,   # SW2 → CH2 Navigation Lights   GPIO22 / pin 15
+    3: 23,   # SW3 → CH3 Anchor Light        GPIO23 / pin 16
+    1: 26,   # SW4 → CH1 Cabin Lights        GPIO26 / pin 37
+    6: 27,   # SW5 → CH6 Vent Fan            GPIO27 / pin 13
 }
 
 # ── 1-WIRE TEMPERATURE SENSORS ───────────────────────────────
@@ -122,8 +131,20 @@ def init_gpio():
             lgpio.gpio_claim_output(h, pin, 1)
 
     # Switch inputs — pull-up, LOW = switch pressed
+    # Switches not yet physically wired; skip busy pins gracefully.
     for ch, pin in SWITCH_PINS.items():
-        lgpio.gpio_claim_input(h, pin, lgpio.SET_PULL_UP)
+        try:
+            lgpio.gpio_claim_input(h, pin, lgpio.SET_PULL_UP)
+        except lgpio.error as e:
+            print(f"Switch CH{ch} GPIO{pin} unavailable ({e}) — skipping")
+
+    # Seed switch_last with actual pin state so the first poll never
+    # generates a false rising edge on a floating or grounded input.
+    for ch, pin in SWITCH_PINS.items():
+        try:
+            switch_last[ch] = (lgpio.gpio_read(h, pin) == 0)
+        except lgpio.error:
+            switch_last[ch] = False
 
     print("GPIO initialised — all relays OFF")
 
@@ -527,6 +548,19 @@ def system_shutdown():
         subprocess.run(["sudo", "shutdown", "-h", "now"])
     threading.Thread(target=do_shutdown, daemon=True).start()
     return jsonify({"message": "Shutting down in 2 seconds"})
+
+
+@app.route('/system/restart-kiwix', methods=['POST'])
+def restart_kiwix():
+    """Restart kiwix.service so newly added ZIM files are picked up."""
+    result = subprocess.run(
+        ["sudo", "systemctl", "restart", "kiwix"],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        return jsonify({"message": "Kiwix restarting — library will be back in ~10 seconds"})
+    else:
+        return jsonify({"error": result.stderr.strip() or "Failed to restart kiwix"}), 500
 
 
 # ============================================================

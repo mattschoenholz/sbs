@@ -230,13 +230,15 @@ html, body { overflow: hidden; }
 /* TAB 2: CHART */
 .chart-container {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   position: relative;
   background: #07100f;
   overflow: hidden;
+}
+
+#helm-map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
 }
 
 .chart-container::before {
@@ -256,6 +258,7 @@ html, body { overflow: hidden; }
   display: flex;
   flex-direction: column;
   gap: var(--sp-sm);
+  z-index: 500;
 }
 
 .chart-overlay-tr {
@@ -266,6 +269,7 @@ html, body { overflow: hidden; }
   flex-direction: column;
   gap: var(--sp-sm);
   align-items: flex-end;
+  z-index: 500;
 }
 
 .chart-pill {
@@ -283,6 +287,7 @@ html, body { overflow: hidden; }
   position: absolute;
   bottom: var(--sp-lg);
   right: var(--sp-lg);
+  z-index: 500;
 }
 
 .chart-placeholder {
@@ -619,9 +624,12 @@ html, body { overflow: hidden; }
   flex-direction: column;
   gap: 2px;
 }
-.wx-strip-cell .wsc-time { font-family: var(--font-mono); font-size: 9px; color: var(--t-muted); }
-.wx-strip-cell .wsc-wind { font-family: var(--font-display); font-size: 10px; font-weight: 700; color: var(--c-amber-hi); }
-.wx-strip-cell .wsc-wave { font-family: var(--font-display); font-size: 9px; color: var(--c-blue); }
+.wx-strip-cell .wsc-time    { font-family: var(--font-mono); font-size: 9px; color: var(--t-muted); }
+.wx-strip-cell .wsc-wind    { font-family: var(--font-display); font-size: 10px; font-weight: 700; color: var(--c-amber-hi); }
+.wx-strip-cell .wsc-wave    { font-family: var(--font-display); font-size: 9px; color: var(--c-blue); }
+.wx-strip-cell .wsc-current { font-family: var(--font-display); font-size: 9px; color: var(--c-cyan); }
+.wx-strip-cell.wsc-now      { border: 1px solid var(--c-border-hi); border-radius: var(--r-sm); background: var(--c-raised); }
+.wx-strip-cell.wsc-now .wsc-time { color: var(--c-amber); font-weight: 700; }
 
 /* MOB OVERLAY */
 .mob-overlay {

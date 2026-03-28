@@ -1,0 +1,381 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 375 812" width="375" height="812">
+  <defs>
+    <style>
+      .font-display { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; }
+      .font-mono    { font-family: 'Share Tech Mono', 'Courier New', monospace; }
+      .font-body    { font-family: 'Barlow', Arial, sans-serif; }
+    </style>
+
+    <!-- Amber glow filter for alert state -->
+    <filter id="amber-glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Red glow for MOB -->
+    <filter id="red-glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Clip for depth arc -->
+    <clipPath id="arc-clip">
+      <rect x="0" y="0" width="375" height="812"/>
+    </clipPath>
+  </defs>
+
+  <!-- ── BACKGROUND ──────────────────────────────────────────────── -->
+  <rect width="375" height="812" fill="#080c10"/>
+
+  <!-- ============================================================
+       SECTION 1 — STATUS BAR (above the fold, always visible)
+       Height: 44px — ISA-101 Level 1 global status
+       ============================================================ -->
+  <g id="statusbar">
+    <rect x="0" y="0" width="375" height="44" fill="#0d1318"/>
+    <rect x="0" y="43" width="375" height="1" fill="#1e2e3a"/>
+
+    <!-- Vessel name -->
+    <text x="16" y="28" class="font-display" font-size="13" font-weight="700"
+          letter-spacing="0.12em" text-transform="uppercase" fill="#e8940a">SV-ESPERANZA</text>
+
+    <!-- Connection dot — green = live -->
+    <circle cx="258" cy="22" r="4" fill="#22c55e"/>
+    <text x="267" y="27" class="font-display" font-size="10" font-weight="600"
+          letter-spacing="0.08em" fill="#4a6070">LIVE</text>
+
+    <!-- Night mode toggle -->
+    <rect x="298" y="10" width="34" height="24" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="315" y="26" class="font-display" font-size="10" font-weight="700"
+          letter-spacing="0.06em" fill="#4a6070" text-anchor="middle">NIGHT</text>
+
+    <!-- Clock -->
+    <text x="359" y="27" class="font-mono" font-size="11" fill="#4a6070" text-anchor="end">14:32</text>
+  </g>
+
+  <!-- ============================================================
+       SECTION 2 — HERO INSTRUMENT STRIP (primary above-the-fold)
+       3 dominant tiles: SOG / COG / DEPTH
+       Height: 140px — ISA-101 Level 1 primary status
+       These answer "are we moving safely?" at a glance.
+       Gestalt: Common Region (card containers), Similarity (identical tile format)
+       Fitts: largest touch-zone row, centered on screen
+       ============================================================ -->
+  <g id="hero-instruments">
+    <rect x="0" y="44" width="375" height="140" fill="#0d1318"/>
+
+    <!-- SOG tile -->
+    <rect x="8" y="52" width="112" height="124" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <!-- SOG label -->
+    <text x="64" y="72" class="font-display" font-size="10" font-weight="700"
+          letter-spacing="0.14em" fill="#4a6070" text-anchor="middle">SOG</text>
+    <!-- SOG value — amber, dominant -->
+    <text x="64" y="130" class="font-mono" font-size="52" fill="#f5a820"
+          text-anchor="middle" letter-spacing="-0.02em">6.2</text>
+    <!-- SOG unit -->
+    <text x="64" y="162" class="font-display" font-size="11" letter-spacing="0.1em"
+          fill="#8fa3b3" text-anchor="middle">KN</text>
+
+    <!-- COG tile -->
+    <rect x="132" y="52" width="112" height="124" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="188" y="72" class="font-display" font-size="10" font-weight="700"
+          letter-spacing="0.14em" fill="#4a6070" text-anchor="middle">COG</text>
+    <text x="188" y="130" class="font-mono" font-size="52" fill="#f0f4f8"
+          text-anchor="middle" letter-spacing="-0.02em">247</text>
+    <text x="188" y="162" class="font-display" font-size="11" letter-spacing="0.1em"
+          fill="#8fa3b3" text-anchor="middle">°T</text>
+
+    <!-- DEPTH tile — cyan accent, safety-critical -->
+    <rect x="256" y="52" width="112" height="124" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="312" y="72" class="font-display" font-size="10" font-weight="700"
+          letter-spacing="0.14em" fill="#4a6070" text-anchor="middle">DEPTH</text>
+    <text x="312" y="130" class="font-mono" font-size="52" fill="#06b6d4"
+          text-anchor="middle" letter-spacing="-0.02em">18.4</text>
+    <text x="312" y="162" class="font-display" font-size="11" letter-spacing="0.1em"
+          fill="#8fa3b3" text-anchor="middle">M</text>
+  </g>
+
+  <!-- ============================================================
+       SECTION 3 — WIND ROW
+       TWS dominant + TWD + AWA secondary
+       Height: 100px — ISA-101 Level 2 area detail
+       Gestalt: Proximity (wind data grouped tightly)
+       ============================================================ -->
+  <g id="wind-row">
+    <rect x="8" y="196" width="358" height="92" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Section label -->
+    <text x="20" y="213" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.14em" fill="#4a6070">WIND</text>
+
+    <!-- TWS — largest value in this card -->
+    <text x="20" y="264" class="font-mono" font-size="44" fill="#f5a820"
+          letter-spacing="-0.02em">14</text>
+    <text x="70" y="278" class="font-display" font-size="11" letter-spacing="0.1em" fill="#8fa3b3">KN TWS</text>
+
+    <!-- Divider -->
+    <line x1="120" y1="220" x2="120" y2="278" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- TWD -->
+    <text x="148" y="246" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">TWD</text>
+    <text x="148" y="272" class="font-mono" font-size="24" fill="#f0f4f8">285°</text>
+
+    <!-- Divider -->
+    <line x1="230" y1="220" x2="230" y2="278" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- AWS -->
+    <text x="248" y="246" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">AWS</text>
+    <text x="248" y="272" class="font-mono" font-size="24" fill="#f0f4f8">17</text>
+    <text x="292" y="272" class="font-display" font-size="10" fill="#8fa3b3">KN</text>
+
+    <!-- Divider -->
+    <line x1="318" y1="220" x2="318" y2="278" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- AWA -->
+    <text x="326" y="246" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">AWA</text>
+    <text x="326" y="272" class="font-mono" font-size="24" fill="#f0f4f8">38°</text>
+  </g>
+
+  <!-- ============================================================
+       SECTION 4 — WAYPOINT / PASSAGE CARD
+       Next waypoint, bearing, distance, ETA, progress bar
+       Height: 132px — ISA-101 Level 2 navigation context
+       ============================================================ -->
+  <g id="waypoint-card">
+    <rect x="8" y="300" width="358" height="128" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Section label -->
+    <text x="20" y="317" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.14em" fill="#4a6070">NEXT WAYPOINT</text>
+
+    <!-- Waypoint name — prominent -->
+    <text x="20" y="342" class="font-display" font-size="22" font-weight="700"
+          fill="#f5a820" letter-spacing="0.04em">CAPE FLATTERY</text>
+
+    <!-- Bearing / Distance / ETA grid -->
+    <!-- BRG -->
+    <text x="20" y="365" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">BEARING</text>
+    <text x="20" y="386" class="font-mono" font-size="22" fill="#f0f4f8">271°</text>
+
+    <!-- Divider -->
+    <line x1="115" y1="358" x2="115" y2="393" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- DIST -->
+    <text x="127" y="365" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">DISTANCE</text>
+    <text x="127" y="386" class="font-mono" font-size="22" fill="#f0f4f8">12.4<tspan class="font-display" font-size="11" fill="#8fa3b3"> NM</tspan></text>
+
+    <!-- Divider -->
+    <line x1="240" y1="358" x2="240" y2="393" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- ETA -->
+    <text x="252" y="365" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">ETA</text>
+    <text x="252" y="386" class="font-mono" font-size="22" fill="#f0f4f8">16:45</text>
+
+    <!-- Progress bar -->
+    <rect x="20" y="400" width="330" height="6" rx="3" fill="#1e2e3a"/>
+    <rect x="20" y="400" width="194" height="6" rx="3" fill="#e8940a" opacity="0.7"/>
+    <!-- Progress labels -->
+    <text x="20" y="418" class="font-display" font-size="9" fill="#4a6070">POINT ANGELES</text>
+    <text x="188" y="418" class="font-display" font-size="9" fill="#8fa3b3" text-anchor="middle">59%</text>
+    <text x="350" y="418" class="font-display" font-size="9" fill="#4a6070" text-anchor="end">CAPE FLATTERY</text>
+  </g>
+
+  <!-- ============================================================
+       SECTION 5 — ENVIRONMENT ROW
+       Baro + trend, Air temp, Humidity — compact secondary
+       Height: 76px — ISA-101 Level 2, secondary environment data
+       ============================================================ -->
+  <g id="environment-row">
+    <rect x="8" y="440" width="358" height="72" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="20" y="457" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.14em" fill="#4a6070">ENVIRONMENT</text>
+
+    <!-- Baro -->
+    <text x="20" y="497" class="font-mono" font-size="26" fill="#f0f4f8">1018</text>
+    <text x="84" y="497" class="font-display" font-size="10" fill="#8fa3b3">hPa</text>
+    <!-- Trend arrow — steady = amber -->
+    <text x="108" y="497" class="font-mono" font-size="20" fill="#e8940a">→</text>
+    <text x="128" y="497" class="font-display" font-size="9" fill="#4a6070">STEADY</text>
+
+    <!-- Divider -->
+    <line x1="200" y1="460" x2="200" y2="502" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Air temp -->
+    <text x="212" y="474" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">AIR TEMP</text>
+    <text x="212" y="497" class="font-mono" font-size="26" fill="#f0f4f8">14.2°</text>
+
+    <!-- Divider -->
+    <line x1="290" y1="460" x2="290" y2="502" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Humidity -->
+    <text x="302" y="474" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">HUMIDITY</text>
+    <text x="302" y="497" class="font-mono" font-size="26" fill="#f0f4f8">72%</text>
+  </g>
+
+  <!-- ============================================================
+       SECTION 6 — 6-HOUR WEATHER FORECAST STRIP
+       Horizontal scroll of forecast cells
+       Height: 108px — ISA-101 Level 2, situational awareness
+       ============================================================ -->
+  <g id="forecast-strip">
+    <rect x="8" y="524" width="358" height="108" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="20" y="541" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.14em" fill="#4a6070">6-HR FORECAST</text>
+
+    <!-- Forecast cells — 5 visible, hint of 6th for scroll affordance -->
+    <!-- Cell 1: Now -->
+    <rect x="16" y="548" width="60" height="76" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="46" y="562" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">NOW</text>
+    <text x="46" y="580" class="font-display" font-size="9" fill="#4a6070" text-anchor="middle">&#x1F32C;</text>
+    <!-- Wind icon approximation -->
+    <line x1="36" y1="575" x2="56" y2="575" stroke="#e8940a" stroke-width="2"/>
+    <polygon points="56,575 50,571 50,579" fill="#e8940a"/>
+    <text x="46" y="596" class="font-display" font-size="11" font-weight="700"
+          fill="#f5a820" text-anchor="middle">14kt</text>
+    <text x="46" y="610" class="font-display" font-size="9" fill="#06b6d4" text-anchor="middle">0.8m</text>
+    <text x="46" y="622" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">NW</text>
+
+    <!-- Cell 2: +1hr -->
+    <rect x="82" y="548" width="60" height="76" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="112" y="562" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">15:00</text>
+    <line x1="102" y1="575" x2="122" y2="575" stroke="#e8940a" stroke-width="2"/>
+    <polygon points="122,575 116,571 116,579" fill="#e8940a"/>
+    <text x="112" y="596" class="font-display" font-size="11" font-weight="700"
+          fill="#f5a820" text-anchor="middle">15kt</text>
+    <text x="112" y="610" class="font-display" font-size="9" fill="#06b6d4" text-anchor="middle">0.9m</text>
+    <text x="112" y="622" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">NW</text>
+
+    <!-- Cell 3: +2hr -->
+    <rect x="148" y="548" width="60" height="76" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="178" y="562" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">16:00</text>
+    <line x1="168" y1="575" x2="188" y2="575" stroke="#e8940a" stroke-width="2"/>
+    <polygon points="188,575 182,571 182,579" fill="#e8940a"/>
+    <text x="178" y="596" class="font-display" font-size="11" font-weight="700"
+          fill="#f5a820" text-anchor="middle">17kt</text>
+    <text x="178" y="610" class="font-display" font-size="9" fill="#06b6d4" text-anchor="middle">1.1m</text>
+    <text x="178" y="622" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">NNW</text>
+
+    <!-- Cell 4: +3hr — slightly elevated wind, yellow indicator -->
+    <rect x="214" y="548" width="60" height="76" rx="4" fill="#1a1f12" stroke="#3d3800" stroke-width="1"/>
+    <text x="244" y="562" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">17:00</text>
+    <line x1="234" y1="575" x2="254" y2="575" stroke="#eab308" stroke-width="2"/>
+    <polygon points="254,575 248,571 248,579" fill="#eab308"/>
+    <text x="244" y="596" class="font-display" font-size="11" font-weight="700"
+          fill="#eab308" text-anchor="middle">21kt</text>
+    <text x="244" y="610" class="font-display" font-size="9" fill="#06b6d4" text-anchor="middle">1.4m</text>
+    <text x="244" y="622" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">N</text>
+
+    <!-- Cell 5: +4hr -->
+    <rect x="280" y="548" width="60" height="76" rx="4" fill="#1a1f12" stroke="#3d3800" stroke-width="1"/>
+    <text x="310" y="562" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">18:00</text>
+    <line x1="300" y1="575" x2="320" y2="575" stroke="#eab308" stroke-width="2"/>
+    <polygon points="320,575 314,571 314,579" fill="#eab308"/>
+    <text x="310" y="596" class="font-display" font-size="11" font-weight="700"
+          fill="#eab308" text-anchor="middle">22kt</text>
+    <text x="310" y="610" class="font-display" font-size="9" fill="#06b6d4" text-anchor="middle">1.5m</text>
+    <text x="310" y="622" class="font-mono" font-size="9" fill="#4a6070" text-anchor="middle">N</text>
+
+    <!-- Scroll hint — partial 6th cell edge -->
+    <rect x="346" y="548" width="14" height="76" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- ============================================================
+       SECTION 7 — POSITION STRIP
+       Lat/lon + GPS quality — compact informational footer
+       Height: 44px
+       ============================================================ -->
+  <g id="position-strip">
+    <rect x="8" y="644" width="358" height="40" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="20" y="659" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.12em" fill="#4a6070">POSITION</text>
+    <text x="20" y="676" class="font-mono" font-size="13" fill="#8fa3b3">48° 23.412' N  &nbsp; 124° 43.218' W</text>
+    <circle cx="354" cy="662" r="4" fill="#22c55e"/>
+    <text x="354" y="679" class="font-display" font-size="8" fill="#4a6070" text-anchor="middle">GPS</text>
+  </g>
+
+  <!-- ============================================================
+       SECTION 8 — BOTTOM NAV BAR
+       3 tabs: Watch (instruments, default) | Forecast | Alerts
+       Fixed to bottom — Fitts: thumb-zone primary navigation
+       Height: 72px with safe-area consideration
+       ============================================================ -->
+  <g id="bottom-nav">
+    <rect x="0" y="696" width="375" height="116" fill="#0d1318"/>
+    <rect x="0" y="696" width="375" height="1" fill="#1e2e3a"/>
+
+    <!-- Tab 1: Watch (active) -->
+    <rect x="0" y="696" width="125" height="72" fill="#0d1318"/>
+    <!-- Active indicator line -->
+    <rect x="20" y="696" width="84" height="2" rx="1" fill="#e8940a"/>
+    <!-- Icon: compass/instruments -->
+    <text x="62" y="728" class="font-mono" font-size="20" fill="#f5a820" text-anchor="middle">⧖</text>
+    <text x="62" y="748" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.1em" fill="#f5a820" text-anchor="middle">WATCH</text>
+
+    <!-- Separator -->
+    <line x1="125" y1="704" x2="125" y2="760" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Tab 2: Forecast -->
+    <rect x="125" y="696" width="125" height="72" fill="#0d1318"/>
+    <text x="187" y="728" class="font-mono" font-size="20" fill="#4a6070" text-anchor="middle">↝</text>
+    <text x="187" y="748" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">FORECAST</text>
+
+    <!-- Separator -->
+    <line x1="250" y1="704" x2="250" y2="760" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Tab 3: Alerts (with badge = 1 advisory) -->
+    <rect x="250" y="696" width="125" height="72" fill="#0d1318"/>
+    <text x="312" y="728" class="font-mono" font-size="20" fill="#4a6070" text-anchor="middle">⚑</text>
+    <!-- Alert badge -->
+    <circle cx="330" cy="712" r="7" fill="#eab308"/>
+    <text x="330" y="716" class="font-display" font-size="8" font-weight="700"
+          fill="#080c10" text-anchor="middle">1</text>
+    <text x="312" y="748" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">ALERTS</text>
+
+    <!-- Home indicator bar — iOS style -->
+    <rect x="145" y="780" width="85" height="4" rx="2" fill="#4a6070" opacity="0.5"/>
+  </g>
+
+  <!-- ============================================================
+       MOB BUTTON — fixed lower-left, always accessible
+       ISA-18.2 Critical alarm — red, round, prominent
+       Fitts: large target, edge position, high contrast
+       ============================================================ -->
+  <g id="mob-btn" filter="url(#red-glow)">
+    <circle cx="44" cy="652" r="32" fill="#ef4444" stroke="#ff4444" stroke-width="2"/>
+    <text x="44" y="646" class="font-display" font-size="9" font-weight="700"
+          letter-spacing="0.06em" fill="white" text-anchor="middle">⚠</text>
+    <text x="44" y="660" class="font-display" font-size="10" font-weight="700"
+          letter-spacing="0.1em" fill="white" text-anchor="middle">MOB</text>
+  </g>
+
+  <!-- ============================================================
+       SCROLL INDICATOR — subtle hint that content continues above
+       ============================================================ -->
+  <text x="187" y="690" class="font-display" font-size="8" fill="#4a6070"
+        letter-spacing="0.08em" text-anchor="middle">▴ SCROLL FOR POSITION</text>
+
+  <!-- ============================================================
+       ANNOTATION LAYER — design notes (remove in production)
+       ============================================================ -->
+  <!-- Above fold line indicator -->
+  <line x1="0" y1="700" x2="375" y2="700" stroke="#06b6d4" stroke-width="0.5" opacity="0.3" stroke-dasharray="4,4"/>
+  <text x="370" y="695" class="font-display" font-size="8" fill="#06b6d4" opacity="0.4" text-anchor="end">above fold</text>
+
+  <!-- Section brackets (annotations) -->
+  <rect x="0" y="0" width="2" height="44" fill="#4a6070" opacity="0.3"/>
+  <rect x="0" y="44" width="2" height="140" fill="#e8940a" opacity="0.3"/>
+  <rect x="0" y="184" width="2" height="116" fill="#06b6d4" opacity="0.2"/>
+  <rect x="0" y="300" width="2" height="128" fill="#e8940a" opacity="0.2"/>
+  <rect x="0" y="428" width="2" height="116" fill="#4a6070" opacity="0.2"/>
+  <rect x="0" y="544" width="2" height="108" fill="#4a6070" opacity="0.15"/>
+
+</svg>

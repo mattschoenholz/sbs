@@ -406,6 +406,8 @@ html, body {
 }
 
 /* ── RELAY BUTTONS ──────────────────────────────────────────── */
+relay-button { display: contents; } /* transparent to grid — inner .relay-btn becomes grid item */
+
 .relay-btn {
   display: flex;
   flex-direction: column;
@@ -969,13 +971,18 @@ html, body {
 
 .inst-tiles {
   display: grid;
-  /* 2 cols min on tiny phones, fills with ~140px tiles on wider screens */
-  grid-template-columns: repeat(auto-fill, minmax(max(140px, 42vw - 16px), 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--sp-sm);
   margin-bottom: var(--sp-sm);
 }
-@media (min-width: 420px) {
-  .inst-tiles { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+@media (min-width: 480px) {
+  .inst-tiles { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 720px) {
+  .inst-tiles { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 960px) {
+  .inst-tiles { grid-template-columns: repeat(5, 1fr); }
 }
 
 .inst-tile {
@@ -989,7 +996,7 @@ html, body {
   padding: var(--sp-sm);
   gap: 3px;
   position: relative;
-  min-height: clamp(88px, 22vw, 130px);
+  min-height: clamp(88px, 22vw, 200px);
   transition: border-color var(--tx-normal), box-shadow var(--tx-normal);
 }
 
@@ -1848,6 +1855,15 @@ html, body {
 
 /* ── RESPONSIVE — phone & small tablet ─────────────────────── */
 
+/* Night toggle: compact icon button for status bar */
+night-toggle .sbs-btn {
+  padding: 2px 8px;
+  font-size: 16px;
+  line-height: 1;
+  min-height: 0;
+  border-radius: var(--r-sm);
+}
+
 /* Status bar: hide coords on very small screens */
 @media (max-width: 380px) {
   .sbs-statusbar .sbs-coords { display: none; }
@@ -1881,8 +1897,11 @@ html, body {
 /* Relay grid: 2 cols on small, auto-fill on larger */
 .relay-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--sp-sm);
+}
+@media (max-width: 380px) {
+  .relay-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* Network resource links: wrap nicely */
@@ -1904,6 +1923,24 @@ html, body {
   .weather-layout { grid-template-columns: 1fr; overflow-y: auto; }
 }
 
+/* ── PLAN MAP ───────────────────────────────────────────────── */
+.plan-map {
+  height: clamp(240px, 40vw, 360px);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--c-deep);
+}
+.plan-wp-popup .leaflet-popup-content-wrapper {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  color: var(--t-primary);
+  font-family: var(--font-display);
+  font-size: var(--s-sm);
+  box-shadow: var(--shadow-md);
+}
+.plan-wp-popup .leaflet-popup-tip { background: var(--c-surface); }
+
 /* ── UTILITY ────────────────────────────────────────────────── */
 .flex-row   { display: flex; flex-direction: row; align-items: center; }
 .flex-col   { display: flex; flex-direction: column; }
@@ -1915,3 +1952,49 @@ html, body {
 .text-mono  { font-family: var(--font-mono); }
 .text-display { font-family: var(--font-display); }
 .hidden     { display: none !important; }
+
+/* ── SBS NAV — scroll-reveal bottom navigation ──────────────── */
+#sbs-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: rgba(13, 19, 24, 0.97);
+  border-top: 1px solid var(--c-border);
+  display: flex;
+  align-items: stretch;
+  z-index: 9000;
+  transform: translateY(100%);
+  transition: transform 0.22s ease;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#sbs-nav.sbs-nav--visible {
+  transform: translateY(0);
+}
+.sbs-nav-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t-muted);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-right: 1px solid var(--c-border);
+  transition: color 0.15s ease, background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.sbs-nav-item:last-child { border-right: none; }
+.sbs-nav-item:hover,
+.sbs-nav-item:focus-visible { color: var(--t-primary); background: rgba(255,255,255,0.03); }
+.sbs-nav-item--active {
+  color: var(--c-amber-hi);
+  border-bottom: 2px solid var(--c-amber);
+}
+

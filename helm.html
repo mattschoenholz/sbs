@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SV-Esperanza — Helm</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="css/sbs-theme.css">
 <link rel="stylesheet" href="css/helm.css">
 </head>
@@ -13,8 +14,7 @@
   <alert-banner></alert-banner>
 
   <div class="helm-topbar">
-    <a href="index.html" class="back-btn">← Portal</a>
-    <span class="helm-title">⚓ Helm</span>
+    <span class="helm-title">HELM</span>
     <span class="spacer"></span>
     <connection-status></connection-status>
     <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary);margin-left:var(--sp-sm)"></span>
@@ -89,11 +89,7 @@
         <div class="chart-pill" id="chart-twd">TWD — °</div>
         <div class="chart-pill" id="chart-pos">--- ---</div>
       </div>
-      <div class="chart-placeholder">
-        <div class="cp-label">Chart View</div>
-        <div class="cp-sub">OpenCPN integration pending<br>Connect via VNC or tile server</div>
-        <div class="cp-coord" id="chart-coord">Waiting for GPS…</div>
-      </div>
+      <div id="helm-map"></div>
       <div class="chart-compass">
         <compass-rose mode="cog" size="120"></compass-rose>
       </div>
@@ -228,7 +224,7 @@
           </div>
           <div class="baro-cell">
             <div class="baro-val" id="wx-temp">---</div>
-            <div class="baro-lbl">°C Air</div>
+            <div class="baro-lbl">°F Air</div>
           </div>
           <div class="baro-cell">
             <div class="baro-val" id="wx-hum">---</div>
@@ -277,6 +273,7 @@
   </div>
 </div>
 
+<script src="vendor/leaflet/leaflet.js"></script>
 <script src="js/sbs-data.js"></script>
 <script src="js/sbs-components.js"></script>
 <script src="js/helm.js"></script>

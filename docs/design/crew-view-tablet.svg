@@ -1,0 +1,564 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 600" width="1024" height="600">
+  <defs>
+    <style>
+      text { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; }
+      .mono { font-family: 'Share Tech Mono', 'Courier New', monospace; }
+      .label {
+        font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        fill: #4a6070;
+        font-size: 10px;
+      }
+      .value {
+        font-family: 'Share Tech Mono', 'Courier New', monospace;
+        fill: #f0f4f8;
+      }
+      .unit {
+        font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        fill: #8fa3b3;
+        font-size: 12px;
+      }
+      .card-title {
+        font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        fill: #4a6070;
+        font-size: 10px;
+      }
+    </style>
+  </defs>
+
+  <!-- ══════════════════════════════════════════════════════
+       BACKGROUND
+  ══════════════════════════════════════════════════════ -->
+  <rect width="1024" height="600" fill="#080c10"/>
+
+  <!-- ══════════════════════════════════════════════════════
+       TOP BAR — 48px
+       Tablet has more horizontal room: vessel + coords + conn + clock + night
+       EEMUA: status information always visible, never hidden
+  ══════════════════════════════════════════════════════ -->
+  <g id="topbar">
+    <rect x="0" y="0" width="1024" height="48" fill="#0d1318"/>
+    <rect x="0" y="47" width="1024" height="1" fill="#1e2e3a"/>
+
+    <!-- Left: Crew View label + vessel -->
+    <text x="16" y="16" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.16em" fill="#4a6070">CREW VIEW — READ ONLY</text>
+    <text x="16" y="36" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="18" font-weight="700" letter-spacing="0.10em" fill="#e8940a">SV-ESPERANZA</text>
+
+    <!-- Center: GPS coordinates — always visible on tablet (navigation context) -->
+    <text x="512" y="18" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.12em" fill="#4a6070" text-anchor="middle">POSITION</text>
+    <text x="512" y="36" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="13" fill="#8fa3b3" text-anchor="middle">33° 58.42' N  118° 27.15' W</text>
+
+    <!-- Right: connection + clock + night toggle -->
+    <!-- Connection -->
+    <circle cx="750" cy="24" r="5" fill="#22c55e"/>
+    <text x="760" y="28" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="10" font-weight="700" letter-spacing="0.1em" fill="#22c55e">SIGNALK LIVE</text>
+
+    <!-- Clock -->
+    <text x="860" y="20" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">UTC</text>
+    <text x="860" y="36" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="16" fill="#8fa3b3" text-anchor="middle">21:14:08</text>
+
+    <!-- Night toggle — 44×44 target -->
+    <rect x="968" y="2" width="48" height="44" rx="8" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="992" y="22" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="16" fill="#8fa3b3" text-anchor="middle">☽</text>
+    <text x="992" y="36" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="8" font-weight="700" letter-spacing="0.08em" fill="#4a6070" text-anchor="middle">NIGHT</text>
+  </g>
+
+  <!-- ══════════════════════════════════════════════════════
+       ALERT BANNER — advisory (orange/yellow, medium priority)
+       ISA-18.2: medium = yellow, paired with text not color alone
+       Shown below topbar to not compete with nav
+  ══════════════════════════════════════════════════════ -->
+  <g id="alert-banner">
+    <rect x="0" y="48" width="1024" height="32" fill="#1a160a"/>
+    <rect x="0" y="79" width="1024" height="1" fill="#1e2e3a"/>
+    <rect x="0" y="48" width="3" height="32" fill="#eab308"/>
+    <text x="14" y="60" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.12em" fill="#eab308">ADVISORY</text>
+    <text x="14" y="72" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="11" font-weight="600" letter-spacing="0.05em" fill="#c89a0a">
+      WIND INCREASING — FORECAST 22KT AT 21:00. REEFING RECOMMENDED.
+    </text>
+    <!-- Dismiss -->
+    <text x="1006" y="68" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="14" fill="#8fa3b3" text-anchor="middle">✕</text>
+    <rect x="984" y="48" width="40" height="32" fill="transparent"/>
+  </g>
+
+  <!-- ══════════════════════════════════════════════════════
+       MAIN LAYOUT: 3-column grid
+       Col A (320px): Primary instruments — SOG/COG/DEPTH/TWS
+       Col B (368px): Passage — waypoint + progress + stats
+       Col C (312px): Weather — wind gauge + baro + forecast
+       Gutters: 8px each side, 8px between columns
+       Total: 8 + 320 + 8 + 368 + 8 + 312 - (let's fit to 1024)
+       Actual: 8 + 310 + 8 + 370 + 8 + 304 + 8 + 8 = nope
+       Recalc: 8px margin each side: content width = 1024-16 = 1008px
+       3 gaps of 8px = 24px. Column content = (1008-24)/3 = 328px each
+       Col A x=8 w=328, Col B x=344 w=328, Col C x=680 w=344 (to 1016)
+  ══════════════════════════════════════════════════════ -->
+
+  <!-- ══ COLUMN A — PRIMARY INSTRUMENTS ══ -->
+  <g id="col-instruments">
+
+    <!-- Section label -->
+    <text x="16" y="98" class="card-title">Navigation Instruments</text>
+
+    <!-- SOG — primary, amber, large — 2×1 top slot -->
+    <g id="t-sog">
+      <rect x="8" y="103" width="160" height="120" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <rect x="8" y="103" width="3" height="120" rx="1" fill="#e8940a"/>
+      <text x="24" y="117" class="label">SOG</text>
+      <!-- Value dominant per EEMUA: value size >> label size -->
+      <text x="88" y="192" class="mono" font-size="62" fill="#f5a820" text-anchor="middle"
+            letter-spacing="-0.02em">6.2</text>
+      <text x="88" y="213" class="unit" text-anchor="middle">KNOTS</text>
+    </g>
+
+    <!-- COG -->
+    <g id="t-cog">
+      <rect x="176" y="103" width="160" height="120" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <rect x="176" y="103" width="3" height="120" rx="1" fill="#2a3f50"/>
+      <text x="192" y="117" class="label">COG</text>
+      <text x="256" y="192" class="mono" font-size="62" fill="#f0f4f8" text-anchor="middle"
+            letter-spacing="-0.02em">247</text>
+      <text x="256" y="213" class="unit" text-anchor="middle">° TRUE</text>
+    </g>
+
+    <!-- DEPTH — shallow alert state (yellow) -->
+    <g id="t-depth">
+      <rect x="8" y="231" width="160" height="120" rx="8" fill="#111920" stroke="#eab308" stroke-width="1.5"/>
+      <rect x="8" y="231" width="3" height="120" rx="1" fill="#eab308"/>
+      <text x="24" y="245" class="label" fill="#eab308">DEPTH</text>
+      <!-- Shallow badge -->
+      <rect x="104" y="236" width="58" height="16" rx="3" fill="#713f12"/>
+      <text x="133" y="247" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.1em" fill="#eab308" text-anchor="middle">SHALLOW</text>
+      <text x="88" y="320" class="mono" font-size="62" fill="#eab308" text-anchor="middle"
+            letter-spacing="-0.02em">1.4</text>
+      <text x="88" y="341" class="unit" fill="#eab308" text-anchor="middle">METRES</text>
+    </g>
+
+    <!-- TWS -->
+    <g id="t-tws">
+      <rect x="176" y="231" width="160" height="120" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <rect x="176" y="231" width="3" height="120" rx="1" fill="#2a3f50"/>
+      <text x="192" y="245" class="label">TWS</text>
+      <text x="256" y="320" class="mono" font-size="62" fill="#f0f4f8" text-anchor="middle"
+            letter-spacing="-0.02em">12</text>
+      <text x="256" y="341" class="unit" text-anchor="middle">KNOTS</text>
+    </g>
+
+    <!-- Secondary row: STW + TWD in compact 2-cell row -->
+    <g id="secondary-row">
+      <rect x="8" y="359" width="160" height="76" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <rect x="8" y="359" width="3" height="76" rx="1" fill="#2a3f50"/>
+      <text x="24" y="372" class="label">STW</text>
+      <text x="88" y="420" class="mono" font-size="40" fill="#06b6d4" text-anchor="middle">5.8</text>
+      <text x="88" y="433" class="unit" fill="#06b6d4" text-anchor="middle" font-size="10">KNOTS</text>
+
+      <rect x="176" y="359" width="160" height="76" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <rect x="176" y="359" width="3" height="76" rx="1" fill="#2a3f50"/>
+      <text x="192" y="372" class="label">TWD</text>
+      <text x="256" y="420" class="mono" font-size="40" fill="#f0f4f8" text-anchor="middle">228</text>
+      <text x="256" y="433" class="unit" text-anchor="middle" font-size="10">° TRUE</text>
+    </g>
+
+    <!-- AWA pill — compact, bottom of col A -->
+    <g id="awa-row">
+      <rect x="8" y="443" width="328" height="56" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <!-- 2 cells: AWA + AWS -->
+      <text x="92" y="458" class="label" text-anchor="middle">AWA</text>
+      <text x="92" y="486" class="mono" font-size="28" fill="#f0f4f8" text-anchor="middle">-35</text>
+      <text x="92" y="495" class="unit" text-anchor="middle" font-size="9">° PORT</text>
+
+      <line x1="172" y1="451" x2="172" y2="495" stroke="#1e2e3a" stroke-width="1"/>
+
+      <text x="252" y="458" class="label" text-anchor="middle">AWS</text>
+      <text x="252" y="486" class="mono" font-size="28" fill="#f0f4f8" text-anchor="middle">14</text>
+      <text x="252" y="495" class="unit" text-anchor="middle" font-size="9">KN APP</text>
+    </g>
+
+    <!-- Baro compact row bottom -->
+    <g id="baro-row-a">
+      <rect x="8" y="507" width="328" height="56" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="92" y="521" class="label" text-anchor="middle">BARO</text>
+      <text x="72" y="549" class="mono" font-size="28" fill="#f0f4f8">1012</text>
+      <text x="148" y="549" class="unit" font-size="10">hPa</text>
+      <!-- Trend -->
+      <text x="200" y="549" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="22" fill="#e8940a">→</text>
+      <text x="230" y="543" class="label">STEADY</text>
+
+      <line x1="265" y1="515" x2="265" y2="559" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="297" y="521" class="label" text-anchor="middle">AIR TEMP</text>
+      <text x="297" y="549" class="mono" font-size="22" fill="#f0f4f8" text-anchor="middle">18.4°C</text>
+    </g>
+
+  </g>
+
+  <!-- ══ COLUMN B — PASSAGE ══ -->
+  <g id="col-passage">
+
+    <text x="352" y="98" class="card-title">Passage</text>
+
+    <!-- Main passage card — full height of col B -->
+    <rect x="344" y="103" width="334" height="460" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Waypoint name — amber hero -->
+    <text x="360" y="121" class="card-title">NEXT WAYPOINT</text>
+    <text x="360" y="148" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="28" font-weight="700" letter-spacing="0.08em" fill="#f5a820">BELL BUOY R2</text>
+
+    <!-- Divider -->
+    <line x1="360" y1="158" x2="670" y2="158" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- 4 stat cells — 2×2 grid, generous sizing for tablet -->
+    <!-- Row 1: BRG + DIST -->
+    <text x="437" y="180" class="label" text-anchor="middle">BEARING</text>
+    <text x="437" y="222" class="mono" font-size="44" fill="#f0f4f8" text-anchor="middle"
+          letter-spacing="-0.01em">263</text>
+    <text x="437" y="237" class="unit" text-anchor="middle" font-size="10">° TRUE</text>
+
+    <line x1="511" y1="164" x2="511" y2="245" stroke="#1e2e3a" stroke-width="1"/>
+
+    <text x="594" y="180" class="label" text-anchor="middle">DISTANCE</text>
+    <text x="594" y="222" class="mono" font-size="44" fill="#f0f4f8" text-anchor="middle"
+          letter-spacing="-0.01em">4.7</text>
+    <text x="594" y="237" class="unit" text-anchor="middle" font-size="10">NM</text>
+
+    <line x1="360" y1="248" x2="670" y2="248" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Row 2: ETA + VMG -->
+    <text x="437" y="268" class="label" text-anchor="middle">ETA</text>
+    <text x="437" y="308" class="mono" font-size="40" fill="#f0f4f8" text-anchor="middle"
+          letter-spacing="-0.01em">14:22</text>
+    <text x="437" y="323" class="unit" text-anchor="middle" font-size="10">LOCAL</text>
+
+    <line x1="511" y1="254" x2="511" y2="332" stroke="#1e2e3a" stroke-width="1"/>
+
+    <text x="594" y="268" class="label" text-anchor="middle">VMG</text>
+    <text x="594" y="308" class="mono" font-size="40" fill="#06b6d4" text-anchor="middle"
+          letter-spacing="-0.01em">5.1</text>
+    <text x="594" y="323" class="unit" fill="#06b6d4" text-anchor="middle" font-size="10">KN</text>
+
+    <line x1="360" y1="336" x2="670" y2="336" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Progress section -->
+    <text x="360" y="355" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.08em" fill="#4a6070">MARINA DEL REY</text>
+    <text x="670" y="355" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.08em" fill="#4a6070" text-anchor="end">SANTA BARBARA</text>
+
+    <!-- Progress track -->
+    <rect x="360" y="360" width="310" height="8" rx="4" fill="#1e2e3a"/>
+    <!-- Progress fill — 63% -->
+    <rect x="360" y="360" width="195" height="8" rx="4" fill="#e8940a"/>
+    <!-- Boat marker -->
+    <polygon points="555,357 559,353 563,357 559,369" fill="#f5a820"/>
+
+    <!-- Pct label -->
+    <text x="515" y="388" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="11" fill="#8fa3b3" text-anchor="middle">63% COMPLETE</text>
+    <text x="515" y="402" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="10" font-weight="600" letter-spacing="0.06em" fill="#4a6070" text-anchor="middle">
+      TOTAL ROUTE 47.3 NM — ARRIVAL EST 17:45
+    </text>
+
+    <line x1="360" y1="413" x2="670" y2="413" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Route waypoint list — compact -->
+    <text x="360" y="429" class="card-title">ROUTE</text>
+
+    <!-- WP1 — done -->
+    <text x="370" y="448" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="10" font-weight="600" letter-spacing="0.05em" fill="#2a3f50" opacity="0.5">✓  1  REDONDO BEACH LAUNCH</text>
+    <text x="644" y="448" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="10" fill="#2a3f50" text-anchor="end" opacity="0.5">DONE</text>
+
+    <!-- WP2 — done -->
+    <text x="370" y="466" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="10" font-weight="600" letter-spacing="0.05em" fill="#2a3f50" opacity="0.5">✓  2  PALOS VERDES PT</text>
+    <text x="644" y="466" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="10" fill="#2a3f50" text-anchor="end" opacity="0.5">DONE</text>
+
+    <!-- WP3 — NEXT (amber highlight) -->
+    <rect x="360" y="470" width="310" height="20" rx="4" fill="rgba(232,148,10,0.08)"
+          stroke="#a06208" stroke-width="1"/>
+    <text x="370" y="484" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="11" font-weight="700" letter-spacing="0.05em" fill="#f5a820">→  3  BELL BUOY R2</text>
+    <text x="644" y="484" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="10" fill="#f5a820" text-anchor="end">4.7 NM</text>
+
+    <!-- WP4 -->
+    <text x="370" y="502" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="10" font-weight="600" letter-spacing="0.05em" fill="#4a6070">4  SANTA BARBARA HARBOR</text>
+    <text x="644" y="502" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="10" fill="#4a6070" text-anchor="end">36.1 NM</text>
+
+    <line x1="360" y1="513" x2="670" y2="513" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Performance delta -->
+    <text x="360" y="530" class="card-title">PERFORMANCE</text>
+    <text x="440" y="548" class="label" text-anchor="middle">PLAN SOG</text>
+    <text x="440" y="558" class="mono" font-size="11" fill="#4a6070" text-anchor="middle">5.0 KN</text>
+    <text x="515" y="548" class="label" text-anchor="middle">CURRENT</text>
+    <text x="515" y="558" class="mono" font-size="11" fill="#22c55e" text-anchor="middle">+0.2 KN AHEAD</text>
+    <text x="610" y="548" class="label" text-anchor="middle">REVISED ETA</text>
+    <text x="610" y="558" class="mono" font-size="11" fill="#f5a820" text-anchor="middle">17:38</text>
+
+  </g>
+
+  <!-- ══ COLUMN C — WEATHER ══ -->
+  <g id="col-weather">
+
+    <text x="690" y="98" class="card-title">Weather &amp; Environment</text>
+
+    <!-- Wind card — top of col C -->
+    <rect x="686" y="103" width="330" height="196" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="700" y="119" class="card-title">WIND — TRUE</text>
+
+    <!-- TWS large value, amber -->
+    <text x="726" y="184" class="mono" font-size="76" fill="#f5a820" letter-spacing="-0.02em">12</text>
+    <text x="776" y="146" class="unit" font-size="14">KN</text>
+    <text x="776" y="162" class="unit" font-size="12">TWS</text>
+
+    <!-- Wind direction - compass rose SVG -->
+    <g id="wind-compass" transform="translate(854, 165)">
+      <!-- Outer ring -->
+      <circle cx="0" cy="0" r="45" fill="rgba(14,22,28,0.8)" stroke="#1e2e3a" stroke-width="1.5"/>
+      <!-- Inner ring -->
+      <circle cx="0" cy="0" r="30" fill="none" stroke="#16222d" stroke-width="1"/>
+      <!-- Cardinal labels -->
+      <text x="0" y="-33" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="9" font-weight="700" letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">N</text>
+      <text x="33" y="4" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="9" font-weight="700" letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">E</text>
+      <text x="0" y="42" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="9" font-weight="700" letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">S</text>
+      <text x="-33" y="4" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="9" font-weight="700" letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">W</text>
+      <!-- Wind direction arrow FROM 228° (SW) — arrow points INTO wind, tail at ~48° from N = toward NE -->
+      <!-- Wind is FROM SW, blowing NE, so arrow points from center toward NE = rotate(48) -->
+      <g transform="rotate(228)">
+        <!-- Tail (where wind comes from) — feathered end pointing toward SW -->
+        <line x1="0" y1="28" x2="0" y2="-22" stroke="#e8940a" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Arrowhead pointing toward NE (where wind goes) -->
+        <polygon points="0,-28 -5,-16 5,-16" fill="#e8940a"/>
+        <!-- Tail barbs (indicating 12kt, ~2 barbs) -->
+        <line x1="0" y1="28" x2="8" y2="22" stroke="#e8940a" stroke-width="2" stroke-linecap="round"/>
+        <line x1="0" y1="22" x2="8" y2="16" stroke="#e8940a" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <!-- Center dot -->
+      <circle cx="0" cy="0" r="3" fill="#e8940a"/>
+      <!-- Direction label -->
+      <text x="0" y="58" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="12" fill="#f0f4f8" text-anchor="middle">SW 228°T</text>
+    </g>
+
+    <!-- AWS secondary label -->
+    <text x="700" y="286" class="label">AWS 14 KN — AWA PORT 35°</text>
+    <text x="986" y="292" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" letter-spacing="0.06em" fill="#4a6070" text-anchor="end">LIVE FROM SIGNALK</text>
+
+    <!-- Barometer card -->
+    <rect x="686" y="307" width="158" height="130" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="700" y="322" class="card-title">BAROMETER</text>
+
+    <!-- Big value -->
+    <text x="700" y="368" class="mono" font-size="40" fill="#f0f4f8" letter-spacing="-0.01em">1012</text>
+    <text x="700" y="386" class="unit" font-size="11">hPa</text>
+
+    <!-- Trend arrow + label -->
+    <text x="820" y="360" font-family="'Share Tech Mono','Courier New',monospace"
+          font-size="32" fill="#e8940a" text-anchor="middle">→</text>
+    <text x="820" y="378" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.1em" fill="#4a6070" text-anchor="middle">STEADY</text>
+
+    <!-- 3hr sparkline placeholder — horizontal line indicating flat trend -->
+    <text x="700" y="408" class="label">3HR TREND</text>
+    <!-- Mini chart lines — flat, steady -->
+    <polyline points="700,424 720,423 740,424 760,422 780,423 800,423 830,424 840,422"
+              fill="none" stroke="#e8940a" stroke-width="1.5" opacity="0.6"/>
+    <line x1="700" y1="428" x2="840" y2="428" stroke="#1e2e3a" stroke-width="1"/>
+
+    <!-- Environment card: temp + humidity -->
+    <rect x="852" y="307" width="164" height="130" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="866" y="322" class="card-title">ENVIRONMENT</text>
+
+    <text x="934" y="350" class="label" text-anchor="middle">AIR TEMP</text>
+    <text x="934" y="382" class="mono" font-size="36" fill="#f0f4f8" text-anchor="middle">18.4</text>
+    <text x="934" y="397" class="unit" text-anchor="middle" font-size="10">° C</text>
+
+    <line x1="866" y1="408" x2="1008" y2="408" stroke="#1e2e3a" stroke-width="1"/>
+
+    <text x="890" y="422" class="label" text-anchor="middle">RH</text>
+    <text x="890" y="432" class="mono" font-size="11" fill="#f0f4f8" text-anchor="middle">72%</text>
+    <text x="970" y="422" class="label" text-anchor="middle">DEW PT</text>
+    <text x="970" y="432" class="mono" font-size="11" fill="#f0f4f8" text-anchor="middle">13.2°C</text>
+
+    <!-- 24hr forecast strip — full width of col C -->
+    <rect x="686" y="445" width="330" height="118" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="700" y="460" class="card-title">24HR FORECAST STRIP</text>
+
+    <!-- 8 cells across 330px: each ~38px wide, 8px gap start, 4px gaps -->
+
+    <!-- Cell generator — 8 cells, x starting at 694, width 36, gap 5 -->
+    <!-- NOW -->
+    <g>
+      <rect x="694" y="464" width="36" height="90" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="712" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">NOW</text>
+      <text x="712" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">12</text>
+      <text x="712" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#8fa3b3" text-anchor="middle">KT</text>
+      <!-- Wind bar visual — height proportional to wind speed (12/25 = 48%) -->
+      <rect x="703" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="703" y="532" width="18" height="14" rx="2" fill="#e8940a" opacity="0.6"/>
+      <text x="712" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">SW</text>
+    </g>
+    <!-- +3h = 15:00 -->
+    <g>
+      <rect x="735" y="464" width="36" height="90" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="753" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">15:00</text>
+      <text x="753" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">14</text>
+      <text x="753" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#8fa3b3" text-anchor="middle">KT</text>
+      <rect x="744" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="744" y="528" width="18" height="18" rx="2" fill="#e8940a" opacity="0.6"/>
+      <text x="753" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">W</text>
+    </g>
+    <!-- +6h = 18:00 -->
+    <g>
+      <rect x="776" y="464" width="36" height="90" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="794" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">18:00</text>
+      <text x="794" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">18</text>
+      <text x="794" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#8fa3b3" text-anchor="middle">KT</text>
+      <rect x="785" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="785" y="523" width="18" height="23" rx="2" fill="#e8940a" opacity="0.7"/>
+      <text x="794" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">WNW</text>
+    </g>
+    <!-- +9h = 21:00 — advisory wind -->
+    <g>
+      <rect x="817" y="464" width="36" height="90" rx="4" fill="#1a1608" stroke="#a06208" stroke-width="1.5"/>
+      <text x="835" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">21:00</text>
+      <text x="835" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">22</text>
+      <text x="835" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#e8940a" text-anchor="middle">KT !</text>
+      <rect x="826" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="826" y="520" width="18" height="26" rx="2" fill="#e8940a" opacity="0.5"/>
+      <text x="835" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">NW</text>
+    </g>
+    <!-- +12h = 00:00 -->
+    <g>
+      <rect x="858" y="464" width="36" height="90" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="876" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">00:00</text>
+      <text x="876" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">19</text>
+      <text x="876" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#8fa3b3" text-anchor="middle">KT</text>
+      <rect x="867" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="867" y="522" width="18" height="24" rx="2" fill="#e8940a" opacity="0.6"/>
+      <text x="876" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">NW</text>
+    </g>
+    <!-- +15h = 03:00 -->
+    <g>
+      <rect x="899" y="464" width="36" height="90" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="917" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">03:00</text>
+      <text x="917" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">15</text>
+      <text x="917" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#8fa3b3" text-anchor="middle">KT</text>
+      <rect x="908" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="908" y="527" width="18" height="19" rx="2" fill="#e8940a" opacity="0.6"/>
+      <text x="917" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">N</text>
+    </g>
+    <!-- +18h = 06:00 -->
+    <g>
+      <rect x="940" y="464" width="36" height="90" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="958" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">06:00</text>
+      <text x="958" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">10</text>
+      <text x="958" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#8fa3b3" text-anchor="middle">KT</text>
+      <rect x="949" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="949" y="533" width="18" height="13" rx="2" fill="#e8940a" opacity="0.5"/>
+      <text x="958" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">NNE</text>
+    </g>
+    <!-- +21h = 09:00 -->
+    <g>
+      <rect x="981" y="464" width="33" height="90" rx="4" fill="#16222d" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="997" y="475" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="8" fill="#4a6070" text-anchor="middle">09:00</text>
+      <text x="997" y="498" font-family="'Share Tech Mono','Courier New',monospace"
+            font-size="16" fill="#f5a820" text-anchor="middle">8</text>
+      <text x="997" y="510" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.05em" fill="#8fa3b3" text-anchor="middle">KT</text>
+      <rect x="988" y="520" width="18" height="26" rx="2" fill="#1e2e3a"/>
+      <rect x="988" y="536" width="18" height="10" rx="2" fill="#e8940a" opacity="0.4"/>
+      <text x="997" y="548" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+            font-size="8" font-weight="700" letter-spacing="0.04em" fill="#4a6070" text-anchor="middle">NE</text>
+    </g>
+
+  </g>
+
+  <!-- ══════════════════════════════════════════════════════
+       COLUMN DIVIDERS — Gestalt: Closure
+       Subtle lines between columns, not full boxes
+  ══════════════════════════════════════════════════════ -->
+  <line x1="339" y1="88" x2="339" y2="574" stroke="#1e2e3a" stroke-width="1"/>
+  <line x1="681" y1="88" x2="681" y2="574" stroke="#1e2e3a" stroke-width="1"/>
+
+  <!-- ══════════════════════════════════════════════════════
+       BOTTOM STATUS BAR — 24px
+       Persistent: last update timestamp, link to helm/portal
+  ══════════════════════════════════════════════════════ -->
+  <g id="status-bar">
+    <rect x="0" y="575" width="1024" height="25" fill="#0d1318"/>
+    <rect x="0" y="575" width="1024" height="1" fill="#1e2e3a"/>
+    <text x="16" y="591" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="600" letter-spacing="0.08em" fill="#4a6070">
+      DATA UPDATED: 21:14:07 UTC — SIGNALK v1.44.0 — READ-ONLY VIEW
+    </text>
+    <!-- Helm link — right side -->
+    <text x="900" y="591" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.1em" fill="#2a3f50">HELM DISPLAY →</text>
+    <text x="980" y="591" font-family="'Barlow Condensed','Arial Narrow',sans-serif"
+          font-size="9" font-weight="700" letter-spacing="0.1em" fill="#2a3f50">PORTAL →</text>
+  </g>
+
+</svg>
