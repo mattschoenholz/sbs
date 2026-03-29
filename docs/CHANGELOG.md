@@ -4,6 +4,103 @@ Changes are recorded in reverse chronological order. Each session's changes are 
 
 ---
 
+## Session: 2026-03-29 — GPIO Reorganization, BH1750 Sensor, Watch Firmware, Pacific Library
+
+### ESP32 Firmware Changes
+
+#### BH1750FVI Ambient Light Sensor
+- Added to the shared I2C bus (GPIO21/22, address `0x23`)
+- Reports lux every 10s via Home Assistant and `$IIXDR,L,...,Illuminance` NMEA to SignalK (`environment.outside.illuminance`)
+- New substitutions: `bh1750_address`, `bh1750_update_interval`
+- New global: `g_lux`
+- Wiring: VCC → 3.3V (module has onboard regulator; I2C lines are 3.3V safe), ADDR → GND for address 0x23
+- **Physical work pending:** sensor must be added to ESP32 protoboard at the boat
+
+#### SW4 / SW5 Physical Switches Routed to ESP32
+- SW4 (Cabin Lights) → ESP32 GPIO32, on_press POSTs `{"action":"toggle"}` to `/api/relay/1`
+- SW5 (Vent Fan) → ESP32 GPIO33, on_press POSTs `{"action":"toggle"}` to `/api/relay/6`
+- Uses `http_request` component with `request_headers` (ESPHome 2026.2.4 syntax)
+- **Physical work pending:** wire switches to ESP32 GPIO32/33 at the boat
+
+### GPIO Pin Reorganization — MAIANA AIS Ready
+
+All relay and switch pins reorganized to permanently free GPIO14/15 for MAIANA AIS UART0.
+No further pin moves required when MAIANA arrives.
+
+| Change | Detail |
+|--------|--------|
+| CH1 relay moved → GPIO22 (pin 15) | freed GPIO14 for MAIANA UART0 TX |
+| CH3 relay moved → GPIO23 (pin 16) | freed GPIO15 for MAIANA UART0 RX |
+| SW2 (Nav Lights) → Pi GPIO26 (pin 37) | |
+| SW3 (Anchor Light) → Pi GPIO27 (pin 13) | |
+| SW4/SW5 → ESP32 GPIO32/33 | frees all remaining Pi header pins |
+
+`relay_server.py` updated: `RELAY_PINS[1]=22`, `RELAY_PINS[3]=23`, `SWITCH_PINS` updated.
+`docs/GPIO_PIN_MAPPING.md` comprehensively rewritten with full 40-pin header map.
+**Physical work pending:** move relay board jumpers CH1/CH3 and wire all 5 switches at the boat.
+
+### Watch Firmware — `watch/` Directory Scaffolded
+
+New directory: `watch/` — Waveshare ESP32-S3-Touch-AMOLED-2.06 (240×536 AMOLED, touch)
+
+| File | Purpose |
+|------|---------|
+| `watch/src/main.cpp` | Full Arduino skeleton — WiFiMulti, SignalK WS, relay HTTP API, LVGL |
+| `watch/platformio.ini` | PlatformIO build config — ESP32-S3, Arduino, LVGL 9.x, ArduinoJson, WebSockets |
+| `watch/lv_conf.h` | LVGL config — 240×536, Montserrat 14/24/36/48, tileview enabled |
+
+**Three modes (auto-switch + swipe):**
+- `MODE_AUTOPILOT` — ±1°/±10° heading adjust, engage/disengage button
+- `MODE_INSTRUMENTS` — SOG, COG, STW, depth, TWS, TWA, battery, current (2-column tiles)
+- `MODE_ANCHOR` — relay toggle buttons for all 8 channels, SOG anchor-drag warning
+
+**Auto-switching logic:**
+- AP engaged → autopilot mode
+- SOG > 0.5 kn + AP off → instruments
+- SOG < 0.3 kn for 60s → anchor mode
+
+**Connectivity:** WiFiMulti tries SV-Esperanza first, falls back to phone hotspot.
+SignalK WebSocket subscribes to all nav/wind/depth/battery/AP paths.
+Relay HTTP API: `POST /api/relay/<ch>` with `{"action":"toggle"|"on"|"off"}`.
+
+**Pending:** display driver init for RM67162 AMOLED via QSPI (see Waveshare Arduino demo); marked with `TODO` in `initDisplay()`.
+
+### Shared Secrets — `scripts/gen_watch_secrets.py`
+
+- Reads `esphome/secrets.yaml` and generates `watch/src/secrets.h` (git-ignored)
+- Maps: `wifi_ssid/password` → `WIFI_SSID_BOAT/WIFI_PASS_BOAT`, `phone_hotspot_ssid/wifi_password` → `WIFI_SSID_PHONE/WIFI_PASS_PHONE`, `ota_password` → `OTA_PASSWORD`
+- Single source of truth: edit `esphome/secrets.yaml`, re-run script
+- Added `phone_hotspot_ssid` and `phone_hotspot_wifi_password` keys to `esphome/secrets.yaml`
+- Run: `python3 scripts/gen_watch_secrets.py`
+
+### Documentation / Process
+- **CLAUDE.md** — Added Lesson #2: preferred ESP32 OTA development workflow via Pi over Tailscale
+- **`scripts/deploy.sh`** — Fixed OTA hint: `python3 -m esphome run ... --no-logs`
+- Remote OTA confirmed working: ESP32 flashed via `ssh pi@100.109.248.77` over Tailscale
+
+### Pacific Sailing Library (Pi)
+- `scripts/download_pacific_library.sh` written and run on Pi
+- Downloads: Chapman's, Bowditch Vol 1 & 2, Pub 120 (International Code of Signals), and other passage planning resources to `/var/www/html/docs/pacific/`
+- NGA publications 122–125 (Sailing Directions Enroute) and 105–106 (Pilot Charts) require manual portal download from msi.nga.mil — portal-only, cannot be automated
+- RAG indexer re-run after downloads: `nohup python3 ~/index_docs.py > ~/index_docs.log 2>&1 &`
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `esphome/sv_esperanza_sensors.yaml` | BH1750FVI sensor, SW4/SW5 switches, http_request component |
+| `esphome/secrets.yaml` | Added phone hotspot keys (git-ignored) |
+| `server/relay_server.py` | RELAY_PINS CH1→22, CH3→23; SWITCH_PINS updated for SW1/2/3 Pi, SW4/5 removed |
+| `docs/GPIO_PIN_MAPPING.md` | Full rewrite — 40-pin header map, MAIANA status, resolved conflicts table |
+| `CLAUDE.md` | Added Lesson #2 — ESP32 OTA workflow |
+| `scripts/deploy.sh` | Fixed OTA flash hint |
+| `scripts/gen_watch_secrets.py` | New — generates watch/src/secrets.h from esphome/secrets.yaml |
+| `watch/src/main.cpp` | New — watch firmware scaffold |
+| `watch/platformio.ini` | New — PlatformIO build config |
+| `watch/lv_conf.h` | New — LVGL configuration |
+| `.gitignore` | Added watch/src/secrets.h, watch/.pio/ |
+
+---
+
 ## Session: 2026-03-27 — Library Page, AI Assistant, Instruments Polish
 
 ### New Features

@@ -26,6 +26,7 @@
   environment.outside.pressure        (barometer, Pa)
   environment.outside.temperature     (outside temp, K)
   environment.outside.humidity        (relative humidity, ratio 0-1)
+  environment.outside.illuminance     (lux — from ESP32 BH1750FVI)
   navigation.position                 (lat/lon)
   vessels.*                           (AIS targets)
   ```
@@ -166,12 +167,40 @@
 - **Note:** CH4 (Bilge Pump) is safety-critical — never disable unexpectedly
 
 ### ESP32 Sensor Node
-- **Protocol:** NMEA serial to SignalK via USB
-- **Sensors:**
-  - BME280 (I2C: SDA/SCL): barometric pressure, temperature, humidity
-  - Paddlewheel transducer: speed through water (STW)
-  - Bilge water sensor (digital high/low)
-- **Config file:** `sv_esperanza_sensors.yaml` (SignalK plugin config)
+- **Device:** ESP32-WROOM, static IP `192.168.42.50`
+- **Firmware:** ESPHome — `esphome/sv_esperanza_sensors.yaml`
+- **Protocol:** NMEA 0183 sentences → SignalK TCP port 10110 (WiFi, not USB)
+- **OTA flash:** `ssh pi@100.109.248.77 "cd ~/esphome && python3 -m esphome run sv_esperanza_sensors.yaml --no-logs"`
+- **Sensors (active):**
+  - BMP280 (I2C 0x77): barometric pressure
+  - AHT20 (I2C 0x38): air temperature, humidity
+  - BH1750FVI (I2C 0x23): ambient light / lux — **wiring pending (sensor at boat)**
+  - INA226 (I2C 0x40): battery voltage, current, power
+  - Paddlewheel (GPIO4): speed through water (STW)
+  - Bilge water sensor (GPIO26): moisture binary
+  - Engine RPM (GPIO18): optocoupler on alternator W terminal
+  - AC shore power (GPIO34): ZMPT101B voltage sensor
+- **Manual override switches (non-critical — HTTP POST to relay_server):**
+  - SW4 Cabin Lights → GPIO32 → `POST /api/relay/1 {"action":"toggle"}`
+  - SW5 Vent Fan → GPIO33 → `POST /api/relay/6 {"action":"toggle"}`
+- **NMEA sentences emitted:** `$IIVHW` (STW), `$IIMDA` (pressure/temp/humidity), `$IIXDR` (air temp, humidity, battery voltage/current, lux), `$IIRPM` (engine RPM)
+- **Key details:**
+  - ESPHome 2026.2.4 on Pi — `http_request` uses `request_headers` (not `headers`)
+  - `python3 -m esphome` required on Pi (not in PATH as `esphome`)
+  - `--no-logs` required for SSH flash sessions
+
+### Waveshare ESP32-S3 Watch *(firmware scaffolded — hardware not yet configured)*
+- **Device:** Waveshare ESP32-S3-Touch-AMOLED-2.06 (240×536 AMOLED, capacitive touch)
+- **Firmware:** Arduino + LVGL — `watch/src/main.cpp`
+- **Build:** PlatformIO — `watch/platformio.ini`
+- **Connectivity:** WiFiMulti (SV-Esperanza primary, phone hotspot fallback)
+- **Data sources:** SignalK WebSocket (`ws://sailboatserver.local:3000/signalk/v1/stream`), relay_server HTTP API
+- **Three modes:**
+  - Autopilot — ±1°/±10° heading, engage/disengage
+  - Instruments — SOG, COG, STW, depth, TWS, TWA, battery (2-col tile grid)
+  - Anchor — relay toggle buttons (all 8 channels), SOG drag warning
+- **Secrets:** auto-generated from `esphome/secrets.yaml` via `python3 scripts/gen_watch_secrets.py`
+- **Pending:** RM67162 display driver init, CST816S touch driver, autopilot command PUT path
 
 ### DS18B20 Temperature Sensors (4x)
 - **Interface:** 1-Wire bus on GPIO 4
