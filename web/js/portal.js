@@ -13,7 +13,7 @@ const CHANNELS = [
   { ch:8, name:'Starlink',      icon:'🛰️' },
 ];
 
-const RELAY_BASE = `http://${window.location.hostname}:5000`;
+const RELAY_BASE = '/api';
 
 // ── TABS ──────────────────────────────────────────────────
 document.querySelectorAll('.sbs-tab').forEach(tab => {
@@ -134,8 +134,22 @@ let passage = {
   crew:['Skipper','Crew 1','Crew 2']
 };
 
-function savePassage() { localStorage.setItem('sbs-passage', JSON.stringify(passage)); }
-function loadPassage() {
+function savePassage() {
+  localStorage.setItem('sbs-passage', JSON.stringify(passage));
+  fetch(`${RELAY_BASE}/passage`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(passage),
+  }).catch(() => {});  // best-effort; localStorage is the local fallback
+}
+async function loadPassage() {
+  try {
+    const r = await fetch(`${RELAY_BASE}/passage`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const s = await r.json();
+      if (s && s.waypoints) { passage = {...passage, ...s}; return; }
+    }
+  } catch(_) {}
+  // Relay unreachable — fall back to this device's localStorage
   try { const s = localStorage.getItem('sbs-passage'); if (s) passage = {...passage,...JSON.parse(s)}; } catch(e){}
 }
 
@@ -152,6 +166,7 @@ function clearPassage() {
   if (!confirm('Clear passage?')) return;
   passage = {...passage, from:'', to:'', waypoints:[]};
   localStorage.removeItem('sbs-passage');
+  fetch(`${RELAY_BASE}/passage`, { method: 'DELETE' }).catch(() => {});
   renderPassage(); SBSData.clearPassage();
 }
 
@@ -899,8 +914,7 @@ SBSData.on('update', () => {
 });
 
 buildRelays();
-loadPassage();
-renderPassage();
+loadPassage().then(() => renderPassage());
 checkHotspot();
 pollTemps();
 setInterval(pollTemps, 10000);

@@ -1,6 +1,7 @@
 #pragma once
 #include "esphome.h"
 #include "lwip/sockets.h"
+#include "fcntl.h"
 
 const char* SIGNALK_HOST = "192.168.42.201";
 const int   SIGNALK_PORT = 10110;
@@ -15,16 +16,21 @@ static bool nmea_connect() {
     ESP_LOGW("nmea", "Socket create failed: %d", errno);
     return false;
   }
+  // Non-blocking connect — prevents blocking loopTask/watchdog when SignalK is unreachable
+  int flags = lwip_fcntl(sock, F_GETFL, 0);
+  lwip_fcntl(sock, F_SETFL, flags | O_NONBLOCK);
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port   = htons(SIGNALK_PORT);
   addr.sin_addr.s_addr = inet_addr(SIGNALK_HOST);
-  if (lwip_connect(sock, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+  int rc = lwip_connect(sock, (struct sockaddr*)&addr, sizeof(addr));
+  if (rc != 0 && errno != EINPROGRESS) {
     ESP_LOGW("nmea", "Connect to %s:%d failed: %d", SIGNALK_HOST, SIGNALK_PORT, errno);
     lwip_close(sock);
     return false;
   }
+  // EINPROGRESS = connecting in background; send() will fail cleanly if not yet connected
   nmea_sock = sock;
   ESP_LOGI("nmea", "Connected to SignalK %s:%d", SIGNALK_HOST, SIGNALK_PORT);
   return true;

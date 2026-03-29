@@ -7,7 +7,7 @@
 #
 # SENSORS ACTIVE NOW:
 #   - Paddlewheel speed       (GPIO4)
-#   - BME280 weather          (I2C GPIO21/22)
+#   - BMP280 + AHT20 weather  (I2C GPIO21/22, 0x76 + 0x38)
 #   - Bilge water sensor      (GPIO26)
 #   - Engine RPM              (GPIO18)  — optocoupler on alternator W terminal
 #   - Battery monitor         (I2C GPIO21/22, INA226 @ 0x40)
@@ -26,11 +26,17 @@
 #     Wire 1  → GPIO4  (internal pull-up enabled)
 #     Wire 2  → GND
 #
-#   BME280:
-#     VCC     → 3.3V
-#     GND     → GND
-#     SDA     → GPIO21
-#     SCL     → GPIO22
+#   BMP280 + AHT20 (shared I2C bus):
+#     Both VCC → 3.3V
+#     Both GND → GND
+#     Both SDA → GPIO21  (shared I2C bus)
+#     Both SCL → GPIO22  (shared I2C bus)
+#     BMP280 address: 0x76 (SDO → GND) or 0x77 (SDO → VCC)
+#     AHT20 address: 0x38 (fixed, no config needed)
+#
+#   Manual override switches — non-critical (toggle relay via HTTP on press):
+#     SW4 Cabin Lights:  Wire 1 → GPIO32  Wire 2 → GND
+#     SW5 Vent Fan:      Wire 1 → GPIO33  Wire 2 → GND
 #
 #   Bilge water sensor (binary float/contact):
 #     Wire 1  → GPIO26  (internal pull-up enabled)
@@ -102,16 +108,26 @@ substitutions:
   pin_shore_power:              "GPIO34"  # ADC1 ✅ safe with Wi-Fi — ZMPT101B
   pin_spare_adc_1:              "GPIO36"  # ADC1 ✅ reserved
   pin_spare_adc_2:              "GPIO39"  # ADC1 ✅ reserved
+  pin_sw_cabin:                 "GPIO32"  # SW4 → CH1 Cabin Lights toggle (non-critical)
+  pin_sw_vent:                  "GPIO33"  # SW5 → CH6 Vent Fan toggle (non-critical)
 
-  # ── BME280 ─────────────────────────────────────────────────
+  # ── RELAY SERVER ───────────────────────────────────────────
+  # nginx proxies /api → relay_server.py; ESP32 on LAN bypasses auth
+  relay_base_url:               "http://sailboatserver.local/api"
+
+  # ── BMP280 (pressure + secondary temp) ─────────────────────
   # I2C address: 0x76 (SDO pin → GND) or 0x77 (SDO pin → VCC)
   # Run with logger level DEBUG on first boot to confirm address
-  bme280_address:               "0x76"
-  # Temperature offset in °C — adjust if reading high due to
-  # self-heating. Typical correction: -2.0 to -4.0
-  bme280_temp_offset:           "0.0"
-  # How often to sample weather data
-  bme280_update_interval:       "60s"
+  bmp280_address:               "0x77"
+  # How often to sample pressure data
+  bmp280_update_interval:       "60s"
+
+  # ── AHT20 (temperature + humidity) ──────────────────────────
+  # I2C address: 0x38 (fixed — no config needed)
+  # Temperature offset in °C — adjust if reading high due to self-heating
+  aht20_temp_offset:            "0.0"
+  # How often to sample temp/humidity
+  aht20_update_interval:        "60s"
 
   # ── PADDLEWHEEL CALIBRATION ────────────────────────────────
   # Pulses per nautical mile — tune against GPS SOG in flat water
@@ -192,6 +208,10 @@ ota:
   platform: esphome
   password: "${ota_password}"
 
+http_request:
+  useragent: esphome/sv-esperanza
+  timeout: 2s
+
 i2c:
   sda: "${pin_i2c_sda}"
   scl: "${pin_i2c_scl}"
@@ -267,6 +287,52 @@ binary_sensor:
       then:
         - lambda: 'id(pulse_count) += 1;'
 
+  # ── SW4: CABIN LIGHTS TOGGLE ───────────────────────────────
+  # Physical switch → ESP32 GPIO32 → GND.  Pull-up; active LOW.
+  # Non-critical: latency acceptable. On press: POST /relay/1 {"action":"toggle"}
+  - platform: gpio
+    pin:
+      number: "${pin_sw_cabin}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_cabin
+    name: "SW4 Cabin Lights"
+    internal: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      then:
+        - http_request.post:
+            url: "${relay_base_url}/relay/1"
+            headers:
+              Content-Type: application/json
+            body: '{"action":"toggle"}'
+
+  # ── SW5: VENT FAN TOGGLE ───────────────────────────────────
+  # Physical switch → ESP32 GPIO33 → GND.  Pull-up; active LOW.
+  # Non-critical: latency acceptable. On press: POST /relay/6 {"action":"toggle"}
+  - platform: gpio
+    pin:
+      number: "${pin_sw_vent}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_vent
+    name: "SW5 Vent Fan"
+    internal: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      then:
+        - http_request.post:
+            url: "${relay_base_url}/relay/6"
+            headers:
+              Content-Type: application/json
+            body: '{"action":"toggle"}'
+
   # ── BILGE WATER ────────────────────────────────────────────
   - platform: gpio
     pin:
@@ -291,19 +357,11 @@ binary_sensor:
 
 sensor:
 
-  # ── BME280 WEATHER ──────────────────────────────────────────
-  - platform: bme280_i2c
-    address: "${bme280_address}"
-    update_interval: "${bme280_update_interval}"
-    temperature:
-      name: "Air Temperature"
-      id: bme_temp
-      accuracy_decimals: 1
-      filters:
-        - offset: !lambda 'return ${bme280_temp_offset};'
-      on_value:
-        then:
-          - lambda: 'id(g_temp) = x;'
+  # ── BMP280 PRESSURE ─────────────────────────────────────────
+  # Provides barometric pressure only (use AHT20 for air temperature)
+  - platform: bmp280_i2c
+    address: "${bmp280_address}"
+    update_interval: "${bmp280_update_interval}"
     pressure:
       name: "Barometric Pressure"
       id: bme_pressure
@@ -311,6 +369,21 @@ sensor:
       on_value:
         then:
           - lambda: 'id(g_pressure) = x;'
+
+  # ── AHT20 TEMPERATURE + HUMIDITY ────────────────────────────
+  # Preferred temperature source — less self-heating than BMP280
+  - platform: aht10
+    variant: AHT20
+    update_interval: "${aht20_update_interval}"
+    temperature:
+      name: "Air Temperature"
+      id: bme_temp
+      accuracy_decimals: 1
+      filters:
+        - offset: !lambda 'return ${aht20_temp_offset};'
+      on_value:
+        then:
+          - lambda: 'id(g_temp) = x;'
     humidity:
       name: "Relative Humidity"
       id: bme_humidity

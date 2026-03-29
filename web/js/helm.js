@@ -163,6 +163,7 @@ SBSData.on('update', () => {
     const aph = document.getElementById('v-ap-hdg');
     if (aph) aph.textContent = apTarget != null ? apTarget + '°' : '---°';
   }
+  apUpdateContext();
 
   setText('chart-sog',   `SOG  ${SBSData.fmt(SBSData.sog, 1)} kn`);
   setText('chart-cog',   `COG  ${SBSData.fmtBearing(SBSData.cog)}`);
@@ -194,15 +195,17 @@ let apTarget  = null;
 
 function apToggle() {
   apEngaged = !apEngaged;
-  const btn = document.getElementById('ap-engage-btn');
-  const sts = document.getElementById('ap-status');
+  const btn  = document.getElementById('ap-engage-btn');
+  const tile = document.getElementById('tile-ap');
   if (apEngaged) {
     apTarget = SBSData.heading != null ? Math.round(SBSData.heading) : (apTarget || 0);
-    if (btn) { btn.textContent = 'ENGAGED'; btn.classList.add('active'); }
-    if (sts) { sts.textContent = `STEERING ${apTarget}°`; sts.style.color = 'var(--c-green)'; }
+    if (btn)  { btn.textContent = 'ENGAGED'; btn.classList.add('active'); }
+    if (tile) tile.classList.add('ap-engaged');
   } else {
-    if (btn) { btn.textContent = 'STBY'; btn.classList.remove('active'); }
-    if (sts) { sts.textContent = 'STANDBY'; sts.style.color = ''; }
+    if (btn)  { btn.textContent = 'STBY'; btn.classList.remove('active'); }
+    if (tile) tile.classList.remove('ap-engaged');
+    const err = document.getElementById('ap-hdg-err');
+    if (err) err.textContent = '';
   }
 }
 
@@ -210,9 +213,26 @@ function apAdjust(delta) {
   if (!apEngaged) return;
   apTarget = ((apTarget || 0) + delta + 360) % 360;
   const aph = document.getElementById('v-ap-hdg');
-  const sts = document.getElementById('ap-status');
   if (aph) aph.textContent = apTarget + '°';
-  if (sts) sts.textContent = `STEERING ${apTarget}°`;
+}
+
+function apUpdateContext() {
+  // Heading error (target vs COG) — only meaningful when engaged
+  if (apEngaged && apTarget != null && SBSData.cog != null) {
+    let err = ((SBSData.cog - apTarget + 540) % 360) - 180;
+    const errEl = document.getElementById('ap-hdg-err');
+    if (errEl) {
+      errEl.textContent = (err >= 0 ? '+' : '') + Math.round(err) + '° COG';
+      errEl.style.color = Math.abs(err) > 10 ? 'var(--c-yellow)' : 'var(--t-muted)';
+    }
+  }
+  // Destination name from active passage
+  const destEl = document.getElementById('ap-dest');
+  if (destEl) {
+    const p  = SBSData.passage;
+    const wp = p.active && p.waypoints.length ? p.waypoints[p.nextWPIndex] : null;
+    destEl.textContent = wp ? (wp.name || `WP ${p.nextWPIndex + 1}`) : '';
+  }
 }
 
 // ── BARO HISTORY ──────────────────────────────────────────
@@ -426,6 +446,7 @@ function updatePassageTab() {
 
   renderHelmWPList();
   renderHelmAlerts();
+  updateAPCard();
 }
 
 function calcVMG(bearing) {
@@ -505,6 +526,83 @@ function helmAdvanceWP() {
   updatePassageTab();
 }
 
+// ── AUTOPILOT → TP22 ──────────────────────────────────────
+const RELAY_URL = '/api';
+let apPassageActive = false;  // true = TP22 steering to a SignalK destination
+
+function updateAPCard() {
+  const p   = SBSData.passage;
+  const wp  = p.active && p.waypoints.length ? p.waypoints[p.nextWPIndex] : null;
+  const engBtn  = document.getElementById('ap-engage-wp-btn');
+  const disBtn  = document.getElementById('ap-disengage-btn');
+  const info    = document.getElementById('ap-dest-info');
+  const sts     = document.getElementById('ap-passage-status');
+
+  if (apPassageActive) {
+    if (engBtn) { engBtn.style.display = 'none'; }
+    if (disBtn) { disBtn.style.display = ''; }
+    if (wp && info) info.textContent = `Steering → ${wp.name || 'WP '+(p.nextWPIndex+1)}`;
+    if (sts)  { sts.textContent = 'ENGAGED'; sts.style.color = 'var(--c-green)'; }
+  } else {
+    if (engBtn) {
+      engBtn.style.display = '';
+      engBtn.disabled = !wp;
+      engBtn.textContent = wp ? `ENGAGE → ${wp.name || 'WP '+(p.nextWPIndex+1)}` : 'ENGAGE →WP';
+    }
+    if (disBtn) { disBtn.style.display = 'none'; }
+    if (info) info.textContent = wp ? `Next: ${wp.name || 'WP '+(p.nextWPIndex+1)}`
+                                    : 'No active passage';
+    if (sts)  { sts.textContent = 'STANDBY'; sts.style.color = ''; }
+  }
+}
+
+async function helmAPEngage() {
+  const p  = SBSData.passage;
+  const wp = p.active && p.waypoints.length ? p.waypoints[p.nextWPIndex] : null;
+  if (!wp) return;
+  const sts = document.getElementById('ap-passage-status');
+  if (sts) { sts.textContent = 'ENGAGING…'; sts.style.color = 'var(--c-amber)'; }
+  try {
+    const r = await fetch(`${RELAY_URL}/autopilot/activate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: wp.lat, lon: wp.lon, name: wp.name || `WP ${p.nextWPIndex+1}` }),
+    });
+    const data = await r.json();
+    if (r.ok && data.active) {
+      apPassageActive = true;
+    } else {
+      if (sts) { sts.textContent = data.error || 'Error'; sts.style.color = 'var(--c-red)'; }
+    }
+  } catch(e) {
+    if (sts) { sts.textContent = 'Relay unreachable'; sts.style.color = 'var(--c-red)'; }
+  }
+  updateAPCard();
+}
+
+async function helmAPDisengage() {
+  const sts = document.getElementById('ap-passage-status');
+  if (sts) { sts.textContent = 'DISENGAGING…'; sts.style.color = 'var(--c-amber)'; }
+  try {
+    await fetch(`${RELAY_URL}/autopilot/deactivate`, { method: 'POST' });
+  } catch(_) {}
+  apPassageActive = false;
+  updateAPCard();
+}
+
+// Poll SignalK destination status every 15 s to stay in sync
+(async function apStatusPoll() {
+  try {
+    const r = await fetch(`${RELAY_URL}/autopilot/status`);
+    if (r.ok) {
+      const d = await r.json();
+      apPassageActive = !!d.active;
+      updateAPCard();
+    }
+  } catch(_) {}
+  setTimeout(apStatusPoll, 15000);
+})();
+
 // ── MOB ───────────────────────────────────────────────────
 let mobActive   = false;
 let mobStart    = null;
@@ -564,21 +662,43 @@ function clearMOB() {
 }
 
 // ── STARTUP ───────────────────────────────────────────────
-// Load passage from localStorage so helm page shows planned route
-// without requiring a visit to the Nav Station Plan tab first
-(function loadPassageFromStorage() {
+// Load passage from relay server (shared across all devices).
+// Falls back to localStorage if relay is unreachable.
+(async function loadPassageFromStorage() {
+  let saved = null;
+
+  // Fetch with manual timeout (AbortSignal.timeout not reliable on all Android WebViews)
   try {
-    const raw = localStorage.getItem('sbs-passage');
-    if (!raw) return;
-    const saved = JSON.parse(raw);
-    if (saved.waypoints?.length && (saved.from || saved.to)) {
-      SBSData.setPassage({
-        waypoints: saved.waypoints,
-        planSOG:   saved.planSOG || 5,
-        planETA:   saved.departureTime || null,
-      });
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 4000);
+    const r = await fetch(`${RELAY_URL}/passage`, { signal: controller.signal });
+    clearTimeout(tid);
+    if (r.ok) {
+      const d = await r.json();
+      if (d && Array.isArray(d.waypoints) && d.waypoints.length) {
+        saved = d;
+        // Cache on this device so future loads are instant
+        try { localStorage.setItem('sbs-passage', JSON.stringify(d)); } catch(_) {}
+      }
     }
-  } catch(e) {}
+  } catch(_) {}
+
+  // Fall back to localStorage (works offline / relay unreachable)
+  if (!saved) {
+    try {
+      const raw = localStorage.getItem('sbs-passage');
+      if (raw) saved = JSON.parse(raw);
+    } catch(_) {}
+  }
+
+  if (saved && Array.isArray(saved.waypoints) && saved.waypoints.length) {
+    SBSData.setPassage({
+      waypoints: saved.waypoints,
+      planSOG:   saved.planSOG || 5,
+      planETA:   saved.departureTime || null,
+    });
+    updatePassageTab();
+  }
 })();
 
 updatePassageTab();

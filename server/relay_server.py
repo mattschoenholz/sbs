@@ -53,9 +53,9 @@ CORS(app)  # Required for portal (port 80) to reach relay API (port 5000)
 # Jumper moves require no soldering — Waveshare board uses 2-pin header jumpers.
 # See docs/GPIO_PIN_MAPPING.md for full history and HAT pin audit.
 RELAY_PINS = {
-    1: 14,    # CH1 — Cabin Lights        GPIO14 / pin 8   (jumper moved from GPIO5 — VHF radio wired)
+    1: 22,    # CH1 — Cabin Lights        GPIO22 / pin 15  (moved 5→14→22; GPIO14 freed for MAIANA UART0 TX)
     2:  6,    # CH2 — Navigation Lights   GPIO6  / pin 31
-    3: 13,    # CH3 — Anchor Light        GPIO13 / pin 33  (TP22 not yet wired — safe at GPIO13)
+    3: 23,    # CH3 — Anchor Light        GPIO23 / pin 16  (moved 13→15→23; GPIO15 freed for MAIANA UART0 RX)
     4: 16,    # CH4 — Bilge Pump          GPIO16 / pin 36  ← SAFETY CRITICAL
     5: 25,    # CH5 — Water Pump          GPIO25 / pin 22  (rewired: 17→25)
     6: 24,    # CH6 — Vent Fan            GPIO24 / pin 18  (rewired: 18→24)
@@ -77,18 +77,20 @@ RELAY_NAMES = {
 # ── MANUAL OVERRIDE SWITCH PINS ─────────────────────────────
 # Physical toggle switches wired to GPIO, other end to GND.
 # Internal pull-ups enabled — LOW = switch closed = ON.
-# Switches not yet physically wired; all pins confirmed conflict-free.
 # Key = relay channel number the switch controls.
 #
-# GPIO26 (SW4): previously conflicted with gpio-poweroff kernel overlay.
-# Resolved: removed gpio-poweroff from /boot/firmware/config.txt (2026-03-26).
-# GeeekPi UPS Gen 6 uses I2C only — gpio-poweroff overlay was not needed.
+# Critical switches (bilge, nav lights, anchor light) wired directly to Pi —
+# no network dependency, zero latency.
+#
+# SW4 (CH1 Cabin Lights) → ESP32 GPIO32 — POSTs /relay/1 toggle via HTTP
+# SW5 (CH6 Vent Fan)     → ESP32 GPIO33 — POSTs /relay/6 toggle via HTTP
+# Non-critical; latency acceptable. If ESP32 is down, relay still controllable via web UI.
+#
+# GPIO14/15 left free — reserved for MAIANA AIS transponder UART0.
 SWITCH_PINS = {
-    4: 20,   # SW1 → CH4 Bilge Pump          GPIO20 / pin 38  ← SAFETY CRITICAL
-    2: 22,   # SW2 → CH2 Navigation Lights   GPIO22 / pin 15
-    3: 23,   # SW3 → CH3 Anchor Light        GPIO23 / pin 16
-    1: 26,   # SW4 → CH1 Cabin Lights        GPIO26 / pin 37
-    6: 27,   # SW5 → CH6 Vent Fan            GPIO27 / pin 13
+    4: 20,   # SW1 → CH4 Bilge Pump     GPIO20 / pin 38  ← SAFETY CRITICAL
+    2: 26,   # SW2 → CH2 Nav Lights     GPIO26 / pin 37
+    3: 27,   # SW3 → CH3 Anchor Light   GPIO27 / pin 13
 }
 
 # ── 1-WIRE TEMPERATURE SENSORS ───────────────────────────────
@@ -815,6 +817,123 @@ def rag_reindex():
 
 
 # ============================================================
+# AUTOPILOT — SignalK course control for TP22 autotiller
+# Sets active destination in SignalK; signalk-to-nmea0183 plugin
+# converts to RMB/APB/XTE sentences on /dev/ttyAMA4 → TP22.
+#
+# PREREQUISITE: Before enabling UART4 output in SignalK:
+#   Move relay CH3 jumper on Waveshare board GPIO13 → GPIO15  ← DONE
+#   RELAY_PINS[3] updated to 15 — deploy and restart relay before wiring TP22 TX.
+# ============================================================
+
+SIGNALK_URL = "http://127.0.0.1:3000"
+
+
+@app.route('/autopilot/activate', methods=['POST'])
+def autopilot_activate():
+    """
+    Set the active navigation destination in SignalK.
+    SignalK then emits RMB/APB/XTE via signalk-to-nmea0183 → TP22.
+    POST /autopilot/activate
+    Body: {"lat": 47.6, "lon": -122.3, "name": "WP1"}
+    """
+    data = request.get_json()
+    if not data or 'lat' not in data or 'lon' not in data:
+        return jsonify({"error": "lat and lon required"}), 400
+    lat  = float(data['lat'])
+    lon  = float(data['lon'])
+    name = data.get('name', 'Autopilot WP')
+    try:
+        r = http_requests.put(
+            f"{SIGNALK_URL}/signalk/v2/api/vessels/self/navigation/course/destination",
+            json={"position": {"latitude": lat, "longitude": lon}, "name": name},
+            timeout=5
+        )
+        if r.status_code in (200, 201, 204):
+            app.logger.info("Autopilot destination set: %s (%.5f, %.5f)", name, lat, lon)
+            return jsonify({"message": f"Steering to {name}", "active": True,
+                            "lat": lat, "lon": lon, "name": name})
+        return jsonify({"error": f"SignalK {r.status_code}: {r.text[:200]}"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/autopilot/deactivate', methods=['POST'])
+def autopilot_deactivate():
+    """Clear the active destination from SignalK — stops NMEA output to TP22."""
+    try:
+        http_requests.delete(
+            f"{SIGNALK_URL}/signalk/v2/api/vessels/self/navigation/course/destination",
+            timeout=5
+        )
+        return jsonify({"message": "Autopilot disengaged", "active": False})
+    except Exception as e:
+        return jsonify({"error": str(e), "active": False}), 500
+
+
+@app.route('/autopilot/status', methods=['GET'])
+def autopilot_status():
+    """Return current autopilot destination from SignalK course API."""
+    try:
+        r = http_requests.get(
+            f"{SIGNALK_URL}/signalk/v2/api/vessels/self/navigation/course",
+            timeout=5
+        )
+        if r.status_code == 200:
+            course = r.json()
+            nxt = course.get('nextPoint') or {}
+            pos = nxt.get('position') or {}
+            active = pos.get('latitude') is not None
+            return jsonify({
+                "active": active,
+                "destination": {
+                    "lat":  pos.get('latitude'),
+                    "lon":  pos.get('longitude'),
+                    "name": nxt.get('name', ''),
+                }
+            })
+    except Exception as e:
+        app.logger.warning("autopilot_status error: %s", e)
+    return jsonify({"active": False})
+
+
+# ============================================================
+# PASSAGE PLAN — shared state for all devices
+# ============================================================
+
+PASSAGE_FILE = os.path.join(os.path.expanduser('~'), 'passage.json')
+
+@app.route('/passage', methods=['GET'])
+def passage_get():
+    try:
+        with open(PASSAGE_FILE) as f:
+            return jsonify(json.load(f))
+    except FileNotFoundError:
+        return jsonify({})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/passage', methods=['POST'])
+def passage_save():
+    data = request.get_json(silent=True) or {}
+    try:
+        with open(PASSAGE_FILE, 'w') as f:
+            json.dump(data, f)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/passage', methods=['DELETE'])
+def passage_delete():
+    try:
+        if os.path.exists(PASSAGE_FILE):
+            os.remove(PASSAGE_FILE)
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -834,4 +953,4 @@ if __name__ == '__main__':
 
     # Start Flask
     print("Starting Flask on port 5000...")
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='127.0.0.1', port=5000, debug=False, threaded=True)

@@ -12,9 +12,9 @@ All pins confirmed from `sudo gpioinfo gpiochip4` output on 2026-03-26.
 
 | BCM | Phys | CH | Load | Jumper history |
 |-----|------|----|----|---|
-| 5   | 29  | CH1 | Cabin Lights | ⚠ latent conflict — see below |
+| 22  | 15  | CH1 | Cabin Lights | moved 5→14→22; GPIO14 free for MAIANA |
 | 6   | 31  | CH2 | Navigation Lights | clear |
-| 13  | 33  | CH3 | Anchor Light | ⚠ latent conflict — see below |
+| 23  | 16  | CH3 | Anchor Light | moved 13→15→23; GPIO15 free for MAIANA |
 | 16  | 36  | CH4 | Bilge Pump ← SAFETY CRITICAL | clear |
 | 25  | 22  | CH5 | Water Pump | rewired 17→25 |
 | 24  | 18  | CH6 | Vent Fan | rewired 18→24 |
@@ -24,45 +24,47 @@ All pins confirmed from `sudo gpioinfo gpiochip4` output on 2026-03-26.
 **Active LOW:** `gpio_write(h, pin, 0)` = ON · `gpio_write(h, pin, 1)` = OFF
 **Library:** `lgpio` via `lgpio.gpiochip_open(4)` — Pi 5 uses gpiochip4
 
-### Manual Override Switch Inputs (not yet physically wired)
+### Manual Override Switch Inputs
 
-| BCM | Phys | SW  | Controls | Status |
-|-----|------|-----|----------|--------|
-| 20  | 38   | SW1 | CH4 Bilge Pump ← SAFETY CRITICAL | pin confirmed free |
-| 22  | 15   | SW2 | CH2 Navigation Lights | pin confirmed free |
-| 23  | 16   | SW3 | CH3 Anchor Light | pin confirmed free |
-| 26  | 37   | SW4 | CH1 Cabin Lights | clear after reboot (see below) |
-| 27  | 13   | SW5 | CH6 Vent Fan | pin confirmed free |
+| Device | GPIO | SW  | Controls | Wiring |
+|--------|------|-----|----------|--------|
+| Pi     | GPIO20 / pin 38 | SW1 | CH4 Bilge Pump ← SAFETY CRITICAL | → Pi pin 38, other leg → GND |
+| Pi     | GPIO26 / pin 37 | SW2 | CH2 Navigation Lights | → Pi pin 37, other leg → GND |
+| Pi     | GPIO27 / pin 13 | SW3 | CH3 Anchor Light | → Pi pin 13, other leg → GND |
+| ESP32  | GPIO32          | SW4 | CH1 Cabin Lights (non-critical) | → ESP32 GPIO32, other leg → GND |
+| ESP32  | GPIO33          | SW5 | CH6 Vent Fan (non-critical) | → ESP32 GPIO33, other leg → GND |
 
-Switch wiring: one leg → GPIO pin, other leg → GND. Internal pull-ups enabled. LOW = switch ON.
+SW1/SW2/SW3: Pi pull-ups, LOW = ON, polled every 100ms — direct, no network dependency.
+SW4/SW5: ESP32 pull-ups, on_press POSTs `{"action":"toggle"}` to `/api/relay/<ch>` via HTTP.
+
+GPIO14/15 reserved for MAIANA UART0 — no wires on those pins, no future moves needed.
 
 ---
 
 ## Latent Conflicts (latent = no conflict until devices are physically wired)
 
-### CH1 (GPIO5) vs MacArthur UART2 RX — VHF Radio in
+### CH1 — moved to GPIO22 (pin 15) ✓
 
-| | Device A | Device B |
-|--|---|---|
-| Pin | GPIO5 (pin 29) | GPIO5 (pin 29) |
-| Function | Relay CH1 output (Cabin Lights) | MacArthur HAT UART2 RX — receives NMEA from VHF radio |
+CH1 jumper moved from GPIO5 (pin 29) → GPIO22 (pin 15). `relay_server.py`: `RELAY_PINS[1] = 22`.
+GPIO5 (pin 29) free for MacArthur UART2 RX (VHF radio TX) when physically wired.
+GPIO14 (pin 8) free for MAIANA UART0 TX.
 
-**Currently safe:** VHF radio TX wire is not connected to Pi. GPIO5 is only used by relay_server.
-**Action required BEFORE wiring VHF TX:** Move CH1 jumper on Waveshare board from GPIO5 (pin 29) to **GPIO14 (pin 8)**.
-Then update `relay_server.py`: `RELAY_PINS[1] = 14`
+### CH3 — moved to GPIO23 (pin 16) ✓
 
-### CH3 (GPIO13) vs MacArthur UART4 RX — TP22 Autotiller in
-
-| | Device A | Device B |
-|--|---|---|
-| Pin | GPIO13 (pin 33) | GPIO13 (pin 33) |
-| Function | Relay CH3 output (Anchor Light) | MacArthur HAT UART4 RX — receives data from TP22 autopilot |
-
-**Currently safe:** TP22 autotiller TX wire is not connected to Pi.
-**Action required BEFORE wiring TP22 TX:** Move CH3 jumper on Waveshare board from GPIO13 (pin 33) to **GPIO15 (pin 10)**.
-Then update `relay_server.py`: `RELAY_PINS[3] = 15`
+CH3 jumper moved from GPIO13 (pin 33) → GPIO23 (pin 16). `relay_server.py`: `RELAY_PINS[3] = 23`.
+GPIO13 (pin 33) free for MacArthur UART4 RX (TP22 autotiller TX) when physically wired.
+GPIO15 (pin 10) free for MAIANA UART0 RX.
 
 > Jumper moves require **no soldering** — Waveshare Relay Board B uses 2-pin header jumpers.
+
+### MAIANA AIS Transponder — UART0 ready ✓
+
+GPIO14 (UART0 TX) and GPIO15 (UART0 RX) are **free**. CH1/CH3 relays moved to GPIO22/23.
+
+When MAIANA arrives — no relay moves, no switch moves, no code changes:
+1. Wire MAIANA TX → Pi GPIO15 (pin 10), MAIANA RX → Pi GPIO14 (pin 8)
+2. Add `dtoverlay=uart0-pi5` to `/boot/firmware/config.txt`, reboot
+3. Add SignalK serial connection on `/dev/ttyAMA0` at 38400 baud
 
 ---
 
@@ -76,6 +78,12 @@ Then update `relay_server.py`: `RELAY_PINS[3] = 15`
 | 20 | CH6 default (Pi 4 era UART conflict) | CH6 jumper moved: 20→24 | Mar 2026 |
 | 24 | CH6 freed it; CH7 was there | CH7 jumper moved: 24→18 | Mar 2026 |
 | 26 | `gpio-poweroff` overlay claimed GPIO26 as kernel OUTPUT, conflicting with SW4 input | Removed `dtoverlay=gpio-poweroff` from config.txt — GeeekPi UPS Gen 6 uses I2C only, overlay was unnecessary | 2026-03-26 |
+| 13 | CH3 (Anchor Light) blocked UART4 RX — TP22 autotiller TX would conflict | CH3 jumper moved: 13→15→23 | 2026-03-29 |
+| 5  | CH1 (Cabin Lights) blocked UART2 RX — VHF radio TX would conflict | CH1 jumper moved: 5→14→22 | 2026-03-29 |
+| 22 | SW2 (Nav Lights) was here; CH1 relay moved here instead | SW2 moved to Pi GPIO26; GPIO14 freed for MAIANA | 2026-03-29 |
+| 23 | SW3 (Anchor Light) was here; CH3 relay moved here instead | SW3 moved to Pi GPIO27; GPIO15 freed for MAIANA | 2026-03-29 |
+| 26 | gpio-poweroff overlay + planned SW4 (Cabin Lights) | gpio-poweroff removed; SW4 moved to ESP32 GPIO32 — GPIO26 now SW2 | 2026-03-29 |
+| 27 | Planned SW5 (Vent Fan) on Pi | SW5 moved to ESP32 GPIO33 — GPIO27 now SW3 | 2026-03-29 |
 
 ---
 
@@ -90,15 +98,15 @@ Then update `relay_server.py`: `RELAY_PINS[3] = 15`
 | 5  | 3  | I2C1 SCL | shared I2C bus | I2C |
 | 6  | —  | GND | Power | — |
 | 7  | 4  | UART2 TX | MacArthur HAT → VHF Radio SH-2150 (RX) | ACTIVE |
-| 8  | 14 | UART0 TX | **Reserved: CH1 relay fix** (when VHF is wired) | reserved |
+| 8  | 14 | UART0 TX | **Free — reserved for MAIANA UART0 TX** | free |
 | 9  | —  | GND | Power | — |
-| 10 | 15 | UART0 RX | **Reserved: CH3 relay fix** (when TP22 is wired) | reserved |
+| 10 | 15 | UART0 RX | **Free — reserved for MAIANA UART0 RX** | free |
 | 11 | 17 | GPIO | Relay CH8 — Starlink Power | Relay OUT |
 | 12 | 18 | GPIO | Relay CH7 — Instruments | Relay OUT |
-| 13 | 27 | GPIO | SW5 — Vent Fan switch (not yet wired) | Switch IN |
+| 13 | 27 | GPIO | SW3 — Anchor Light switch | Switch IN |
 | 14 | —  | GND | Power | — |
-| 15 | 22 | GPIO | SW2 — Nav Lights switch (not yet wired) | Switch IN |
-| 16 | 23 | GPIO | SW3 — Anchor Light switch (not yet wired) | Switch IN |
+| 15 | 22 | GPIO | Relay CH1 — Cabin Lights | Relay OUT |
+| 16 | 23 | GPIO | Relay CH3 — Anchor Light | Relay OUT |
 | 17 | —  | 3.3V | Power | — |
 | 18 | 24 | GPIO | Relay CH6 — Vent Fan | Relay OUT |
 | 19 | 10 | SPI0 MOSI | MacArthur HAT N2K (MCP2518FD — no N2K hardware) | Inactive |
@@ -111,16 +119,16 @@ Then update `relay_server.py`: `RELAY_PINS[3] = 15`
 | 26 | 7  | SPI0 CE1 | MacArthur HAT N2K | Inactive |
 | 27 | 0  | ID_SD | HAT EEPROM | **DO NOT USE** |
 | 28 | 1  | ID_SC | HAT EEPROM | **DO NOT USE** |
-| 29 | 5  | UART2 RX | CH1 relay (now) / MacArthur UART2 RX (when VHF wired) | ⚠ latent conflict |
+| 29 | 5  | UART2 RX | MacArthur UART2 RX ← VHF Radio SH-2150 (CH1 freed) | When VHF wired |
 | 30 | —  | GND | Power | — |
 | 31 | 6  | GPIO | Relay CH2 — Navigation Lights | Relay OUT |
 | 32 | 12 | UART4 TX | MacArthur HAT → TP22 Autotiller (RX) | ACTIVE |
-| 33 | 13 | UART4 RX | CH3 relay (now) / MacArthur UART4 RX (when TP22 wired) | ⚠ latent conflict |
+| 33 | 13 | UART4 RX | MacArthur UART4 RX ← TP22 Autotiller (CH3 freed) | When TP22 wired |
 | 34 | —  | GND | Power | — |
 | 35 | 19 | 1-Wire | MacArthur HAT — DS18B20 × 4 (1.6kΩ pull-up on HAT) | ACTIVE |
 | 36 | 16 | GPIO | Relay CH4 — Bilge Pump ← SAFETY CRITICAL | Relay OUT |
-| 37 | 26 | GPIO | SW4 — Cabin Lights switch (not yet wired) | Switch IN |
-| 38 | 20 | GPIO | SW1 — Bilge Pump switch (not yet wired) | Switch IN |
+| 37 | 26 | GPIO | SW2 — Nav Lights switch | Switch IN |
+| 38 | 20 | GPIO | SW1 — Bilge Pump switch ← SAFETY CRITICAL | Switch IN |
 | 39 | —  | GND | Power | — |
 | 40 | 21 | GPIO | kernel gpio-shutdown (MacArthur HAT button) | **kernel owned — do not use** |
 
@@ -185,7 +193,7 @@ Verified 2026-03-26. Check: `ls /sys/bus/w1/devices/`
 
 ## Available GPIO for Additional Physical Switches
 
-**Answer: zero additional pins after current plan is complete.**
+**Answer: zero additional Pi header pins available after current plan.**
 
 The 40-pin header is fully committed:
 - GPIO0/1: EEPROM reserved
@@ -194,13 +202,14 @@ The 40-pin header is fully committed:
 - GPIO6: CH2 relay
 - GPIO7–11: MacArthur N2K SPI (physically connected to MCP2518FD — avoid)
 - GPIO12/13: MacArthur UART4
-- GPIO14/15: **Reserved for CH1/CH3 relay fixes** (when VHF and TP22 are wired)
+- GPIO14/15: **free — reserved for MAIANA UART0**
 - GPIO16–18, 24–25: relay outputs
 - GPIO19: 1-Wire
-- GPIO20–23, 26–27: switch inputs
+- GPIO20, 26, 27: switch inputs (SW1 bilge, SW2 nav lights, SW3 anchor light)
 - GPIO21: kernel shutdown
+- GPIO22/23: CH1/CH3 relay outputs
 
-**If more switch inputs are needed:** Add a **MCP23017 I2C GPIO expander** (address `0x20`–`0x27`, configurable). It gives 16 additional GPIO pins via the existing I2C bus — no new Pi pins required, no HAT stacking.
+**Additional switches → use ESP32:** GPIO32/33 are in use for SW4/SW5. ESP32 also has GPIO5, GPIO13–17, GPIO19, GPIO23, GPIO25 free for more digital inputs if needed — no Pi pins required.
 
 ---
 

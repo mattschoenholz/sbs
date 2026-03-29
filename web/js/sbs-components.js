@@ -581,9 +581,9 @@ const SBSNav = (() => {
     window.addEventListener('touchstart', show, { passive: true });
     document.addEventListener('click',    show);
 
-    // Mouse near bottom edge — desktop trigger
+    // Mouse near top edge — desktop trigger
     document.addEventListener('mousemove', e => {
-      if (e.clientY > window.innerHeight - 80) show();
+      if (e.clientY < 80) show();
     }, { passive: true });
 
     // Show briefly on first load so users know it exists
