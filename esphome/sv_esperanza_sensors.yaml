@@ -8,6 +8,7 @@
 # SENSORS ACTIVE NOW:
 #   - Paddlewheel speed       (GPIO4)
 #   - BMP280 + AHT20 weather  (I2C GPIO21/22, 0x76 + 0x38)
+#   - BH1750FVI light sensor  (I2C GPIO21/22, 0x23)
 #   - Bilge water sensor      (GPIO26)
 #   - Engine RPM              (GPIO18)  — optocoupler on alternator W terminal
 #   - Battery monitor         (I2C GPIO21/22, INA226 @ 0x40)
@@ -33,6 +34,14 @@
 #     Both SCL → GPIO22  (shared I2C bus)
 #     BMP280 address: 0x76 (SDO → GND) or 0x77 (SDO → VCC)
 #     AHT20 address: 0x38 (fixed, no config needed)
+#
+#   BH1750FVI light sensor (shared I2C bus):
+#     VCC → 3.3V  (module has onboard regulator — 5V label on module is VCC input,
+#                  I2C lines are 3.3V safe — connect directly to ESP32 GPIO21/22)
+#     GND → GND
+#     SDA → GPIO21  (shared I2C bus)
+#     SCL → GPIO22  (shared I2C bus)
+#     ADDR → GND   (I2C address 0x23; tie to VCC for 0x5C if conflict)
 #
 #   Manual override switches — non-critical (toggle relay via HTTP on press):
 #     SW4 Cabin Lights:  Wire 1 → GPIO32  Wire 2 → GND
@@ -119,6 +128,12 @@ substitutions:
   # I2C address: 0x76 (SDO pin → GND) or 0x77 (SDO pin → VCC)
   # Run with logger level DEBUG on first boot to confirm address
   bmp280_address:               "0x77"
+
+  # ── BH1750FVI (ambient light / lux) ─────────────────────────
+  # I2C address: 0x23 (ADDR → GND) or 0x5C (ADDR → VCC)
+  bh1750_address:               "0x23"
+  # Update interval — 10s is fine for ambient light; reduce for reactive night-mode
+  bh1750_update_interval:       "10s"
   # How often to sample pressure data
   bmp280_update_interval:       "60s"
 
@@ -264,6 +279,10 @@ globals:
     restore_value: no
     initial_value: '0.0'
   - id: g_battery_power
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_lux
     type: float
     restore_value: no
     initial_value: '0.0'
@@ -502,6 +521,21 @@ sensor:
                   format: "⚠ SHORE POWER LOW OR LOST: %.0fV"
                   args: ['x']
 
+  # ── BH1750FVI AMBIENT LIGHT ──────────────────────────────────
+  # I2C — shared bus GPIO21/22.  Use: auto night-mode for helm display,
+  # anchor light automation trigger, cabin lighting scenes.
+  - platform: bh1750
+    name: "Ambient Light"
+    id: ambient_light
+    address: "${bh1750_address}"
+    update_interval: "${bh1750_update_interval}"
+    unit_of_measurement: "lx"
+    icon: "mdi:brightness-5"
+    accuracy_decimals: 0
+    on_value:
+      then:
+        - lambda: 'id(g_lux) = x;'
+
 # ── NMEA0183 OUTPUT ───────────────────────────────────────────
 interval:
   - interval: 1s
@@ -585,6 +619,19 @@ interval:
             uint8_t cs = 0;
             for (int i = 0; s[i]; i++) cs ^= s[i];
             char f[148];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+          // ── XDR: Ambient light (lux) ──────────────────────
+          // SignalK: environment.outside.illuminance (lx)
+          {
+            char s[64];
+            snprintf(s, sizeof(s),
+              "IIXDR,L,%.0f,L,Illuminance", id(g_lux));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[80];
             snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
             nmea_push(f);
           }
