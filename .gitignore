@@ -7,6 +7,12 @@ secrets.yaml
 .esphome/
 esphome/.esphome/
 
+# Watch firmware — auto-generated secrets header (source: esphome/secrets.yaml)
+watch/src/secrets.h
+
+# PlatformIO build artifacts
+watch/.pio/
+
 # Python
 __pycache__/
 *.pyc

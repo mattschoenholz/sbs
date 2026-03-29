@@ -31,15 +31,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <lvgl.h>
-
-// ── WIFI CREDENTIALS ─────────────────────────────────────────
-// Primary: SV-Esperanza boat network
-#define WIFI_SSID_BOAT     "SV-Esperanza"
-#define WIFI_PASS_BOAT     ""          // fill in or use secrets header
-
-// Fallback: phone hotspot
-#define WIFI_SSID_PHONE    ""          // fill in
-#define WIFI_PASS_PHONE    ""          // fill in
+#include "secrets.h"  // auto-generated from esphome/secrets.yaml — run scripts/gen_watch_secrets.py
 
 // ── SERVER ADDRESSES ─────────────────────────────────────────
 #define SIGNALK_HOST       "sailboatserver.local"
