@@ -306,7 +306,7 @@ binary_sensor:
       then:
         - http_request.post:
             url: "${relay_base_url}/relay/1"
-            headers:
+            request_headers:
               Content-Type: application/json
             body: '{"action":"toggle"}'
 
@@ -329,7 +329,7 @@ binary_sensor:
       then:
         - http_request.post:
             url: "${relay_base_url}/relay/6"
-            headers:
+            request_headers:
               Content-Type: application/json
             body: '{"action":"toggle"}'
 
