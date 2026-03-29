@@ -104,7 +104,7 @@ if [ -f "$PROJECT_DIR/esphome/secrets.yaml" ]; then
   scp -i "$SSH_KEY" -q "$PROJECT_DIR/esphome/secrets.yaml" "$PI_USER@$PI_HOST:$REMOTE_HOME/esphome/"
 fi
 echo "   ESPHome config synced → ~/esphome/"
-echo "   OTA flash: ssh pi@$PI_HOST 'cd ~/esphome && esphome upload sv_esperanza_sensors.yaml'"
+echo "   OTA flash: ssh pi@$PI_HOST 'cd ~/esphome && python3 -m esphome run sv_esperanza_sensors.yaml --no-logs'"
 
 # Verify
 echo ""
