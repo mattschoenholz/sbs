@@ -45,11 +45,38 @@ nginx’s FastCGI cache key includes the full WMS request URI, especially the **
 
 See `web/warm.html` (tile math) and `web/js/sbs-chart.js` (`L.tileLayer.wms` — Leaflet builds requests).
 
-### 2. Raspberry Pi 5 GPIO: use `lgpio`, not `RPi.GPIO`
+### 2. ESP32 firmware — preferred development and flashing workflow
+
+**Never use USB unless OTA is broken.** The preferred process for all ESP32 firmware changes:
+
+1. Edit `esphome/sv_esperanza_sensors.yaml` (or `nmea_client.h`) on Mac
+2. Run `scripts/deploy.sh` — this syncs the YAML + header to `~/esphome/` on the Pi automatically
+3. Flash OTA via Pi (works locally and remotely over Tailscale):
+   ```bash
+   ssh pi@100.109.248.77 "cd ~/esphome && python3 -m esphome run sv_esperanza_sensors.yaml --no-logs"
+   ```
+
+**Why via Pi, not directly from Mac:**
+The ESP32 (192.168.42.50) is only on the boat LAN. The Pi is on both the boat LAN and Tailscale, so it can reach the ESP32 from anywhere. Flashing directly from the Mac only works when the Mac is physically on the boat WiFi.
+
+**Key details:**
+- ESPHome is installed on Pi but not in PATH — always use `python3 -m esphome`, not `esphome`
+- `--no-logs` is required for remote SSH use — without it ESPHome hangs waiting for serial logs after flash
+- `secrets.yaml` is gitignored; `deploy.sh` copies it to the Pi if present locally
+- ESP32 static IP: `192.168.42.50` — ESPHome auto-discovers via mDNS or uses the IP directly
+- ESPHome version on Pi: 2026.2.4 — `http_request` uses `request_headers` not `headers` (renamed in this version)
+
+**Local OTA (on boat network, no Pi needed):**
+```bash
+cd esphome && esphome run sv_esperanza_sensors.yaml
+```
+Mac must be on SV-Esperanza WiFi. ESPHome auto-discovers the ESP32.
+
+### 3. Raspberry Pi 5 GPIO: use `lgpio`, not `RPi.GPIO`
 
 `relay_server.py` uses **`lgpio`**. `RPi.GPIO` is wrong on Pi 5. Relays are **active-LOW** (LOW = ON).
 
-### 3. Deploy and cache-busting
+### 4. Deploy and cache-busting
 
 ```bash
 bash scripts/deploy.sh
@@ -59,7 +86,7 @@ PI_HOST=100.109.248.77 bash scripts/deploy.sh
 
 `deploy.sh` injects `?v=<timestamp>` into HTML references to `.js` / `.css`. **Edit HTML script tags** if you add new bundles so deploy can version them.
 
-### 4. Helm Chart tab — do not blindly reuse `sbs-chart.js`
+### 5. Helm Chart tab — do not blindly reuse `sbs-chart.js`
 
 **Decision (March 2026):** Implement Helm **Chart** panel as a **Leaflet map** (local WMS + ESRI underlay, boat marker, AIS, passage line) — same data sources as the portal map.
 
@@ -67,16 +94,16 @@ PI_HOST=100.109.248.77 bash scripts/deploy.sh
 
 **Preferred approach:** small **`HelmChart`** (or equivalent) in **`web/js/helm.js`**: Leaflet + same WMS options as `sbs-chart.js`, init on **first open** of Chart tab, then **`map.invalidateSize()`** when the tab becomes visible. Optionally later: refactor `sbs-chart.js` to accept a prefix or container config.
 
-### 5. OpenCPN vs SBS web chart
+### 6. OpenCPN vs SBS web chart
 
 - **SBS portal/helm:** browser → nginx → MapServer WMS → cached tiles. OpenCPN is **not** required for the web UI.
 - **OpenCPN on the Pi** (if installed): reads **`/data/charts/noaa_enc/`** S-57 files natively; separate from WMS. Can coexist with MapServer.
 
-### 6. SignalK charts plugin
+### 7. SignalK charts plugin
 
 `/signalk/v1/api/resources/charts` may **404**. `sbs-chart.js` already falls back to **local WMS**. Don’t assume SK charts exist.
 
-### 7. Secrets and keys
+### 8. Secrets and keys
 
 - **OpenWeatherMap** key is user-entered in UI → `localStorage` (`sbs-owm-key`). Avoid hardcoding new keys in repo.
 - **Tailscale / SSH / router:** see `docs/AGENT_HANDOFF.md` — treat as sensitive.
