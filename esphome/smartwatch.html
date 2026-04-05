@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Location Smartwatch System Design Document</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 8px;
+            margin-top: 40px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 30px;
+        }
+        h4 {
+            color: #95a5a6;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        th {
+            background: #3498db;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        tr:hover {
+            background: #e3f2fd;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        .highlight {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .decision {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .warning {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        ul, ol {
+            padding-left: 30px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .checkbox {
+            margin-right: 8px;
+        }
+        hr {
+            border: none;
+            border-top: 2px solid #ecf0f1;
+            margin: 40px 0;
+        }
+        .status-pending {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        .status-decided {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .status-eliminated {
+            color: #e74c3c;
+            text-decoration: line-through;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Multi-Location Smartwatch System Design Document</h1>
+        
+        <h2>Project Overview</h2>
+        <p><strong>Hardware:</strong> Waveshare ESP32-S3 2.06" AMOLED Touch Watch Edition<br>
+        <strong>Locations:</strong> House, Van, Boat (OpenPlotter on Pi 5)<br>
+        <strong>Core Requirements:</strong></p>
+        <ul>
+            <li>WiFi-based automatic location detection</li>
+            <li>Voice control with audible feedback</li>
+            <li>Location-specific device control</li>
+            <li>Seamless switching between three Home Assistant instances</li>
+        </ul>
+
+        <hr>
+
+        <h2>1. Hardware Capabilities Reference</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Specification</th>
+                    <th>Relevance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Processor</strong></td>
+                    <td>ESP32-S3 dual-core 240MHz</td>
+                    <td>Sufficient for LVGL + Voice + WiFi</td>
+                </tr>
+                <tr>
+                    <td><strong>RAM</strong></td>
+                    <td>8MB PSRAM</td>
+                    <td>Handles multiple LVGL pages + audio buffers</td>
+                </tr>
+                <tr>
+                    <td><strong>Display</strong></td>
+                    <td>2.06" AMOLED 410×502</td>
+                    <td>High contrast, always-on capable</td>
+                </tr>
+                <tr>
+                    <td><strong>Touch</strong></td>
+                    <td>Capacitive touchscreen</td>
+                    <td>App navigation, controls</td>
+                </tr>
+                <tr>
+                    <td><strong>Audio In</strong></td>
+                    <td>Dual mics + ES7210 codec</td>
+                    <td>Voice commands with echo cancellation</td>
+                </tr>
+                <tr>
+                    <td><strong>Audio Out</strong></td>
+                    <td>Speaker via ES8311</td>
+                    <td>TTS feedback, alerts</td>
+                </tr>
+                <tr>
+                    <td><strong>Sensors</strong></td>
+                    <td>6-axis IMU (BMI270)</td>
+                    <td>Wrist wake, gestures</td>
+                </tr>
+                <tr>
+                    <td><strong>Storage</strong></td>
+                    <td>32MB flash + microSD</td>
+                    <td>App resources, cached TTS</td>
+                </tr>
+                <tr>
+                    <td><strong>Connectivity</strong></td>
+                    <td>WiFi 4 + BLE 5.0</td>
+                    <td>Network connection, location beacon</td>
+                </tr>
+                <tr>
+                    <td><strong>Power</strong></td>
+                    <td>AXP2101 PMIC + battery</td>
+                    <td>Power management critical</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>2. Architecture Decisions</h2>
+
+        <h3>Decision 2.1: Communication Protocol</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Option</th>
+                    <th>Pros</th>
+                    <th>Cons</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>A. Native API</strong></td>
+                    <td>Fast, reliable, encryption</td>
+                    <td>Cannot switch endpoints dynamically</td>
+                    <td class="status-eliminated">Eliminated</td>
+                </tr>
+                <tr>
+                    <td><strong>B. MQTT</strong></td>
+                    <td>Dynamic broker switching, lightweight, multiple subscribers</td>
+                    <td>Requires broker infrastructure</td>
+                    <td class="status-decided">Primary</td>
+                </tr>
+                <tr>
+                    <td><strong>C. HTTP REST</strong></td>
+                    <td>Direct control, no broker needed</td>
+                    <td>Higher latency, more code</td>
+                    <td class="status-decided">Secondary/Fallback</td>
+                </tr>
+                <tr>
+                    <td><strong>D. Hybrid</strong></td>
+                    <td>Best of both worlds</td>
+                    <td>More complex configuration</td>
+                    <td class="status-decided">Final Choice</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="decision">
+            <strong>Decision:</strong> Use <strong>MQTT as primary</strong> for state publishing and <strong>HTTP REST for direct commands</strong> when immediate response is needed.
+        </div>
+
+        <h3>Decision 2.2: MQTT Broker Strategy</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Option</th>
+                    <th>Architecture</th>
+                    <th>Pros</th>
+                    <th>Cons</th>
+                    <th>Best For</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>A. Local Brokers</strong></td>
+                    <td>Each location runs Mosquitto</td>
+                    <td>Low latency, works offline</td>
+                    <td>No cross-location visibility, complex bridging</td>
+                    <td>Isolated systems</td>
+                </tr>
+                <tr>
+                    <td><strong>B. Cloud Broker</strong></td>
+                    <td>Single broker (HiveMQ/EMQX/CloudMQTT)</td>
+                    <td>Simple, global access, easy failover</td>
+                    <td>Requires internet, latency, subscription costs</td>
+                    <td>Always-connected scenarios</td>
+                </tr>
+                <tr>
+                    <td><strong>C. Hybrid Cloud</strong></td>
+                    <td>Local brokers + cloud bridge</td>
+                    <td>Offline capability + remote access</td>
+                    <td>Complex setup, more maintenance</td>
+                    <td class="status-decided">Your use case</td>
+                </tr>
+                <tr>
+                    <td><strong>D. VPN Mesh</strong></td>
+                    <td>Local brokers + VPN tunneling</td>
+                    <td>Secure, private, no cloud dependency</td>
+                    <td>Requires VPN infrastructure, battery drain</td>
+                    <td>Security-focused</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="decision">
+            <strong>Decision:</strong> <strong>Option C (Hybrid Cloud)</strong> - Local Mosquitto at each location bridged to a cloud broker (or VPS) for redundancy and remote access.
+        </div>
+
+        <h3>Decision 2.3: Voice Pipeline Architecture</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Location</th>
+                    <th>Rationale</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Wake Word</strong></td>
+                    <td>Watch (local)</td>
+                    <td>Privacy, instant response, no latency</td>
+                </tr>
+                <tr>
+                    <td><strong>STT (Whisper)</strong></td>
+                    <td>Local HA instance</td>
+                    <td>Works offline, no data costs, fast</td>
+                </tr>
+                <tr>
+                    <td><strong>NLP/Intent</strong></td>
+                    <td>Local HA instance</td>
+                    <td>Context-aware, custom sentences</td>
+                </tr>
+                <tr>
+                    <td><strong>TTS (Piper)</strong></td>
+                    <td>Local HA instance</td>
+                    <td>Offline, customizable voices</td>
+                </tr>
+                <tr>
+                    <td><strong>Audio Output</strong></td>
+                    <td>Watch speaker</td>
+                    <td>Local feedback</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="highlight">
+            <strong>Alternative:</strong> Cloud voice services (Alexa, Google) - <strong>Rejected</strong> due to internet dependency on boat/van.
+        </div>
+
+        <h3>Decision 2.4: Boat Integration Method</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Option</th>
+                    <th>Setup</th>
+                    <th>Pros</th>
+                    <th>Cons</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>A. HA on OpenPlotter Pi</strong></td>
+                    <td>Docker container alongside Signal K</td>
+                    <td>Unified ecosystem, voice control, automation</td>
+                    <td>Resource usage, single point of failure</td>
+                    <td class="status-decided">Recommended</td>
+                </tr>
+                <tr>
+                    <td><strong>B. Direct Signal K REST</strong></td>
+                    <td>Watch talks directly to Signal K</td>
+                    <td>No HA needed, simpler</td>
+                    <td>No voice pipeline, limited automation</td>
+                    <td class="status-pending">Backup option</td>
+                </tr>
+                <tr>
+                    <td><strong>C. MQTT Only</strong></td>
+                    <td>Signal K MQTT plugin, no HA</td>
+                    <td>Lightweight</td>
+                    <td>No voice, limited processing</td>
+                    <td class="status-eliminated">Not recommended</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="decision">
+            <strong>Decision:</strong> <strong>Option A</strong> - Run Home Assistant in Docker on the Pi 5. Use Signal K Home Assistant integration for seamless data flow.
+        </div>
+
+        <hr>
+
+        <h2>3. Network Architecture</h2>
+
+        <h3>3.1 WiFi Configuration Strategy</h3>
+        <pre><code># ESPHome WiFi configuration with location detection
+wifi:
+  networks:
+    - ssid: !secret house_ssid
+      password: !secret house_password
+      priority: 10
+      # Triggers: bssid, static IP, hostname
+    - ssid: !secret van_ssid
+      password: !secret van_password
+      priority: 10
+    - ssid: !secret boat_ssid
+      password: !secret boat_password
+      priority: 10
+  
+  # Fallback if no known network
+  ap:
+    ssid: "Watch Fallback"
+    password: !secret fallback_password</code></pre>
+
+        <h3>3.2 Location Detection Logic</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Detection Method</th>
+                    <th>Implementation</th>
+                    <th>Reliability</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>SSID Match</strong></td>
+                    <td><code>wifi_info.ssid</code> sensor</td>
+                    <td>⭐⭐⭐⭐⭐</td>
+                    <td>Primary method</td>
+                </tr>
+                <tr>
+                    <td><strong>BSSID Match</strong></td>
+                    <td>Specific MAC address</td>
+                    <td>⭐⭐⭐⭐⭐</td>
+                    <td>Confirms specific AP</td>
+                </tr>
+                <tr>
+                    <td><strong>IP Range</strong></td>
+                    <td>Subnet detection</td>
+                    <td>⭐⭐⭐⭐</td>
+                    <td>Secondary confirmation</td>
+                </tr>
+                <tr>
+                    <td><strong>GPS (if added)</strong></td>
+                    <td>External GPS module</td>
+                    <td>⭐⭐⭐⭐⭐</td>
+                    <td>Ultimate fallback</td>
+                </tr>
+                <tr>
+                    <td><strong>BLE Beacon</strong></td>
+                    <td>Fixed BLE beacons</td>
+                    <td>⭐⭐⭐</td>
+                    <td>Indoor confirmation</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>Implementation Code</h4>
+        <pre><code>text_sensor:
+  - platform: wifi_info
+    ssid:
+      id: current_ssid
+      on_value:
+        then:
+          - lambda: |-
+              std::string ssid = x;
+              int new_location = 0;
+              
+              if (ssid == "HouseNetwork") {
+                new_location = 1;
+                id(mqtt_broker) = "192.168.1.100";
+                id(ha_api_url) = "http://192.168.1.100:8123";
+              } else if (ssid == "VanNetwork") {
+                new_location = 2;
+                id(mqtt_broker) = "192.168.2.100";
+                id(ha_api_url) = "http://192.168.2.100:8123";
+              } else if (ssid == "BoatNetwork") {
+                new_location = 3;
+                id(mqtt_broker) = "192.168.3.100";
+                id(ha_api_url) = "http://192.168.3.100:8123";
+              }
+              
+              if (new_location != id(current_location)) {
+                id(current_location) = new_location;
+                id(location_changed).execute(new_location);
+              }</code></pre>
+
+        <hr>
+
+        <h2>4. Software Architecture</h2>
+
+        <h3>4.1 ESPHome App Structure</h3>
+        <pre><code>watch.yaml (main configuration)
+├── common/
+│   ├── hardware.yaml          # Display, touch, audio, IMU
+│   ├── network.yaml           # WiFi, MQTT, HTTP
+│   ├── theme.yaml             # Colors, fonts, styles
+│   └── navigation.yaml        # App launcher, status bar
+├── apps/
+│   ├── home_control.yaml      # House-specific devices
+│   ├── van_control.yaml       # Van-specific devices
+│   ├── boat_dashboard.yaml    # Marine instruments
+│   ├── boat_systems.yaml      # Boat controls
+│   ├── climate.yaml           # HVAC (location-adaptive)
+│   ├── voice_interface.yaml   # Voice control UI
+│   ├── navigation.yaml        # GPS/position (boat)
+│   └── settings.yaml          # Watch configuration
+└── secrets.yaml               # WiFi, API keys, tokens</code></pre>
+
+        <h3>4.2 App Launcher Design</h3>
+        <div class="highlight">
+            <strong>Visual Layout:</strong>
+            <pre style="background: #f0f0f0; color: #333;">
+┌─────────────────────────────┐
+│ 🏠 House    ● Online  🔋85% │  &lt;- Status bar (always visible)
+├─────────────────────────────┤
+│                             │
+│    [App Grid or Page]       │
+│                             │
+│                             │
+├─────────────────────────────┤
+│ 🏠  🚐  ⛵  🎤  🌡️  ⚙️ │  &lt;- App dock (touch to switch)
+│ Home Van Boat Voice Climate Settings
+└─────────────────────────────┘</pre>
+        </div>
+
+        <p><strong>Navigation Methods:</strong></p>
+        <ol>
+            <li><strong>Touch dock icons</strong> - Direct app access</li>
+            <li><strong>Swipe left/right</strong> - Next/previous app</li>
+            <li><strong>IMU gesture</strong> - Wrist flick to switch (optional)</li>
+            <li><strong>Voice command</strong> - "Open boat dashboard"</li>
+        </ol>
+
+        <hr>
+
+        <h2>5. Feature Specifications by Location</h2>
+
+        <h3>5.1 House Features</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Features</th>
+                    <th>Data Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Lighting</strong></td>
+                    <td>Room on/off, dimming, scenes</td>
+                    <td>HA light entities</td>
+                </tr>
+                <tr>
+                    <td><strong>Climate</strong></td>
+                    <td>Thermostat control, temp display</td>
+                    <td>HA climate entities</td>
+                </tr>
+                <tr>
+                    <td><strong>Security</strong></td>
+                    <td>Lock status, arm/disarm, camera preview</td>
+                    <td>HA lock, alarm entities</td>
+                </tr>
+                <tr>
+                    <td><strong>Media</strong></td>
+                    <td>Play/pause, volume, source select</td>
+                    <td>HA media_player</td>
+                </tr>
+                <tr>
+                    <td><strong>Sensors</strong></td>
+                    <td>Indoor temp, humidity, occupancy</td>
+                    <td>HA sensor entities</td>
+                </tr>
+                <tr>
+                    <td><strong>Scenes</strong></td>
+                    <td>"Good morning", "Movie night", "Away"</td>
+                    <td>HA scene entities</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><strong>Voice Commands:</strong></p>
+        <ul>
+            <li>"Turn on living room lights"</li>
+            <li>"Set temperature to 72"</li>
+            <li>"Lock the front door"</li>
+            <li>"Goodnight" (scene activation)</li>
+        </ul>
+
+        <h3>5.2 Van Features</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Features</th>
+                    <th>Data Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Power</strong></td>
+                    <td>Battery voltage, solar status, inverter control</td>
+                    <td>HA sensor/switch</td>
+                </tr>
+                <tr>
+                    <td><strong>Climate</strong></td>
+                    <td>Ventilation fan, heater, temperature</td>
+                    <td>HA climate/fan</td>
+                </tr>
+                <tr>
+                    <td><strong>Lighting</strong></td>
+                    <td>Interior lights, awning lights</td>
+                    <td>HA light entities</td>
+                </tr>
+                <tr>
+                    <td><strong>Water</strong></td>
+                    <td>Tank levels, pump control</td>
+                    <td>HA sensor/switch</td>
+                </tr>
+                <tr>
+                    <td><strong>Security</strong></td>
+                    <td>Door locks, alarm status</td>
+                    <td>HA lock, binary_sensor</td>
+                </tr>
+                <tr>
+                    <td><strong>Location</strong></td>
+                    <td>GPS position, elevation</td>
+                    <td>HA device_tracker</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><strong>Voice Commands:</strong></p>
+        <ul>
+            <li>"Turn on ventilation fan"</li>
+            <li>"What's the battery voltage?"</li>
+            <li>"Turn off all lights"</li>
+            <li>"Water pump on"</li>
+        </ul>
+
+        <h3>5.3 Boat Features (OpenPlotter Integration)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Features</th>
+                    <th>Data Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Navigation</strong></td>
+                    <td>Depth, speed, heading, position</td>
+                    <td>Signal K → HA</td>
+                </tr>
+                <tr>
+                    <td><strong>Weather</strong></td>
+                    <td>Wind speed/direction, barometer, temperature</td>
+                    <td>Signal K → HA</td>
+                </tr>
+                <tr>
+                    <td><strong>Electrical</strong></td>
+                    <td>Battery voltage, current, solar, shore power</td>
+                    <td>Signal K → HA</td>
+                </tr>
+                <tr>
+                    <td><strong>Tanks</strong></td>
+                    <td>Fuel, water, waste levels</td>
+                    <td>Signal K → HA</td>
+                </tr>
+                <tr>
+                    <td><strong>Engine</strong></td>
+                    <td>RPM, temperature, pressure, hours</td>
+                    <td>Signal K → HA</td>
+                </tr>
+                <tr>
+                    <td><strong>Controls</strong></td>
+                    <td>Anchor light, bilge pump, navigation lights</td>
+                    <td>HA switches</td>
+                </tr>
+                <tr>
+                    <td><strong>Safety</strong></td>
+                    <td>AIS targets, MOB button, anchor alarm</td>
+                    <td>Signal K + HA</td>
+                </tr>
+                <tr>
+                    <td><strong>Autopilot</strong></td>
+                    <td>Engage/disengage, set heading, adjust course</td>
+                    <td>Signal K → HA</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><strong>Voice Commands:</strong></p>
+        <ul>
+            <li>"What's the depth?"</li>
+            <li>"Turn on anchor light"</li>
+            <li>"Set autopilot to 270 degrees"</li>
+            <li>"Bilge pump on"</li>
+            <li>"What's the wind speed?"</li>
+            <li>"Battery status"</li>
+        </ul>
+
+        <hr>
+
+        <h2>6. Voice Assistant Implementation</h2>
+
+        <h3>6.1 Pipeline Configuration (Per Location)</h3>
+        <p>Each location runs identical voice pipeline components:</p>
+        <pre><code># Home Assistant configuration (per instance)
+assist_pipeline:
+  - name: location_assist  # house_assist, van_assist, boat_assist
+    stt_engine: stt.whisper
+    tts_engine: tts.piper
+    conversation_engine: homeassistant
+    wake_word_engine: microWakeWord
+
+stt:
+  - platform: whisper
+    model: tiny-int8  # Fast, accurate enough for commands
+    language: en
+
+tts:
+  - platform: piper
+    voice: en_US-lessac-low  # Small, natural-sounding</code></pre>
+
+        <h3>6.2 Custom Voice Commands</h3>
+        <pre><code># configuration.yaml (per location with location-specific intents)
+conversation:
+  intents:
+    # Universal commands
+    LightControl:
+      - "turn on [the] {area} light"
+      - "turn off [the] {area} light"
+    
+    # House-specific
+    ThermostatControl:
+      - "set temperature to {temperature}"
+      - "make it {temperature} degrees"
+    
+    # Van-specific
+    BatteryStatus:
+      - "battery status"
+      - "how are the batteries"
+      - "house battery voltage"
+    
+    # Boat-specific
+    DepthQuery:
+      - "what's the depth"
+      - "how deep is it"
+      - "depth check"
+    
+    AnchorControl:
+      - "turn on anchor light"
+      - "anchor light on"
+      - "navigation lights"
+    
+    AutopilotControl:
+      - "set autopilot to {heading} degrees"
+      - "steer {heading} degrees"
+      - "heading {heading}"
+
+intent_script:
+  DepthQuery:
+    speech:
+      text: "Current depth is {{ states('sensor.boat_depth') }} meters"
+    action:
+      - service: tts.speak
+        data:
+          message: "Current depth is {{ states('sensor.boat_depth') }} meters"
+  
+  AnchorControl:
+    speech:
+      text: "Turning on anchor light"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.anchor_light</code></pre>
+
+        <hr>
+
+        <h2>7. Display & UI Decisions</h2>
+
+        <h3>7.1 Screen Layout Options</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Layout</th>
+                    <th>Best For</th>
+                    <th>Pros</th>
+                    <th>Cons</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Tile Grid</strong></td>
+                    <td>Many controls</td>
+                    <td>Familiar, quick access</td>
+                    <td>Can be cluttered</td>
+                </tr>
+                <tr>
+                    <td><strong>List View</strong></td>
+                    <td>Scrolling data</td>
+                    <td>Clean, readable</td>
+                    <td>Slower navigation</td>
+                </tr>
+                <tr>
+                    <td><strong>Circular Menu</strong></td>
+                    <td>Boat navigation</td>
+                    <td>Nautical aesthetic, one-handed</td>
+                    <td>Learning curve</td>
+                </tr>
+                <tr>
+                    <td><strong>Card Stack</strong></td>
+                    <td>Mixed content</td>
+                    <td>Organized, swipeable</td>
+                    <td>Requires more gestures</td>
+                </tr>
+                <tr>
+                    <td><strong>Dashboard</strong></td>
+                    <td>At-a-glance info</td>
+                    <td>Information dense</td>
+                    <td>Limited interaction</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="decision">
+            <strong>Decision:</strong> Use <strong>Card Stack</strong> for main navigation, <strong>Dashboard</strong> for boat instruments, <strong>Tile Grid</strong> for controls.
+        </div>
+
+        <h3>7.2 Always-On Display Strategy</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Mode</th>
+                    <th>Trigger</th>
+                    <th>Content</th>
+                    <th>Power Impact</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Full Active</strong></td>
+                    <td>Touch, wrist wake, voice</td>
+                    <td>Full color, 60Hz</td>
+                    <td>High</td>
+                </tr>
+                <tr>
+                    <td><strong>Ambient</strong></td>
+                    <td>Timeout (30s no interaction)</td>
+                    <td>Time, location, critical alerts</td>
+                    <td>Medium</td>
+                </tr>
+                <tr>
+                    <td><strong>Deep Sleep</strong></td>
+                    <td>Button press, no motion</td>
+                    <td>None (screen off)</td>
+                    <td>Low</td>
+                </tr>
+                <tr>
+                    <td><strong>IMU Wake</strong></td>
+                    <td>Wrist flick</td>
+                    <td>Full Active</td>
+                    <td>Configurable</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>IMU Configuration</h4>
+        <pre><code>sensor:
+  - platform: bmi270  # or similar IMU
+    id: imu
+    on_motion:
+      then:
+        - lambda: |-
+            // Detect wrist flick
+            if (id(imu).get_accel_z() > 1.5) {
+              id(display).set_brightness(100);
+              id(lvgl).resume();
+            }</code></pre>
+
+        <hr>
+
+        <h2>8. Power Management Decisions</h2>
+
+        <h3>8.1 Battery Life Targets</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Usage Pattern</th>
+                    <th>Target Battery Life</th>
+                    <th>Strategy</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Active use</strong></td>
+                    <td>4-6 hours</td>
+                    <td>Full brightness, voice active</td>
+                </tr>
+                <tr>
+                    <td><strong>Intermittent</strong></td>
+                    <td>12-18 hours</td>
+                    <td>Ambient mode, IMU wake</td>
+                </tr>
+                <tr>
+                    <td><strong>Standby</strong></td>
+                    <td>24-48 hours</td>
+                    <td>Deep sleep, WiFi low power</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>8.2 Power Optimization Techniques</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Technique</th>
+                    <th>Implementation</th>
+                    <th>Savings</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Adaptive Brightness</strong></td>
+                    <td>Light sensor or time-based</td>
+                    <td>30-40%</td>
+                </tr>
+                <tr>
+                    <td><strong>WiFi Power Save</strong></td>
+                    <td>DTIM interval optimization</td>
+                    <td>20-30%</td>
+                </tr>
+                <tr>
+                    <td><strong>CPU Frequency Scaling</strong></td>
+                    <td>240MHz → 80MHz in idle</td>
+                    <td>40-50%</td>
+                </tr>
+                <tr>
+                    <td><strong>Display Timeout</strong></td>
+                    <td>30s → 10s active use</td>
+                    <td>25%</td>
+                </tr>
+                <tr>
+                    <td><strong>Voice Sleep</strong></td>
+                    <td>Wake word only, no streaming</td>
+                    <td>60%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>9. Data Synchronization Strategy</h2>
+
+        <h3>9.1 State Management</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data Type</th>
+                    <th>Sync Direction</th>
+                    <th>Frequency</th>
+                    <th>Method</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Sensor readings</strong></td>
+                    <td>Watch → HA</td>
+                    <td>Real-time</td>
+                    <td>MQTT publish</td>
+                </tr>
+                <tr>
+                    <td><strong>Device states</strong></td>
+                    <td>HA → Watch</td>
+                    <td>Real-time</td>
+                    <td>MQTT subscribe</td>
+                </tr>
+                <tr>
+                    <td><strong>Time/Location</strong></td>
+                    <td>HA → Watch</td>
+                    <td>On connect</td>
+                    <td>API call</td>
+                </tr>
+                <tr>
+                    <td><strong>Configuration</strong></td>
+                    <td>HA → Watch</td>
+                    <td>On change</td>
+                    <td>MQTT retained</td>
+                </tr>
+                <tr>
+                    <td><strong>Voice responses</strong></td>
+                    <td>HA → Watch</td>
+                    <td>On demand</td>
+                    <td>Streaming</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>9.2 Offline Capability</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Behavior</th>
+                    <th>Recovery</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>WiFi lost</strong></td>
+                    <td>Show last known state, queue commands</td>
+                    <td>Auto-reconnect, sync on restore</td>
+                </tr>
+                <tr>
+                    <td><strong>HA unreachable</strong></td>
+                    <td>Local control only (if applicable), show offline</td>
+                    <td>Retry with backoff</td>
+                </tr>
+                <tr>
+                    <td><strong>MQTT broker down</strong></td>
+                    <td>Buffer locally, HTTP fallback</td>
+                    <td>Alert user, queue messages</td>
+                </tr>
+                <tr>
+                    <td><strong>Deep sleep wake</strong></td>
+                    <td>Quick state refresh, minimal sync</td>
+                    <td>Resume normal operation</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>10. Security Considerations</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Layer</th>
+                    <th>Threat</th>
+                    <th>Mitigation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>WiFi</strong></td>
+                    <td>Unauthorized access</td>
+                    <td>WPA3, strong passwords, MAC filtering</td>
+                </tr>
+                <tr>
+                    <td><strong>MQTT</strong></td>
+                    <td>Eavesdropping, injection</td>
+                    <td>TLS encryption, client certificates</td>
+                </tr>
+                <tr>
+                    <td><strong>HTTP API</strong></td>
+                    <td>Replay attacks, brute force</td>
+                    <td>HTTPS, API keys, rate limiting</td>
+                </tr>
+                <tr>
+                    <td><strong>Voice</strong></td>
+                    <td>False wake, command spoofing</td>
+                    <td>Local wake word, confirmation tones</td>
+                </tr>
+                <tr>
+                    <td><strong>Physical</strong></td>
+                    <td>Device theft, tampering</td>
+                    <td>Remote wipe (if cloud connected), encrypted storage</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>11. Installation & Configuration Checklist</h2>
+
+        <h3>11.1 Per-Location Setup</h3>
+        <p><strong>House & Van:</strong></p>
+        <ul>
+            <li><input type="checkbox" class="checkbox"> Install Home Assistant OS or Container</li>
+            <li><input type="checkbox" class="checkbox"> Configure Mosquitto MQTT broker</li>
+            <li><input type="checkbox" class="checkbox"> Install Whisper and Piper add-ons</li>
+            <li><input type="checkbox" class="checkbox"> Set up voice pipeline</li>
+            <li><input type="checkbox" class="checkbox"> Configure WiFi network</li>
+            <li><input type="checkbox" class="checkbox"> Test ESPHome connection</li>
+        </ul>
+
+        <p><strong>Boat (OpenPlotter Pi 5):</strong></p>
+        <ul>
+            <li><input type="checkbox" class="checkbox"> Install Docker (if not present)</li>
+            <li><input type="checkbox" class="checkbox"> Create Home Assistant container</li>
+            <li><input type="checkbox" class="checkbox"> Install Signal K Home Assistant integration</li>
+            <li><input type="checkbox" class="checkbox"> Verify Signal K data flow</li>
+            <li><input type="checkbox" class="checkbox"> Configure voice pipeline</li>
+            <li><input type="checkbox" class="checkbox"> Test marine-specific commands</li>
+        </ul>
+
+        <h3>11.2 Watch Configuration</h3>
+        <ul>
+            <li><input type="checkbox" class="checkbox"> Flash ESPHome firmware</li>
+            <li><input type="checkbox" class="checkbox"> Configure WiFi credentials for all locations</li>
+            <li><input type="checkbox" class="checkbox"> Set up MQTT broker addresses</li>
+            <li><input type="checkbox" class="checkbox"> Configure voice assistant component</li>
+            <li><input type="checkbox" class="checkbox"> Design LVGL app pages</li>
+            <li><input type="checkbox" class="checkbox"> Test location switching</li>
+            <li><input type="checkbox" class="checkbox"> Calibrate IMU wake gestures</li>
+            <li><input type="checkbox" class="checkbox"> Optimize power settings</li>
+        </ul>
+
+        <hr>
+
+        <h2>12. Decision Summary Matrix</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Decision</th>
+                    <th>Options</th>
+                    <th>Recommendation</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Communication</strong></td>
+                    <td>Native API / MQTT / HTTP</td>
+                    <td>MQTT + HTTP hybrid</td>
+                    <td class="status-pending">Pending</td>
+                </tr>
+                <tr>
+                    <td><strong>MQTT Strategy</strong></td>
+                    <td>Local / Cloud / Hybrid</td>
+                    <td>Hybrid cloud</td>
+                    <td class="status-pending">Pending</td>
+                </tr>
+                <tr>
+                    <td><strong>Boat Integration</strong></td>
+                    <td>HA Docker / Direct SK / MQTT</td>
+                    <td>HA Docker on Pi</td>
+                    <td class="status-decided">Decided</td>
+                </tr>
+                <tr>
+                    <td><strong>Voice Pipeline</strong></td>
+                    <td>Local / Cloud</td>
+                    <td>Local (Whisper+Piper)</td>
+                    <td class="status-decided">Decided</td>
+                </tr>
+                <tr>
+                    <td><strong>App Navigation</strong></td>
+                    <td>Grid / List / Circular / Cards</td>
+                    <td>Card stack</td>
+                    <td class="status-pending">Pending</td>
+                </tr>
+                <tr>
+                    <td><strong>Always-On Display</strong></td>
+                    <td>Yes / No / Conditional</td>
+                    <td>Conditional (gesture wake)</td>
+                    <td class="status-pending">Pending</td>
+                </tr>
+                <tr>
+                    <td><strong>Offline Capability</strong></td>
+                    <td>Full / Partial / None</td>
+                    <td>Partial (queue + local)</td>
+                    <td class="status-pending">Pending</td>
+                </tr>
+                <tr>
+                    <td><strong>Security Level</strong></td>
+                    <td>Basic / Standard / High</td>
+                    <td>Standard (TLS + keys)</td>
+                    <td class="status-pending">Pending</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>13. Next Steps & Open Questions</h2>
+
+        <h3>Immediate Actions</h3>
+        <ol>
+            <li><strong>Confirm boat Pi 5 resources</strong> - Verify available RAM/CPU for HA Docker</li>
+            <li><strong>Test Signal K integration</strong> - Install HA on boat, connect to Signal K</li>
+            <li><strong>Prototype voice pipeline</strong> - Set up Whisper + Piper on one location</li>
+            <li><strong>Design LVGL mockups</strong> - Sketch app layouts for each location</li>
+        </ol>
+
+        <h3>Open Questions for You</h3>
+        <ol>
+            <li><strong>Boat Network:</strong> Does your boat have internet access (cellular/satellite), or is it offline-only?</li>
+            <li><strong>Van Setup:</strong> Does your van have a permanent HA installation, or is it a travel router setup?</li>
+            <li><strong>Voice Preference:</strong> Do you want the same wake word for all locations, or location-specific wake words?</li>
+            <li><strong>Display Priority:</strong> Is battery life or always-on information more important?</li>
+            <li><strong>Offline Needs:</strong> What functions must work without internet (vs. local network only)?</li>
+            <li><strong>Safety Critical:</strong> Should boat alerts (anchor drag, bilge) override all other functions?</li>
+            <li><strong>Customization:</strong> Do you want to customize app layouts per location, or keep consistent UI?</li>
+        </ol>
+
+        <div class="highlight">
+            <strong>Document Status:</strong> This specification provides the foundation for your system. Review each section and decide which options best fit your usage patterns. Ready to elaborate on any specific area or help implement particular features once you've made your decisions.
+        </div>
+    </div>
+</body>
+</html>
