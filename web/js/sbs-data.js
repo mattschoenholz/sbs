@@ -22,7 +22,7 @@ const SBSData = (() => {
   const SK_PATHS = [
     'navigation.speedOverGround',
     'navigation.courseOverGroundTrue',
-    'navigation.headingTrue',
+    'navigation.headingMagnetic',
     'environment.depth.belowTransducer',
     'environment.wind.speedTrue',
     'environment.wind.directionTrue',
@@ -33,6 +33,22 @@ const SBSData = (() => {
     'environment.outside.humidity',
     'navigation.speedThroughWater',
     'navigation.position',
+    'propulsion.main.temperature',
+    'propulsion.main.exhaustTemperature',
+    // Renogy BT-2 solar controller (via renogy-signalk daemon)
+    'electrical.solar.renogy.panelVoltage',
+    'electrical.solar.renogy.panelCurrent',
+    'electrical.solar.renogy.panelPower',
+    'electrical.solar.renogy.controllerTemperature',
+    'electrical.solar.renogy.energyToday',
+    'electrical.solar.renogy.energyTotal',
+    'electrical.batteries.house.voltage',
+    'electrical.batteries.house.current',
+    'electrical.batteries.house.stateOfCharge',
+    'electrical.batteries.house.temperature',
+    'electrical.loads.dc.voltage',
+    'electrical.loads.dc.current',
+    'electrical.loads.dc.power',
   ];
 
   // ── STATE ─────────────────────────────────────────────────
@@ -40,7 +56,7 @@ const SBSData = (() => {
     // Navigation
     sog:      null,   // knots
     cog:      null,   // degrees true
-    heading:  null,   // degrees true
+    heading:  null,   // degrees magnetic (true once variation plugin configured)
     position: null,   // { latitude, longitude }
 
     // Environment
@@ -55,8 +71,8 @@ const SBSData = (() => {
     temp:     null,   // °C
     humidity: null,   // %
 
-    // DS18B20 1-Wire temps (from relay_server /temperatures)
-    ds18b20: { cabin: null, engine: null, exhaust: null, water: null }, // °C
+    // DS18B20 temperatures — cabin/water from relay_server; engine/exhaust from SignalK (ESP32 1-Wire)
+    ds18b20: { cabin: null, engine: null, exhaust: null, water: null }, // °F
 
     // ESP32 direct
     stw:      null,   // knots speed through water
@@ -74,6 +90,23 @@ const SBSData = (() => {
       alerts:      [],
       planSOG:     null,   // planned average SOG
       planETA:     null,   // planned ETA at destination
+    },
+
+    // Solar & battery (Renogy BT-2 via renogy-signalk daemon)
+    solar: {
+      pvVoltage:     null,  // V
+      pvCurrent:     null,  // A
+      pvPower:       null,  // W
+      pvEnergyToday: null,  // kWh
+      pvEnergyTotal: null,  // kWh
+      ctrlTempK:     null,  // K (convert to °C in UI)
+      battVoltage:   null,  // V
+      battCurrent:   null,  // A (positive = charging)
+      battSoc:       null,  // 0.0–1.0
+      battTempK:     null,  // K
+      loadVoltage:   null,  // V
+      loadCurrent:   null,  // A
+      loadPower:     null,  // W
     },
 
     // AIS vessels from SignalK — keyed by context string (e.g. "vessels.urn:mrn:...")
@@ -120,7 +153,7 @@ const SBSData = (() => {
         state.sog = conv.msToKnots(value); break;
       case 'navigation.courseOverGroundTrue':
         state.cog = conv.radToDeg(value); break;
-      case 'navigation.headingTrue':
+      case 'navigation.headingMagnetic':
         state.heading = conv.radToDeg(value); break;
       case 'navigation.speedThroughWater':
         state.stw = conv.msToKnots(value); break;
@@ -143,6 +176,39 @@ const SBSData = (() => {
         state.temp = conv.kToF(value); break;
       case 'environment.outside.humidity':
         state.humidity = value != null ? value * 100 : null; break;
+      case 'propulsion.main.temperature':
+        state.ds18b20.engine = conv.kToF(value);
+        emit('temperatures', state.ds18b20); break;
+      case 'propulsion.main.exhaustTemperature':
+        state.ds18b20.exhaust = conv.kToF(value);
+        emit('temperatures', state.ds18b20); break;
+      // Solar
+      case 'electrical.solar.renogy.panelVoltage':
+        state.solar.pvVoltage = value; break;
+      case 'electrical.solar.renogy.panelCurrent':
+        state.solar.pvCurrent = value; break;
+      case 'electrical.solar.renogy.panelPower':
+        state.solar.pvPower = value; break;
+      case 'electrical.solar.renogy.controllerTemperature':
+        state.solar.ctrlTempK = value; break;
+      case 'electrical.solar.renogy.energyToday':
+        state.solar.pvEnergyToday = value; break;
+      case 'electrical.solar.renogy.energyTotal':
+        state.solar.pvEnergyTotal = value; break;
+      case 'electrical.batteries.house.voltage':
+        state.solar.battVoltage = value; break;
+      case 'electrical.batteries.house.current':
+        state.solar.battCurrent = value; break;
+      case 'electrical.batteries.house.stateOfCharge':
+        state.solar.battSoc = value; break;
+      case 'electrical.batteries.house.temperature':
+        state.solar.battTempK = value; break;
+      case 'electrical.loads.dc.voltage':
+        state.solar.loadVoltage = value; break;
+      case 'electrical.loads.dc.current':
+        state.solar.loadCurrent = value; break;
+      case 'electrical.loads.dc.power':
+        state.solar.loadPower = value; break;
     }
   }
 
@@ -281,17 +347,16 @@ const SBSData = (() => {
     };
   }
 
-  // ── DS18B20 TEMPERATURES ──────────────────────────────────
+  // ── DS18B20 TEMPERATURES (cabin + water only) ────────────
+  // engine + exhaust come via SignalK (ESP32 1-Wire → NMEA XDR)
   async function fetchTemperatures() {
     try {
       const res = await fetch(`http://${SK_HOST}:${RELAY_PORT}/temperatures`);
       if (!res.ok) return;
       const data = await res.json();
       const t = state.ds18b20;
-      t.cabin   = data.cabin?.fahrenheit   ?? null;
-      t.engine  = data.engine?.fahrenheit  ?? null;
-      t.exhaust = data.exhaust?.fahrenheit ?? null;
-      t.water   = data.water?.fahrenheit   ?? null;
+      t.cabin = data.cabin?.fahrenheit ?? null;
+      t.water = data.water?.fahrenheit ?? null;
       emit('temperatures', t);
     } catch(e) {
       // relay server not reachable
@@ -532,6 +597,7 @@ const SBSData = (() => {
     get connected(){  return state.connected; },
     get gpsValid() { return state.gpsValid; },
     get nightMode(){ return nightMode; },
+    get solar()    { return state.solar; },
 
     // Events
     on, off,

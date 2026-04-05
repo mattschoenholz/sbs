@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar &amp; Charging</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: transparent;
+    color: #e8edf2;
+    padding: 14px 16px;
+  }
+  .module-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .module-title {
+    font-size: 11px; font-weight: 600; color: #4a6070;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .status-label { font-size: 12px; color: #8fa3b3; display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+  .status-dot.live { animation: pulse 2s infinite; }
+  .status-dot.warn { background: #eab308; }
+  .status-dot.err  { background: #ef4444; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  .metric-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-bottom: 10px;
+  }
+  .metric-card { background: #16222d; border-radius: 6px; padding: 10px 12px; }
+  .metric-label { font-size: 10px; color: #4a6070; margin-bottom: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .metric-value { font-size: 20px; font-weight: 500; color: #f0f4f8; line-height: 1.1; }
+  .metric-unit { font-size: 11px; color: #8fa3b3; font-weight: 400; margin-left: 1px; }
+  .metric-sub { font-size: 11px; color: #4a6070; margin-top: 3px; }
+
+  .flow-section { background: #16222d; border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; }
+  .section-label { font-size: 10px; font-weight: 600; color: #4a6070; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+  .flow-row { display: flex; align-items: center; }
+  .flow-node { text-align: center; flex: 1; }
+  .flow-icon { font-size: 16px; margin-bottom: 3px; }
+  .flow-name { font-size: 10px; color: #8fa3b3; }
+  .flow-val  { font-size: 13px; font-weight: 500; color: #e8edf2; }
+  .flow-arrow { flex: 0.6; text-align: center; }
+  .arrow-line { height: 2px; background: #1e2e3a; border-radius: 1px; margin: 0 6px 2px; transition: background 0.4s; }
+  .arrow-line.solar { background: #22c55e; }
+  .arrow-line.load  { background: #3b82f6; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bar-section { background: #16222d; border-radius: 6px; padding: 12px 14px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .bar-row:last-child { margin-bottom: 0; }
+  .bar-label { font-size: 10px; color: #8fa3b3; width: 60px; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 4px; background: #1e2e3a; border-radius: 2px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .bar-val   { font-size: 12px; font-weight: 500; color: #e8edf2; width: 42px; text-align: right; flex-shrink: 0; }
+
+  @media (max-width: 520px) {
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="module-header">
+  <span class="module-title">Solar &amp; Charging</span>
+  <span class="status-label">
+    <span class="status-dot warn" id="dot"></span>
+    <span id="status-text">Connecting&hellip;</span>
+  </span>
+</div>
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-label">Panel power</div>
+    <div class="metric-value"><span id="pv-power">&mdash;</span><span class="metric-unit">W</span></div>
+    <div class="metric-sub" id="pv-vi">&mdash; V &middot; &mdash; A</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Battery</div>
+    <div class="metric-value"><span id="batt-v">&mdash;</span><span class="metric-unit">V</span></div>
+    <div class="metric-sub" id="batt-soc-sub">SOC &mdash;%</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Charge current</div>
+    <div class="metric-value"><span id="batt-a">&mdash;</span><span class="metric-unit">A</span></div>
+    <div class="metric-sub" id="charge-state">&mdash;</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Energy today</div>
+    <div class="metric-value"><span id="energy-today">&mdash;</span><span class="metric-unit">kWh</span></div>
+    <div class="metric-sub" id="energy-total">Total &mdash; kWh</div>
+  </div>
+</div>
+<div class="flow-section">
+  <div class="section-label">Power flow</div>
+  <div class="flow-row">
+    <div class="flow-node">
+      <div class="flow-icon">&#x2600;&#xFE0F;</div>
+      <div class="flow-name">Panel</div>
+      <div class="flow-val" id="flow-pv">&mdash; W</div>
+    </div>
+    <div class="flow-arrow">
+      <div class="arrow-line" id="arr-solar"></div>
+      <div style="font-size:10px;color:#4a6070;">&rarr;</div>
+    </div>
+    <div class="flow-node">
+      <div class="flow-icon">&#x1F50B;</div>
+      <div class="flow-name">Battery</div>
+      <div class="flow-val" id="flow-batt">&mdash; V</div>
+    </div>
+    <div class="flow-arrow">
+      <div class="arrow-line" id="arr-load"></div>
+      <div style="font-size:10px;color:#4a6070;">&rarr;</div>
+    </div>
+    <div class="flow-node">
+      <div class="flow-icon">&#x26A1;</div>
+      <div class="flow-name">Loads</div>
+      <div class="flow-val" id="flow-load">&mdash; W</div>
+    </div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="bar-section">
+    <div class="section-label">State of charge</div>
+    <div class="bar-row">
+      <div class="bar-label">Battery</div>
+      <div class="bar-track"><div class="bar-fill" id="soc-bar" style="width:0%;background:#22c55e;"></div></div>
+      <div class="bar-val" id="soc-val">&mdash;%</div>
+    </div>
+  </div>
+  <div class="bar-section">
+    <div class="section-label">Temperatures</div>
+    <div class="bar-row">
+      <div class="bar-label">Controller</div>
+      <div class="bar-track"><div class="bar-fill" id="ctrl-bar" style="width:0%;background:#3b82f6;"></div></div>
+      <div class="bar-val" id="ctrl-temp">&mdash;&deg;C</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Battery</div>
+      <div class="bar-track"><div class="bar-fill" id="batt-bar" style="width:0%;background:#3b82f6;"></div></div>
+      <div class="bar-val" id="batt-temp">&mdash;&deg;C</div>
+    </div>
+  </div>
+</div>
+<script>
+const SK_WS = 'ws://' + location.hostname + ':3000/signalk/v1/stream?subscribe=all';
+const PATHS = [
+  'electrical.solar.renogy.panelVoltage','electrical.solar.renogy.panelCurrent',
+  'electrical.solar.renogy.panelPower','electrical.solar.renogy.controllerTemperature',
+  'electrical.solar.renogy.energyToday','electrical.solar.renogy.energyTotal',
+  'electrical.batteries.house.voltage','electrical.batteries.house.current',
+  'electrical.batteries.house.stateOfCharge','electrical.batteries.house.temperature',
+  'electrical.loads.dc.voltage','electrical.loads.dc.current','electrical.loads.dc.power'
+];
+const state = {};
+let retryTimer = null;
+function setStatus(mode, text) {
+  document.getElementById('dot').className = 'status-dot ' + mode;
+  document.getElementById('status-text').textContent = text;
+}
+function fmt(v, d) { return v == null ? '\u2014' : Number(v).toFixed(d != null ? d : 1); }
+function K(v) { return v == null ? null : v - 273.15; }
+function render() {
+  const pvV   = state['electrical.solar.renogy.panelVoltage'];
+  const pvA   = state['electrical.solar.renogy.panelCurrent'];
+  const pvW   = state['electrical.solar.renogy.panelPower'] != null
+                  ? state['electrical.solar.renogy.panelPower']
+                  : (pvV != null && pvA != null ? pvV * pvA : null);
+  const battV = state['electrical.batteries.house.voltage'];
+  const battA = state['electrical.batteries.house.current'];
+  const soc   = state['electrical.batteries.house.stateOfCharge'];
+  const socPct = soc != null ? Math.round(soc * 100) : null;
+  const ctrlT = K(state['electrical.solar.renogy.controllerTemperature']);
+  const battT = K(state['electrical.batteries.house.temperature']);
+  const loadV = state['electrical.loads.dc.voltage'];
+  const loadA = state['electrical.loads.dc.current'];
+  const loadW = state['electrical.loads.dc.power'] != null
+                  ? state['electrical.loads.dc.power']
+                  : (loadV != null && loadA != null ? loadV * loadA : null);
+
+  document.getElementById('pv-power').textContent    = pvW != null ? Math.round(pvW) : '\u2014';
+  document.getElementById('pv-vi').textContent       = fmt(pvV) + ' V \u00b7 ' + fmt(pvA) + ' A';
+  document.getElementById('batt-v').textContent      = fmt(battV);
+  document.getElementById('batt-soc-sub').textContent = 'SOC ' + (socPct != null ? socPct : '\u2014') + '%';
+  document.getElementById('batt-a').textContent      = battA != null ? (battA >= 0 ? '+' : '') + fmt(battA) : '\u2014';
+  document.getElementById('charge-state').textContent =
+    battV == null ? '\u2014' : battV > 14.4 ? 'Absorption' : battV > 14.0 ? 'Bulk charge' : 'Float';
+  document.getElementById('energy-today').textContent = fmt(state['electrical.solar.renogy.energyToday'], 2);
+  document.getElementById('energy-total').textContent =
+    'Total ' + fmt(state['electrical.solar.renogy.energyTotal'], 1) + ' kWh';
+  document.getElementById('flow-pv').textContent    = pvW  != null ? Math.round(pvW)  + ' W' : '\u2014 W';
+  document.getElementById('flow-batt').textContent  = fmt(battV) + ' V';
+  document.getElementById('flow-load').textContent  = loadW != null ? Math.round(loadW) + ' W' : '\u2014 W';
+  document.getElementById('arr-solar').className = 'arrow-line' + (pvW  > 5 ? ' solar' : '');
+  document.getElementById('arr-load').className  = 'arrow-line' + (loadW > 1 ? ' load'  : '');
+  if (socPct != null) {
+    var socEl = document.getElementById('soc-bar');
+    socEl.style.width = socPct + '%';
+    socEl.style.background = socPct > 70 ? '#22c55e' : socPct > 40 ? '#eab308' : '#ef4444';
+    document.getElementById('soc-val').textContent = socPct + '%';
+  }
+  if (ctrlT != null) {
+    document.getElementById('ctrl-bar').style.width = Math.min(100, ctrlT * 1.25) + '%';
+    document.getElementById('ctrl-temp').textContent = Math.round(ctrlT) + '\u00b0C';
+  }
+  if (battT != null) {
+    document.getElementById('batt-bar').style.width = Math.min(100, battT * 1.25) + '%';
+    document.getElementById('batt-temp').textContent = Math.round(battT) + '\u00b0C';
+  }
+}
+function connect() {
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  setStatus('warn', 'Connecting\u2026');
+  var ws;
+  try { ws = new WebSocket(SK_WS); }
+  catch(e) { setStatus('err', 'WS error'); retryTimer = setTimeout(connect, 10000); return; }
+  ws.onopen  = function() { setStatus('live', 'Live \u00b7 Signal K'); };
+  ws.onerror = function() { setStatus('err', 'Error'); };
+  ws.onclose = function() { setStatus('warn', 'Reconnecting\u2026'); retryTimer = setTimeout(connect, 8000); };
+  ws.onmessage = function(evt) {
+    try {
+      var msg = JSON.parse(evt.data);
+      if (!msg.updates) return;
+      for (var i = 0; i < msg.updates.length; i++) {
+        var vals = msg.updates[i].values || [];
+        for (var j = 0; j < vals.length; j++) {
+          if (PATHS.indexOf(vals[j].path) !== -1) state[vals[j].path] = vals[j].value;
+        }
+      }
+      render();
+    } catch(e) {}
+  };
+}
+connect();
+</script>
+</body>
+</html>

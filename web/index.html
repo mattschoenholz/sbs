@@ -409,6 +409,83 @@
     </div>
 
     <div class="sbs-card">
+      <div class="sbs-card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Solar &amp; Charging</span>
+        <span id="solar-dot" class="solar-dot solar-dot-wait"></span>
+      </div>
+      <div class="solar-grid">
+        <div class="solar-metric">
+          <div class="solar-metric-lbl">Panel</div>
+          <div class="solar-metric-val"><span id="sol-pv-w">—</span><span class="solar-unit">W</span></div>
+          <div class="solar-metric-sub" id="sol-pv-vi">— V · — A</div>
+        </div>
+        <div class="solar-metric">
+          <div class="solar-metric-lbl">Battery</div>
+          <div class="solar-metric-val"><span id="sol-batt-v">—</span><span class="solar-unit">V</span></div>
+          <div class="solar-metric-sub" id="sol-batt-soc">SOC —%</div>
+        </div>
+        <div class="solar-metric">
+          <div class="solar-metric-lbl">Charge</div>
+          <div class="solar-metric-val"><span id="sol-batt-a">—</span><span class="solar-unit">A</span></div>
+          <div class="solar-metric-sub" id="sol-charge-state">—</div>
+        </div>
+        <div class="solar-metric">
+          <div class="solar-metric-lbl">Today</div>
+          <div class="solar-metric-val"><span id="sol-energy-today">—</span><span class="solar-unit">kWh</span></div>
+          <div class="solar-metric-sub" id="sol-energy-total">Total — kWh</div>
+        </div>
+      </div>
+      <div class="solar-flow">
+        <div class="solar-flow-node">
+          <div class="solar-flow-icon">&#x2600;&#xFE0F;</div>
+          <div class="solar-flow-name">Panel</div>
+          <div class="solar-flow-val" id="sol-flow-pv">— W</div>
+        </div>
+        <div class="solar-flow-arrow">
+          <div class="solar-arrow-line" id="sol-arr-solar"></div>
+          <div class="solar-arrow-tip">&rarr;</div>
+        </div>
+        <div class="solar-flow-node">
+          <div class="solar-flow-icon">&#x1F50B;</div>
+          <div class="solar-flow-name">Battery</div>
+          <div class="solar-flow-val" id="sol-flow-batt">— V</div>
+        </div>
+        <div class="solar-flow-arrow">
+          <div class="solar-arrow-line" id="sol-arr-load"></div>
+          <div class="solar-arrow-tip">&rarr;</div>
+        </div>
+        <div class="solar-flow-node">
+          <div class="solar-flow-icon">&#x26A1;</div>
+          <div class="solar-flow-name">Loads</div>
+          <div class="solar-flow-val" id="sol-flow-load">— W</div>
+        </div>
+      </div>
+      <div class="solar-two-col">
+        <div class="solar-bars">
+          <div class="solar-bars-lbl">State of charge</div>
+          <div class="solar-bar-row">
+            <span class="solar-bar-name">Battery</span>
+            <div class="solar-bar-track"><div class="solar-bar-fill" id="sol-soc-bar" style="width:0%"></div></div>
+            <span class="solar-bar-val" id="sol-soc-val">—%</span>
+          </div>
+        </div>
+        <div class="solar-bars">
+          <div class="solar-bars-lbl">Temperatures</div>
+          <div class="solar-bar-row">
+            <span class="solar-bar-name">Controller</span>
+            <div class="solar-bar-track"><div class="solar-bar-fill solar-bar-fill-blue" id="sol-ctrl-bar" style="width:0%"></div></div>
+            <span class="solar-bar-val" id="sol-ctrl-temp">—°C</span>
+          </div>
+          <div class="solar-bar-row">
+            <span class="solar-bar-name">Battery</span>
+            <div class="solar-bar-track"><div class="solar-bar-fill solar-bar-fill-blue" id="sol-batt-bar" style="width:0%"></div></div>
+            <span class="solar-bar-val" id="sol-batt-temp">—°C</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sbs-card">
       <div class="sbs-card-header">Network &amp; System</div>
       <div class="cd-bottom-row">
         <button class="sbs-btn" id="hotspot-btn" onclick="toggleHotspot()">

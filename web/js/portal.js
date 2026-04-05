@@ -72,28 +72,108 @@ let hotspotOn = false;
 // ── TEMPERATURES ─────────────────────────────────────────────
 const TEMP_THRESHOLDS = { cabin: 113, engine: 176, exhaust: 194, water: 140 }; // °F
 
+function updateTempCell(name, fahrenheit) {
+  const cEl  = document.getElementById(`c-${name}`);
+  const card = document.getElementById(`tc-${name}`);
+  if (!cEl) return;
+  if (fahrenheit != null && !isNaN(fahrenheit)) {
+    cEl.textContent = fahrenheit.toFixed(1) + '°';
+    const thresh = TEMP_THRESHOLDS[name];
+    if (card) card.classList.toggle('hot', thresh != null && fahrenheit >= thresh);
+  } else {
+    cEl.textContent = '--.-°';
+    if (card) card.classList.remove('hot');
+  }
+}
+
 async function pollTemps() {
+  // cabin + water only — engine/exhaust come via SBSData 'temperatures' event (SignalK)
   try {
     const res  = await fetch(`${RELAY_BASE}/temperatures`);
     const data = await res.json();
-    for (const [name, obj] of Object.entries(data)) {
-      const cEl  = document.getElementById(`c-${name}`);
-      const card = document.getElementById(`tc-${name}`);
-      if (!cEl) continue;
-      const c = obj?.fahrenheit;
-      if (c != null && !isNaN(c)) {
-        cEl.textContent = c.toFixed(1) + '°';
-        const thresh = TEMP_THRESHOLDS[name];
-        if (card) card.classList.toggle('hot', thresh != null && c >= thresh);
-      } else {
-        cEl.textContent = '--.-°';
-        if (card) card.classList.remove('hot');
-      }
+    for (const name of ['cabin', 'water']) {
+      updateTempCell(name, data[name]?.fahrenheit ?? null);
     }
   } catch (e) {
     // silently fail — sensors may be unavailable
   }
 }
+
+SBSData.on('temperatures', t => {
+  if (t.engine  != null) updateTempCell('engine',  t.engine);
+  if (t.exhaust != null) updateTempCell('exhaust', t.exhaust);
+});
+
+// ── SOLAR & CHARGING ────────────────────────────────────────
+function renderSolar() {
+  const s = SBSData.solar;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const fmt1 = v => v != null ? Number(v).toFixed(1) : '—';
+  const fmt2 = v => v != null ? Number(v).toFixed(2) : '—';
+  const kToC = k => k != null ? Math.round(k - 273.15) : null;
+
+  const pvW  = s.pvPower  != null ? s.pvPower
+             : (s.pvVoltage != null && s.pvCurrent != null ? s.pvVoltage * s.pvCurrent : null);
+  const loadW = s.loadPower != null ? s.loadPower
+              : (s.loadVoltage != null && s.loadCurrent != null ? s.loadVoltage * s.loadCurrent : null);
+  const socPct = s.battSoc != null ? Math.round(s.battSoc * 100) : null;
+  const ctrlC  = kToC(s.ctrlTempK);
+  const battC  = kToC(s.battTempK);
+
+  set('sol-pv-w',    pvW  != null ? Math.round(pvW)  : '—');
+  set('sol-pv-vi',   fmt1(s.pvVoltage) + ' V · ' + fmt1(s.pvCurrent) + ' A');
+  set('sol-batt-v',  fmt1(s.battVoltage));
+  set('sol-batt-soc', 'SOC ' + (socPct != null ? socPct : '—') + '%');
+  set('sol-batt-a',  s.battCurrent != null ? (s.battCurrent >= 0 ? '+' : '') + fmt1(s.battCurrent) : '—');
+  set('sol-charge-state',
+    s.battVoltage == null ? '—'
+    : s.battVoltage > 14.4 ? 'Absorption'
+    : s.battVoltage > 14.0 ? 'Bulk charge'
+    : 'Float');
+  set('sol-energy-today',  fmt2(s.pvEnergyToday));
+  set('sol-energy-total',  'Total ' + fmt1(s.pvEnergyTotal) + ' kWh');
+  set('sol-flow-pv',   pvW   != null ? Math.round(pvW)   + ' W' : '— W');
+  set('sol-flow-batt', fmt1(s.battVoltage) + ' V');
+  set('sol-flow-load', loadW != null ? Math.round(loadW) + ' W' : '— W');
+
+  const arrSolar = document.getElementById('sol-arr-solar');
+  const arrLoad  = document.getElementById('sol-arr-load');
+  if (arrSolar) arrSolar.className = 'solar-arrow-line' + (pvW  > 5 ? ' active-solar' : '');
+  if (arrLoad)  arrLoad.className  = 'solar-arrow-line' + (loadW > 1 ? ' active-load'  : '');
+
+  const socBar = document.getElementById('sol-soc-bar');
+  if (socBar && socPct != null) {
+    socBar.style.width = socPct + '%';
+    socBar.style.background = socPct > 70 ? 'var(--c-green)' : socPct > 40 ? 'var(--c-yellow)' : 'var(--c-red)';
+    set('sol-soc-val', socPct + '%');
+  }
+  const ctrlBar = document.getElementById('sol-ctrl-bar');
+  if (ctrlBar && ctrlC != null) {
+    ctrlBar.style.width = Math.min(100, ctrlC * 1.25) + '%';
+    set('sol-ctrl-temp', ctrlC + '°C');
+  }
+  const battBar = document.getElementById('sol-batt-bar');
+  if (battBar && battC != null) {
+    battBar.style.width = Math.min(100, battC * 1.25) + '%';
+    set('sol-batt-temp', battC + '°C');
+  }
+
+  // Status dot: green once battery voltage is live, yellow while waiting
+  const dot = document.getElementById('solar-dot');
+  if (dot) {
+    if (!SBSData.connected) {
+      dot.className = 'solar-dot solar-dot-off';
+    } else if (s.battVoltage != null) {
+      dot.className = 'solar-dot solar-dot-live';
+    } else {
+      dot.className = 'solar-dot solar-dot-wait';
+    }
+  }
+}
+
+SBSData.on('update', renderSolar);
+SBSData.on('connected',    renderSolar);
+SBSData.on('disconnected', renderSolar);
 
 // ── HOTSPOT ─────────────────────────────────────────────────
 async function checkHotspot() {
