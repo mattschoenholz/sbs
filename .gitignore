@@ -1,5 +1,7 @@
-# Claude Code internal state
+# Claude Code internal state (session data, worktrees — not skills)
 .claude/
+!.claude/commands/
+!.claude/commands/*.md
 
 # ESPHome secrets and build artifacts — NEVER commit
 secrets.yaml
