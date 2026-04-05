@@ -97,9 +97,8 @@ SWITCH_PINS = {
 # Addresses mapped during installation on 2026-03-08
 # Verify with: ls /sys/bus/w1/devices/
 W1_SENSORS = {
-    "exhaust":  "28-000000240cbd",
+    # engine + exhaust moved to ESP32 1-Wire (GPIO25) → SignalK via NMEA XDR
     "water":    "28-000000251764",
-    "engine":   "28-0000008327eb",
     "cabin":    "28-00000086defe",
 }
 W1_BASE = "/sys/bus/w1/devices/{}/w1_slave"
@@ -895,6 +894,47 @@ def autopilot_status():
     except Exception as e:
         app.logger.warning("autopilot_status error: %s", e)
     return jsonify({"active": False})
+
+
+TP22_URL = "http://127.0.0.1:5002"
+
+@app.route('/autopilot/heading/engage', methods=['POST'])
+def ap_heading_engage():
+    """Engage TP22 manual heading mode at current compass heading."""
+    data = request.get_json(silent=True) or {}
+    try:
+        r = http_requests.post(f"{TP22_URL}/engage", json=data, timeout=3)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
+
+@app.route('/autopilot/heading/adjust', methods=['POST'])
+def ap_heading_adjust():
+    """Adjust manual heading by delta degrees. Body: {delta: ±1|±10}"""
+    data = request.get_json(silent=True) or {}
+    try:
+        r = http_requests.post(f"{TP22_URL}/adjust", json=data, timeout=3)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
+
+@app.route('/autopilot/heading/disengage', methods=['POST'])
+def ap_heading_disengage():
+    """Disengage TP22 manual heading mode."""
+    try:
+        r = http_requests.post(f"{TP22_URL}/disengage", timeout=3)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
+
+@app.route('/autopilot/heading/state', methods=['GET'])
+def ap_heading_state():
+    """Return current TP22 manual heading state."""
+    try:
+        r = http_requests.get(f"{TP22_URL}/state", timeout=3)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"mode": "unknown", "engaged": False, "error": str(e)}), 503
 
 
 # ============================================================

@@ -193,27 +193,61 @@ SBSData.on('update', () => {
 let apEngaged = false;
 let apTarget  = null;
 
-function apToggle() {
-  apEngaged = !apEngaged;
+async function apToggle() {
   const btn  = document.getElementById('ap-engage-btn');
   const tile = document.getElementById('tile-ap');
   if (apEngaged) {
-    apTarget = SBSData.heading != null ? Math.round(SBSData.heading) : (apTarget || 0);
-    if (btn)  { btn.textContent = 'ENGAGED'; btn.classList.add('active'); }
-    if (tile) tile.classList.add('ap-engaged');
-  } else {
+    // Disengage
+    try { await fetch(`${RELAY_URL}/autopilot/heading/disengage`, { method: 'POST' }); } catch(_) {}
+    apEngaged = false;
+    apTarget  = null;
     if (btn)  { btn.textContent = 'STBY'; btn.classList.remove('active'); }
     if (tile) tile.classList.remove('ap-engaged');
     const err = document.getElementById('ap-hdg-err');
     if (err) err.textContent = '';
+    const aph = document.getElementById('v-ap-hdg');
+    if (aph) aph.textContent = '---°';
+  } else {
+    // Engage at current heading
+    if (btn) { btn.textContent = '…'; btn.disabled = true; }
+    try {
+      const r = await fetch(`${RELAY_URL}/autopilot/heading/engage`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const d = await r.json();
+      if (r.ok && d.heading != null) {
+        apEngaged = true;
+        apTarget  = Math.round(d.heading);
+        if (btn)  { btn.textContent = 'ENGAGED'; btn.classList.add('active'); }
+        if (tile) tile.classList.add('ap-engaged');
+        const aph = document.getElementById('v-ap-hdg');
+        if (aph) aph.textContent = apTarget + '°';
+      } else {
+        if (btn) btn.textContent = 'ERROR';
+        setTimeout(() => { if (btn) btn.textContent = 'STBY'; }, 2000);
+      }
+    } catch(_) {
+      if (btn) btn.textContent = 'STBY';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 }
 
-function apAdjust(delta) {
+async function apAdjust(delta) {
   if (!apEngaged) return;
-  apTarget = ((apTarget || 0) + delta + 360) % 360;
-  const aph = document.getElementById('v-ap-hdg');
-  if (aph) aph.textContent = apTarget + '°';
+  try {
+    const r = await fetch(`${RELAY_URL}/autopilot/heading/adjust`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta }),
+    });
+    const d = await r.json();
+    if (r.ok && d.heading != null) {
+      apTarget = Math.round(d.heading);
+      const aph = document.getElementById('v-ap-hdg');
+      if (aph) aph.textContent = apTarget + '°';
+    }
+  } catch(_) {}
 }
 
 function apUpdateContext() {
