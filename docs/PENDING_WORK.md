@@ -1,47 +1,34 @@
 # SailboatServer — Pending Work & Roadmap
 
-Status as of 2026-03-29. Items ordered by priority.
+Status as of 2026-04-05. Items ordered by priority.
 
 ---
 
-## 🔴 Immediate — Physical Work at the Boat (Today, 2026-03-29)
+## 🔴 Immediate — Physical Installation (Today, 2026-04-05)
 
-### Relay Board Jumper Moves
-Move 2-pin header jumpers on the Waveshare Relay Board B (no soldering needed):
-- **CH1:** move jumper to **GPIO22 (pin 15)**
-- **CH3:** move jumper to **GPIO23 (pin 16)**
+### INA226 Battery Monitor
+Wire the INA226 to the 100A/75mV marine shunt (shunt must be in-line on battery negative lead):
+- INA226 **VIN+** → battery-side measurement terminal on shunt
+- INA226 **VIN-** → load-side measurement terminal on shunt
+- INA226 **VCC** → 3.3V, **GND** → system ground
+- INA226 **SDA/SCL** → GPIO21/22 (shared I2C bus)
 
-Both changes are already in `relay_server.py` and `GPIO_PIN_MAPPING.md`. Deploy `relay_server.py` after the jumper moves:
-```bash
-PI_HOST=100.109.248.77 bash scripts/deploy.sh
-```
+After wiring, check ESPHome logs for INA226 readings. Verify battery voltage matches a multimeter on the terminals.
 
-### Switch Wiring
-Wire all 5 manual override switches (one leg → GPIO pin, other leg → GND):
+### BME680 Sensor
+Install BME680 on the ESP32 protoboard (replaces destroyed BMP280):
+- VCC → 3.3V, GND → GND, SDA → GPIO21, SCL → GPIO22
+- SDO → 3.3V for address 0x77 (matches config `bmp280_address: "0x77"`)
+- Firmware already flashed. Power cycle ESP32 — sensor should appear in logs.
+- IAQ readings start as "Unreliable" — normal. Accuracy improves over several hours.
 
-| Switch | Wire to | Controls |
-|--------|---------|---------|
-| SW1 | Pi pin 38 (GPIO20) | CH4 Bilge Pump ← SAFETY CRITICAL |
-| SW2 | Pi pin 37 (GPIO26) | CH2 Nav Lights |
-| SW3 | Pi pin 13 (GPIO27) | CH3 Anchor Light |
-| SW4 | ESP32 GPIO32 | CH1 Cabin Lights |
-| SW5 | ESP32 GPIO33 | CH6 Vent Fan |
+### AHT20 Status Check
+If the AHT20 also survived the 12V incident, it will appear in ESPHome logs as address 0x38. If it shows I2C errors, comment out the AHT20 block in `esphome/sv_esperanza_sensors.yaml` and reflash OTA.
 
-### BH1750FVI Light Sensor
-Add to ESP32 protoboard (I2C shared bus — same plug as BMP280/AHT20):
-- VCC → 3.3V
-- GND → GND
-- SDA → GPIO21
-- SCL → GPIO22
-- ADDR → GND (address 0x23)
-
-Firmware already includes it and is flashed. Power cycle ESP32 after wiring — sensor will appear in ESPHome logs and SignalK.
-
-### Verify After Physical Changes
-1. Test each relay via Systems page — all 8 channels
-2. Test SW1–SW3 (Pi GPIO) and SW4–SW5 (ESP32 HTTP toggle)
-3. Check SignalK for `environment.outside.illuminance` from BH1750
-4. Confirm bilge pump manual override (SW1) is functional — safety critical
+### TP22 Autopilot — Underway Test
+- Dock test confirmed mechanics work (2026-04-04)
+- Need to test ±1°/±10° heading adjustment underway with SignalK reporting real speed/heading
+- Verify route mode activates automatically when SK has an active waypoint
 
 ---
 
@@ -191,6 +178,10 @@ Night mode has not been tested thoroughly across all sub-panels. Do a systematic
 
 ## ✅ Recently Completed
 
+- **TP22 NMEA bridge** — `tp22_nmea.py` daemon sends APB+RMB to TP22 at 1 Hz; dock-tested 2026-04-04; relay_server.py proxy routes; helm UI engage/adjust/disengage wired to real API
+- **BME680 BSEC2** — replaces destroyed BMP280; provides IAQ (0–500), CO₂ equiv, VOC equiv, temp, pressure, humidity; firmware compiled and flashed via USB 2026-04-05
+- **INA226 shunt config** — updated for 100A/75mV marine shunt (0.00075Ω, 100A max)
+- **ESP32 replacement** — new board flashed after original destroyed in INA226 wiring incident
 - **GPIO pin reorganization** — CH1→GPIO22, CH3→GPIO23; SW4/SW5→ESP32 GPIO32/33; GPIO14/15 permanently free for MAIANA AIS UART0
 - **ESP32 SW4/SW5 HTTP switches** — physical switches on ESP32 toggle cabin lights and vent fan via HTTP POST; flashed OTA
 - **BH1750FVI light sensor** — added to ESP32 I2C bus; reports lux to SignalK and Home Assistant; flashed OTA

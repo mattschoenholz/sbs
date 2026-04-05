@@ -4,6 +4,69 @@ Changes are recorded in reverse chronological order. Each session's changes are 
 
 ---
 
+## Session: 2026-04-04 / 2026-04-05 — TP22 Autopilot, BME680 BSEC2, INA226 Shunt
+
+### New: TP22 Autotiller NMEA Bridge (`server/tp22_nmea.py`)
+- New asyncio daemon subscribing to Signal K navigation paths via WebSocket
+- Sends APB + RMB sentences at 1 Hz to `/dev/ttyOP_tp22` (UART4, 4800 baud)
+- Two modes: **route** (SK active waypoint → derives bearing/XTE from SK data) and **manual** (portal-commanded heading → virtual waypoint 10nm out)
+- Priority: route > manual > silence
+- HTTP API on port 5002 (localhost only):
+  - `GET  /state` → `{mode, engaged, heading}`
+  - `POST /engage` → `{heading?}` — engages manual mode at current or specified heading
+  - `POST /adjust` → `{delta}` — adjusts heading ±1°/±10°
+  - `POST /disengage` — stops manual mode
+- Deployed to `/home/pi/tp22_nmea.py`; systemd service `tp22-nmea.service` (uses `/home/pi/renogy-venv/bin/python3`)
+
+#### Dock Test Results (2026-04-04)
+- TP22 confirmed entering Nav mode with APB + RMB at 1 Hz from Pi
+- Original UART4 wire orientation is correct — do not swap
+- Button sequence: Auto → Engaged in portal → Nav on TP22
+- Tiller deflects toward commanded bearing; returns to neutral when data stops
+- Two-beep dropout = malformed/missing sentences (most often the `$` prefix eaten by shell quoting)
+
+### relay_server.py — Autopilot Proxy Routes
+Added four routes forwarding to `tp22_nmea.py` HTTP API on port 5002:
+- `POST /autopilot/heading/engage`
+- `POST /autopilot/heading/adjust`
+- `POST /autopilot/heading/disengage`
+- `GET  /autopilot/heading/state`
+
+### Helm UI — Autopilot Controls Wired to Real API
+- STBY/ENGAGED toggle calls `POST /autopilot/heading/engage` or `/disengage` via relay_server
+- ±1° and ±10° heading adjustment buttons call `POST /autopilot/heading/adjust`
+- Heading readout in UI reflects live server state
+
+### ESPHome — BME680 BSEC2 (replaces BMP280/BME280)
+- **Background:** BMP280 likely destroyed in 12V INA226 wiring incident (see LESSONS_LEARNED §22); ESP32 also replaced
+- Changed platform from `bme280_i2c` → `bme68x_bsec2_i2c` with Bosch BSEC2 library
+- New sensors exposed:
+  - Barometric Pressure (hPa)
+  - Air Temperature — BME680 (°C)
+  - Relative Humidity — BME680 (%)
+  - Air Quality IAQ (0–500 index)
+  - CO₂ Equivalent (ppm)
+  - VOC Equivalent (ppm)
+  - IAQ Accuracy (text: "Unreliable" → "Low" → "Medium" → "High"; calibrates over hours)
+- Sample rate: LP mode (every 3 s); calibration state saved to flash
+- New top-level `bme68x_bsec2_i2c:` component block with `model: bme680`, `supply_voltage: 3.3V`
+- **Firmware compiled and flashed via USB** to new ESP32 (MAC `6c:c8:40:89:f0:60`)
+
+### ESPHome — INA226 Shunt Config Updated
+- `ina226_shunt_resistance`: `"0.002"` → `"0.00075"` (100A/75mV marine shunt = 0.00075Ω)
+- `ina226_max_current`: `"20.0"` → `"100.0"` A
+
+### Hardware Changes (boat)
+- **New ESP32** installed — original destroyed in 12V INA226 incident
+- **BME680** installed (replacing destroyed BMP280) — wired to same I2C pins (GPIO21/22)
+- **INA226** rewired to 100A/75mV marine shunt: VIN+ and VIN- to the small measurement terminals (millivolt differential only); no full battery voltage across the chip
+
+### Documentation
+- `docs/LESSONS_LEARNED.md` §21 — TP22 wiring and nav mode results
+- `docs/LESSONS_LEARNED.md` §22 — INA226 wiring hazard (12V destruction incident, correct marine shunt wiring)
+
+---
+
 ## Session: 2026-03-29 — GPIO Reorganization, BH1750 Sensor, Watch Firmware, Pacific Library
 
 ### ESP32 Firmware Changes

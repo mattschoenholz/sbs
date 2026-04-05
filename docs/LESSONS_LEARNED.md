@@ -116,3 +116,50 @@ Calling `map.fitBounds(polyline.getBounds())` every time a waypoint is added cau
 
 ### 20. Streaming Ollama responses: parse NDJSON line by line, handle partial chunks
 The Ollama `/api/chat` response with `stream: true` is newline-delimited JSON. The ReadableStream `reader.read()` chunks don't align with JSON object boundaries — a single `value` from the reader may contain multiple JSON objects, or a partial object split across chunks. Always split by `\n`, skip empty lines, and wrap each `JSON.parse()` in try/catch.
+
+---
+
+## TP22 Autotiller (Simrad)
+
+### 21. TP22 NMEA wiring and Nav mode — dock test results (2026-04-04)
+
+**Wiring:** MacArthur HAT UART4 TX (GPIO12, pin 32) connects to TP22 NMEA IN. The **original wire orientation is correct** — swapping the wires (trying NMEA IN+ vs IN-) caused the TP22 to receive garbage and produce a false alarm beep, not valid nav mode. Leave wires as originally installed.
+
+**Nav mode sentences required:** Both APB and RMB must be sent together at 1 Hz. APB alone is not sufficient to hold nav mode.
+
+```
+$GPAPB,A,A,0.10,R,N,V,V,{bearing},T,{wpt_id},{bearing},T,{bearing},T*{cs}
+$GPRMB,A,0.10,R,,{wpt_id},{lat},{lon},0.50,{bearing},0.1,V*{cs}
+```
+
+**Button sequence:** Press Auto (compass hold), then press Nav while data is streaming.
+
+**Two-beep dropout:** If Nav mode drops immediately with two beeps, the sentences are not reaching the unit or the NMEA data is malformed. Verify checksums and that the `$` prefix is present (easy to lose in shell string handling — use heredoc or Python, never `echo "$..."` in double-quoted SSH commands).
+
+**Dock testing:** Nav mode confirmed working at dock. Speed = 0 is OK. The tiller will deflect toward the commanded bearing.
+
+**Serial port:** `/dev/ttyOP_tp22` → `/dev/ttyAMA4`, 4800 baud, 8N1. UART4 enabled via `dtoverlay=uart4-pi5` in `/boot/firmware/config.txt`.
+
+---
+
+## Hardware / Sensors
+
+### 22. INA226 power monitor — never connect V+ and V- directly to the battery rails
+
+The INA226 breakout board has an **onboard shunt resistor** (~0.1Ω). Connecting V+ to battery positive (12V) and V- to battery negative (0V) places the full 12V across that shunt, drawing ~120A and ~1440W — instant destruction of the chip. In the same incident the 3.3V rail spiked, destroying the ESP32 and BMP280 on the same I2C bus.
+
+**Correct wiring with a marine shunt (e.g. 100A/75mV type):**
+- The marine shunt is wired in-line on the battery negative lead between the battery and the loads
+- INA226 **VIN+** → small measurement terminal on the battery side of the shunt
+- INA226 **VIN-** → small measurement terminal on the load side of the shunt
+- At full 100A load, only **75mV** appears across the INA226 sense inputs — well within its ±81.92mV range
+- INA226 **VCC** → 3.3V, **GND** → system ground
+- V+ and V- on the breakout board are the sense inputs, **not** the power supply pins
+
+**ESPHome config for 100A/75mV shunt:**
+```yaml
+ina226_shunt_resistance: "0.00075"   # 100A/75mV shunt = 0.00075 Ω
+ina226_max_current:      "100.0"     # amps
+```
+
+**Never connect INA226 V+ and V- to full battery voltage without an external shunt in the circuit.**
