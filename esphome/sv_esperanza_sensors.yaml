@@ -7,32 +7,39 @@
 #
 # SENSORS ACTIVE NOW:
 #   - Paddlewheel speed       (GPIO4)
-#   - BMP280 + AHT20 weather  (I2C GPIO21/22, 0x76 + 0x38)
+#   - BME680 + AHT20 weather  (I2C GPIO21/22, 0x77 + 0x38)  — BME680 via BSEC2 (IAQ)
 #   - BH1750FVI light sensor  (I2C GPIO21/22, 0x23)
+#   - DS18B20 engine bay temps(GPIO25)  — engine coolant + exhaust
 #   - Bilge water sensor      (GPIO26)
 #   - Engine RPM              (GPIO18)  — optocoupler on alternator W terminal
 #   - Battery monitor         (I2C GPIO21/22, INA226 @ 0x40)
 #   - AC shore power          (GPIO34)  — ZMPT101B
+#   - Fuel level sender       (GPIO39)  — resistive float, 100Ω sense resistor
+#   - Starter battery voltage (GPIO35)  — 100kΩ+27kΩ voltage divider + 100nF cap
 #
 # NMEA0183 OUTPUT → SignalK TCP port 10110:
 #   $IIVHW  — speed through water
 #   $IIMDA  — barometric pressure, air temp, humidity
 #   $IIXDR  — air temperature (OpenCPN reads temp from XDR)
 #   $IIXDR  — humidity
-#   $IIRPM  — engine RPM       (when optocoupler added)
-#   $IIXDR  — fuel level       (when INA219 added)
+#   $IIRPM  — engine RPM
+#   $IIXDR  — engine bay temperatures (engine coolant + exhaust)
+#   $IIXDR  — fuel level (percentage)
+#   $IIXDR  — battery voltage + current (house bank)
+#   $IIXDR  — starter battery voltage
+#   $IIXDR  — ambient light
 #
 # WIRING SUMMARY:
 #   Paddlewheel:
 #     Wire 1  → GPIO4  (internal pull-up enabled)
 #     Wire 2  → GND
 #
-#   BMP280 + AHT20 (shared I2C bus):
+#   BME680 + AHT20 (shared I2C bus):
 #     Both VCC → 3.3V
 #     Both GND → GND
 #     Both SDA → GPIO21  (shared I2C bus)
 #     Both SCL → GPIO22  (shared I2C bus)
-#     BMP280 address: 0x76 (SDO → GND) or 0x77 (SDO → VCC)
+#     BME680 address: 0x76 (SDO → GND) or 0x77 (SDO → VCC)
 #     AHT20 address: 0x38 (fixed, no config needed)
 #
 #   BH1750FVI light sensor (shared I2C bus):
@@ -43,9 +50,41 @@
 #     SCL → GPIO22  (shared I2C bus)
 #     ADDR → GND   (I2C address 0x23; tie to VCC for 0x5C if conflict)
 #
+#   DS18B20 engine bay temps (1-Wire bus, up to 2 sensors on same wire):
+#     Data    → GPIO25  (with 4.7kΩ pull-up resistor from Data → 3.3V)
+#     VCC     → 3.3V
+#     GND     → GND
+#     index 0 = Engine (coolant), index 1 = Exhaust
+#     After first boot: check ESPHome logs for 64-bit addresses, replace index
+#     with address: 0xXXXXXXXXXXXXXXXX for permanent assignment.
+#     SignalK paths (verify in SK admin Data Browser after first boot):
+#       Engine  → propulsion.main.temperature        (°K in SK)
+#       Exhaust → propulsion.main.exhaustTemperature (°K in SK)
+#
+#   Fuel level sender (resistive float, American marine standard 33Ω=full / 240Ω=empty):
+#     3.3V → 100Ω sense resistor → GPIO39 → sender → GND
+#     100Ω sense resistor on protoboard between 3.3V rail and GPIO39
+#     At full (33Ω):  V_gpio39 ≈ 0.82V  → 100%
+#     At empty (240Ω): V_gpio39 ≈ 2.33V → 0%
+#     SignalK path: tanks.fuel.0.currentLevel (via XDR,P)
+#
+#   Starter battery voltage (100kΩ+20kΩ divider + 100nF decoupling cap):
+#     BAT+ → 100kΩ → GPIO35 → 20kΩ → GND
+#     100nF cap from GPIO35 → GND (noise filter)
+#     Max input: 15V → GPIO35 sees 2.50V (safe margin under 3.3V ADC limit)
+#     Scale: Vbatt = V_gpio35 × (100+20)/20 = V_gpio35 × 6.0
+#     SignalK path: electrical.batteries.starter.voltage (via XDR,U,BattStarter)
+#     ⚠ Fuse 1A inline on BAT+ wire before the divider
+#
 #   Manual override switches — non-critical (toggle relay via HTTP on press):
 #     SW4 Cabin Lights:  Wire 1 → GPIO32  Wire 2 → GND
 #     SW5 Vent Fan:      Wire 1 → GPIO33  Wire 2 → GND
+#     SW6 Water Pump:    Wire 1 → GPIO5   Wire 2 → GND
+#     SW7 Instruments:   Wire 1 → GPIO13  Wire 2 → GND
+#     SW8 Starlink:      Wire 1 → GPIO14  Wire 2 → GND
+#     SW9  spare input:  Wire 1 → GPIO16  Wire 2 → GND
+#     SW10 spare input:  Wire 1 → GPIO17  Wire 2 → GND
+#     SW11 spare input:  Wire 1 → GPIO19  Wire 2 → GND
 #
 #   Bilge water sensor (binary float/contact):
 #     Wire 1  → GPIO26  (internal pull-up enabled)
@@ -116,17 +155,26 @@ substitutions:
   pin_bilge:                    "GPIO26"  # digital input
   pin_shore_power:              "GPIO34"  # ADC1 ✅ safe with Wi-Fi — ZMPT101B
   pin_spare_adc_1:              "GPIO36"  # ADC1 ✅ reserved
-  pin_spare_adc_2:              "GPIO39"  # ADC1 ✅ reserved
+  pin_fuel_sender:              "GPIO35"  # ADC1 ✅ resistive fuel sender via 100Ω sense resistor
+  pin_starter_batt:             "GPIO39"  # ADC1 ✅ starter battery via 100kΩ+20kΩ voltage divider
   pin_sw_cabin:                 "GPIO32"  # SW4 → CH1 Cabin Lights toggle (non-critical)
   pin_sw_vent:                  "GPIO33"  # SW5 → CH6 Vent Fan toggle (non-critical)
+  pin_sw_water:                 "GPIO5"   # SW6 → CH5 Water Pump toggle (non-critical)
+  pin_sw_instruments:           "GPIO13"  # SW7 → CH7 Instruments toggle (non-critical)
+  pin_sw_starlink:              "GPIO14"  # SW8 → CH8 Starlink Power toggle (non-critical)
+  pin_sw_spare_9:               "GPIO16"  # SW9 spare input — no relay assigned yet
+  pin_sw_spare_10:              "GPIO17"  # SW10 spare input — no relay assigned yet
+  pin_sw_spare_11:              "GPIO19"  # SW11 spare input — no relay assigned yet
+  pin_ds18b20:                  "GPIO25"  # 1-Wire bus — DS18B20 engine bay temps (4.7kΩ pull-up to 3.3V required)
 
   # ── RELAY SERVER ───────────────────────────────────────────
   # nginx proxies /api → relay_server.py; ESP32 on LAN bypasses auth
   relay_base_url:               "http://sailboatserver.local/api"
 
-  # ── BMP280 (pressure + secondary temp) ─────────────────────
+  # ── BME680 (pressure + temperature + humidity + IAQ via BSEC2) ─
   # I2C address: 0x76 (SDO pin → GND) or 0x77 (SDO pin → VCC)
-  # Run with logger level DEBUG on first boot to confirm address
+  # BSEC2 sample_rate is set in the bme680_bsec2: component block below;
+  # bmp280_update_interval is unused by BSEC2 but kept for reference.
   bmp280_address:               "0x77"
 
   # ── BH1750FVI (ambient light / lux) ─────────────────────────
@@ -134,7 +182,7 @@ substitutions:
   bh1750_address:               "0x23"
   # Update interval — 10s is fine for ambient light; reduce for reactive night-mode
   bh1750_update_interval:       "10s"
-  # How often to sample pressure data
+  # Legacy key — not used by BSEC2 (kept as documentation)
   bmp280_update_interval:       "60s"
 
   # ── AHT20 (temperature + humidity) ──────────────────────────
@@ -171,11 +219,10 @@ substitutions:
   # ── BATTERY MONITOR (INA226) ───────────────────────────────
   # I2C address: 0x40 with A0+A1 tied to GND
   ina226_address:               "0x40"
-  # Shunt resistance in ohms — match your shunt module spec
-  # Common: 0.002Ω (2mΩ) for 20A modules, 0.0001Ω for 100A shunts
-  ina226_shunt_resistance:      "0.002"
+  # Shunt resistance in ohms — standard 100A/75mV marine shunt = 0.00075Ω
+  ina226_shunt_resistance:      "0.00075"
   # Max expected current in amps — sets ADC range
-  ina226_max_current:           "20.0"
+  ina226_max_current:           "100.0"
 
   # ── SHORE POWER CALIBRATION ────────────────────────────────
   # ZMPT101B scaling multiplier — tune against a known AC voltmeter
@@ -183,6 +230,26 @@ substitutions:
   shore_power_multiplier:       "117.0"
   # Alert threshold — warn if shore power drops below this voltage
   shore_power_low_threshold:    "90.0"
+
+  # ── FUEL SENDER CALIBRATION ────────────────────────────────
+  # American marine resistive sender: 33Ω = full, 240Ω = empty
+  # 100Ω sense resistor from 3.3V rail to GPIO39, sender to GND.
+  # V_gpio39 = 3.3 × Rsender / (100 + Rsender)
+  # Verify these voltages with a multimeter against a dipstick reading.
+  # If your sender range differs, measure V at known levels and update.
+  fuel_full_voltage:            "0.819"   # V at full  (33Ω sender)
+  fuel_empty_voltage:           "2.329"   # V at empty (240Ω sender)
+  # Low-fuel warning threshold in percent
+  fuel_low_threshold:           "15.0"
+
+  # ── STARTER BATTERY CALIBRATION ────────────────────────────
+  # Voltage divider: BAT+ → 100kΩ → GPIO35 → 20kΩ → GND
+  # Vbatt = V_gpio35 × (100 + 20) / 20 = V_gpio35 × 6.0
+  # At 15V max: GPIO35 sees 2.50V — safe margin under 3.3V ADC limit
+  # Tune with a multimeter on the actual battery terminals.
+  starter_batt_scale:           "6.0"
+  # Warn if starter battery drops below this (fully charged = ~12.7V)
+  starter_batt_low_threshold:   "12.2"
 
 
 # ════════════════════════════════════════════════════════════
@@ -232,6 +299,22 @@ i2c:
   scl: "${pin_i2c_scl}"
   scan: true
   frequency: 100khz
+
+# ── BME680 BSEC2 component ─────────────────────────────────────
+# BSEC2 is Bosch's closed-source IAQ calibration library.
+# LP = low-power mode (sample every 3 s); ULP = every 5 min.
+# IAQ accuracy rises from 0→3 over several hours of operation.
+# Calibration state is saved to flash automatically by ESPHome.
+bme68x_bsec2_i2c:
+  - id: bme680_internal
+    model: bme680
+    address: "${bmp280_address}"
+    sample_rate: LP
+    supply_voltage: "3.3V"
+
+one_wire:
+  - platform: gpio
+    pin: "${pin_ds18b20}"
 
 globals:
   - id: pulse_count
@@ -283,6 +366,18 @@ globals:
     restore_value: no
     initial_value: '0.0'
   - id: g_lux
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_engine_temp
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_exhaust_temp
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_starter_voltage
     type: float
     restore_value: no
     initial_value: '0.0'
@@ -352,6 +447,114 @@ binary_sensor:
               Content-Type: application/json
             body: '{"action":"toggle"}'
 
+  # ── SW6: WATER PUMP TOGGLE ────────────────────────────────
+  # Physical switch → ESP32 GPIO5 → GND.  Pull-up; active LOW.
+  # On press: POST /relay/5 {"action":"toggle"}
+  - platform: gpio
+    pin:
+      number: "${pin_sw_water}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_water
+    name: "SW6 Water Pump"
+    internal: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      then:
+        - http_request.post:
+            url: "${relay_base_url}/relay/5"
+            request_headers:
+              Content-Type: application/json
+            body: '{"action":"toggle"}'
+
+  # ── SW7: INSTRUMENTS TOGGLE ───────────────────────────────
+  # Physical switch → ESP32 GPIO13 → GND.  Pull-up; active LOW.
+  # On press: POST /relay/7 {"action":"toggle"}
+  - platform: gpio
+    pin:
+      number: "${pin_sw_instruments}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_instruments
+    name: "SW7 Instruments"
+    internal: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      then:
+        - http_request.post:
+            url: "${relay_base_url}/relay/7"
+            request_headers:
+              Content-Type: application/json
+            body: '{"action":"toggle"}'
+
+  # ── SW8: STARLINK TOGGLE ──────────────────────────────────
+  # Physical switch → ESP32 GPIO14 → GND.  Pull-up; active LOW.
+  # On press: POST /relay/8 {"action":"toggle"}
+  - platform: gpio
+    pin:
+      number: "${pin_sw_starlink}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_starlink
+    name: "SW8 Starlink"
+    internal: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      then:
+        - http_request.post:
+            url: "${relay_base_url}/relay/8"
+            request_headers:
+              Content-Type: application/json
+            body: '{"action":"toggle"}'
+
+  # ── SW9-SW11: SPARE INPUTS ────────────────────────────────
+  # Breakout terminals wired to protoboard — no relay assigned yet.
+  # Enable and add on_press action when relay or function is assigned.
+  - platform: gpio
+    pin:
+      number: "${pin_sw_spare_9}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_spare_9
+    name: "SW9 Spare"
+    filters:
+      - delayed_on: 50ms
+
+  - platform: gpio
+    pin:
+      number: "${pin_sw_spare_10}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_spare_10
+    name: "SW10 Spare"
+    filters:
+      - delayed_on: 50ms
+
+  - platform: gpio
+    pin:
+      number: "${pin_sw_spare_11}"
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    id: sw_spare_11
+    name: "SW11 Spare"
+    filters:
+      - delayed_on: 50ms
+
   # ── BILGE WATER ────────────────────────────────────────────
   - platform: gpio
     pin:
@@ -376,11 +579,11 @@ binary_sensor:
 
 sensor:
 
-  # ── BMP280 PRESSURE ─────────────────────────────────────────
-  # Provides barometric pressure only (use AHT20 for air temperature)
-  - platform: bmp280_i2c
-    address: "${bmp280_address}"
-    update_interval: "${bmp280_update_interval}"
+  # ── BME680 PRESSURE + TEMPERATURE + HUMIDITY + IAQ (BSEC2) ─
+  # Component instance defined in bme68x_bsec2_i2c: block above.
+  # AHT20 block below is kept as a fallback; comment it out if AHT20 is absent.
+  - platform: bme68x_bsec2
+    bme68x_bsec2_id: bme680_internal
     pressure:
       name: "Barometric Pressure"
       id: bme_pressure
@@ -388,9 +591,28 @@ sensor:
       on_value:
         then:
           - lambda: 'id(g_pressure) = x;'
+    temperature:
+      name: "Air Temperature (BME680)"
+      id: bme280_temp
+      accuracy_decimals: 1
+    humidity:
+      name: "Relative Humidity (BME680)"
+      id: bme280_humidity
+      accuracy_decimals: 0
+    iaq:
+      name: "Air Quality (IAQ)"
+      id: bme680_iaq
+      accuracy_decimals: 0
+    co2_equivalent:
+      name: "CO2 Equivalent"
+      accuracy_decimals: 0
+    breath_voc_equivalent:
+      name: "VOC Equivalent"
+      accuracy_decimals: 2
 
   # ── AHT20 TEMPERATURE + HUMIDITY ────────────────────────────
-  # Preferred temperature source — less self-heating than BMP280
+  # Better accuracy / less self-heating than BME280 for air temp.
+  # Comment out this entire block if AHT20 was damaged.
   - platform: aht10
     variant: AHT20
     update_interval: "${aht20_update_interval}"
@@ -521,6 +743,31 @@ sensor:
                   format: "⚠ SHORE POWER LOW OR LOST: %.0fV"
                   args: ['x']
 
+  # ── DS18B20 ENGINE BAY TEMPERATURES ─────────────────────────
+  # 1-Wire bus on GPIO25. 4.7kΩ pull-up to 3.3V required on data line.
+  # index: 0/1 are positional — replace with address: 0xXXXX after first boot
+  # to lock in which physical sensor is which. Check ESPHome logs at INFO level
+  # to find the 64-bit addresses when sensors are first connected.
+  - platform: dallas_temp
+    index: 0
+    name: "Engine Temperature"
+    id: engine_temp
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    on_value:
+      then:
+        - lambda: 'id(g_engine_temp) = x;'
+
+  - platform: dallas_temp
+    index: 1
+    name: "Exhaust Temperature"
+    id: exhaust_temp
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    on_value:
+      then:
+        - lambda: 'id(g_exhaust_temp) = x;'
+
   # ── BH1750FVI AMBIENT LIGHT ──────────────────────────────────
   # I2C — shared bus GPIO21/22.  Use: auto night-mode for helm display,
   # anchor light automation trigger, cabin lighting scenes.
@@ -535,6 +782,68 @@ sensor:
     on_value:
       then:
         - lambda: 'id(g_lux) = x;'
+
+  # ── FUEL LEVEL — resistive sender via 100Ω sense resistor ────
+  # GPIO39 is ADC1 — safe with Wi-Fi. Input-only (no internal pull-up available).
+  # 3.3V → 100Ω sense → GPIO39 → sender (33-240Ω) → GND
+  # Higher voltage = less fuel (higher resistance, more voltage drop across sender).
+  # calibrate_linear inverts this: full (0.82V) → 100%, empty (2.33V) → 0%.
+  # After commissioning: adjust full/empty voltage values against dipstick reading.
+  - platform: adc
+    pin: "${pin_fuel_sender}"
+    name: "Fuel Level"
+    id: fuel_level
+    unit_of_measurement: "%"
+    icon: "mdi:fuel"
+    accuracy_decimals: 0
+    attenuation: 11db
+    update_interval: 10s
+    filters:
+      - calibrate_linear:
+          - ${fuel_full_voltage}  -> 100.0
+          - ${fuel_empty_voltage} -> 0.0
+      - clamp:
+          min_value: 0.0
+          max_value: 100.0
+    on_value:
+      then:
+        - lambda: 'id(g_fuel_pct) = x;'
+        - if:
+            condition:
+              lambda: 'return x < ${fuel_low_threshold};'
+            then:
+              - logger.log:
+                  level: WARN
+                  format: "⚠ FUEL LOW: %.0f%%"
+                  args: ['x']
+
+  # ── STARTER BATTERY VOLTAGE — voltage divider ─────────────────
+  # GPIO35 is ADC1 — safe with Wi-Fi. Input-only (no internal pull-up available).
+  # BAT+ → 100kΩ → GPIO35 → 27kΩ → GND + 100nF decoupling cap
+  # Scale: Vbatt = V_adc × (100kΩ + 27kΩ) / 27kΩ = V_adc × 4.7037
+  # Tune starter_batt_scale against a calibrated multimeter on the battery terminals.
+  - platform: adc
+    pin: "${pin_starter_batt}"
+    name: "Starter Battery Voltage"
+    id: starter_battery_voltage
+    unit_of_measurement: "V"
+    icon: "mdi:car-battery"
+    accuracy_decimals: 2
+    attenuation: 12db
+    update_interval: 10s
+    filters:
+      - multiply: !lambda 'return ${starter_batt_scale};'
+    on_value:
+      then:
+        - lambda: 'id(g_starter_voltage) = x;'
+        - if:
+            condition:
+              lambda: 'return x < ${starter_batt_low_threshold} && x > 1.0;'
+            then:
+              - logger.log:
+                  level: WARN
+                  format: "⚠ STARTER BATTERY LOW: %.2fV"
+                  args: ['x']
 
 # ── NMEA0183 OUTPUT ───────────────────────────────────────────
 interval:
@@ -635,3 +944,56 @@ interval:
             snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
             nmea_push(f);
           }
+
+          // ── XDR: Engine bay temperatures ──────────────────
+          // SignalK paths (verify in SK admin Data Browser after first boot):
+          //   TempEngine  → propulsion.main.temperature        (stored in °K)
+          //   TempExhaust → propulsion.main.exhaustTemperature (stored in °K)
+          // Values sent in °C per XDR spec; SK converts to Kelvin internally.
+          {
+            char s[128];
+            snprintf(s, sizeof(s),
+              "IIXDR,C,%.1f,C,TempEngine,C,%.1f,C,TempExhaust",
+              id(g_engine_temp), id(g_exhaust_temp));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[148];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+          // ── XDR: Fuel level (percent) ─────────────────────
+          // SignalK: tanks.fuel.0.currentLevel (0–1 ratio)
+          // Sent as P (percent) type; SK normalises to 0–1 ratio internally.
+          {
+            char s[64];
+            snprintf(s, sizeof(s),
+              "IIXDR,P,%.0f,P,FuelLevel", id(g_fuel_pct));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[80];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+          // ── XDR: Starter battery voltage ──────────────────
+          // SignalK: electrical.batteries.starter.voltage
+          {
+            char s[64];
+            snprintf(s, sizeof(s),
+              "IIXDR,U,%.2f,V,BattStarter", id(g_starter_voltage));
+            uint8_t cs = 0;
+            for (int i = 0; s[i]; i++) cs ^= s[i];
+            char f[80];
+            snprintf(f, sizeof(f), "$%s*%02X\r\n", s, cs);
+            nmea_push(f);
+          }
+
+text_sensor:
+  # ── BME680 IAQ accuracy level (BSEC2) ─────────────────────
+  # Reports: "Unreliable" → "Low" → "Medium" → "High"
+  # Reaches "High" after several hours of operation.
+  - platform: bme68x_bsec2
+    bme68x_bsec2_id: bme680_internal
+    iaq_accuracy:
+      name: "IAQ Accuracy"
