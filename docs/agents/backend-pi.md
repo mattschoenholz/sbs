@@ -37,6 +37,10 @@ Own the Pi-side server stack: the Flask relay API, nginx configuration, systemd 
 | POST | `/reboot` | Reboot Pi (requires confirmation token) |
 | GET | `/starlink` | Starlink dishy status (via `starlink_endpoints.py`) |
 | POST | `/wifi/reboot` | Reboot GL.iNet router via SSH (paramiko) |
+| POST | `/autopilot/heading/engage` | Engage TP22 manual heading mode (proxies to tp22_nmea.py:5002) |
+| POST | `/autopilot/heading/adjust` | Adjust heading ±delta°. Body: `{"delta": ±1\|±10}` |
+| POST | `/autopilot/heading/disengage` | Disengage TP22 manual heading mode |
+| GET | `/autopilot/heading/state` | Current autopilot state: `{mode, engaged, heading}` |
 
 ### GL.iNet Router Control
 - `relay_server.py` SSHes to `root@192.168.42.1` to reboot WiFi
@@ -74,10 +78,31 @@ Key sections:
 | Service | Unit File | Purpose |
 |---------|-----------|---------|
 | nginx | system default | Web server |
-| relay.service | `/etc/systemd/system/relay.service` | Flask relay API |
+| relay.service | `/etc/systemd/system/relay.service` | Flask relay API (port 5000) |
+| tp22-nmea.service | `/etc/systemd/system/tp22-nmea.service` | TP22 autotiller NMEA bridge (port 5002) |
 | fcgiwrap | `/etc/systemd/system/fcgiwrap.service` + override | 4-worker MapServer CGI |
-| signalk | npm-managed | SignalK instrument hub |
+| signalk | npm-managed | SignalK instrument hub (port 3000) |
 | tailscaled | system default | Tailscale VPN |
+| ollama | `/etc/systemd/system/ollama.service` | Ollama LLM server (port 11434) |
+| kiwix | `/etc/systemd/system/kiwix.service` | Kiwix offline library (port 8080) |
+
+### tp22-nmea.service
+```ini
+[Unit]
+Description=TP22 Autotiller NMEA bridge (Signal K → serial)
+After=network.target signalk.service
+Wants=signalk.service
+
+[Service]
+ExecStart=/home/pi/renogy-venv/bin/python3 /home/pi/tp22_nmea.py
+Restart=always
+RestartSec=10
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+```
+Uses `renogy-venv` python (has `pyserial` and `websockets`). Source: `server/tp22_nmea.py`.
 
 ### relay.service
 ```ini

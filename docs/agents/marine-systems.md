@@ -54,12 +54,31 @@ Own the hardware and marine protocol layer: NMEA 0183/2000 instrument integratio
 ### ESP32 Sensor Node
 - ESPHome firmware: `sv_esperanza_sensors.yaml`
 - Static IP: `192.168.42.50`
-- Sensors:
-  - BME280 (I2C): barometric pressure, temperature, humidity → SignalK
-  - Paddlewheel transducer: speed through water (STW) → SignalK
-  - Bilge water sensor: digital high/low → SignalK
-- Transmits via NMEA serial over WiFi to SignalK
+- MAC: `6c:c8:40:89:f0:60` (replacement board, flashed 2026-04-05)
+- Transmits via NMEA serial over WiFi to SignalK TCP port 10110
 - OTA updates via ESPHome at `192.168.42.50`
+
+**Sensors:**
+
+| Sensor | Interface | What it provides |
+|--------|-----------|-----------------|
+| BME680 (I2C 0x77, BSEC2) | I2C | Pressure, temp, humidity, IAQ (0–500), CO₂ equiv, VOC equiv |
+| AHT20 (I2C 0x38) | I2C | Air temp + humidity (primary; comment out if damaged) |
+| INA226 (I2C 0x40) | I2C | House battery voltage, current, power (100A/75mV shunt) |
+| BH1750FVI (I2C 0x23) | I2C | Ambient light (lux) |
+| DS18B20 ×2 | 1-Wire GPIO25 | Engine coolant + exhaust bay temps |
+| Paddlewheel | GPIO4 (pulse) | Speed through water (STW) |
+| Bilge water sensor | GPIO26 | Float switch (digital high/low) |
+| Engine RPM | GPIO18 (pulse) | Alternator W terminal via optocoupler |
+| Fuel sender | GPIO39 (ADC) | Resistive float (33–240Ω), 100Ω sense resistor |
+| Starter battery | GPIO35 (ADC) | Voltage divider (100kΩ+20kΩ) |
+| Shore power | GPIO34 (ADC) | ZMPT101B AC voltmeter |
+
+**I2C bus:** GPIO21 (SDA) / GPIO22 (SCL) — shared by all I2C sensors
+**OTA flash (Pi as relay):**
+```bash
+ssh pi@100.109.248.77 "cd ~/esphome && python3 -m esphome run sv_esperanza_sensors.yaml --no-logs"
+```
 
 ### DS18B20 Temperature Sensors (4×)
 - 1-Wire bus on GPIO19 / pin 35
@@ -71,9 +90,17 @@ Own the hardware and marine protocol layer: NMEA 0183/2000 instrument integratio
 - Read via Linux kernel driver: `/sys/bus/w1/devices/28-*/w1_slave`
 - Polled by `relay_server.py` `get_temps()` every 30s
 
+### TP22 Autotiller
+- Connected to UART4 TX (GPIO12) — **original wire orientation, do not swap**
+- Controlled by `server/tp22_nmea.py` (asyncio daemon, `tp22-nmea.service`)
+- Receives APB + RMB at 1 Hz; APB alone is not sufficient
+- Serial port: `/dev/ttyOP_tp22` → `/dev/ttyAMA4`, 4800 baud
+- See `docs/LESSONS_LEARNED.md` §21 for full wiring and nav mode notes
+
+**Note on CH3:** CH3 is on GPIO13 which shares the UART4 RX pin. TP22 is TX-only (Pi sends, TP22 listens) so CH3 and UART4 can safely coexist — no conflict.
+
 ### NMEA Instruments (via MacArthur HAT / USB)
-- VHF Radio: NMEA 0183 via UART2
-- TP22 Autotiller: NMEA 0183 via UART4
+- VHF Radio: NMEA 0183 via UART2 (not yet physically connected)
 - GPS module: USB serial
 - Depth sounder: USB/serial
 - Wind instruments: USB/serial
@@ -134,9 +161,11 @@ vessels.*                                → AIS targets
 
 ## Pending Hardware Tasks
 
-1. **NMEA 2000 gateway** (P2-01): Evaluate Yacht Devices / Actisense USB gateway
-2. **Switch input wiring** (P2-04): Confirm SW3, SW5 GPIO pins
-3. **Future — VHF/TP22:** When VHF radio (UART2) or TP22 autopilot (UART4) are physically connected, CH1/CH3 will need to move off GPIO5/GPIO13. This requires soldering on the relay board.
+1. **INA226 wiring** — connect VIN+/VIN- to 100A/75mV marine shunt measurement terminals (today, 2026-04-05). See `docs/LESSONS_LEARNED.md` §22 for correct wiring — wrong wiring destroyed previous INA226.
+2. **BME680 install** — wire to I2C bus (GPIO21/22); firmware already flashed. Check AHT20 survived 12V incident (comment out AHT20 block if dead).
+3. **TP22 underway test** — dock test confirmed (2026-04-04); underway test with real SOG/heading pending
+4. **NMEA 2000 gateway** — evaluate Yacht Devices / Actisense USB gateway for N2K integration
+5. **VHF Radio** — UART2 not yet physically connected; CH1 (GPIO5) shares UART2 RX but only conflicts when VHF is wired in
 
 ---
 
