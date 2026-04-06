@@ -484,17 +484,58 @@ const SBSData = (() => {
   function clearAdvisory(id) {
     const before = state.passage.alerts.length;
     state.passage.alerts = state.passage.alerts.filter(a => a.id !== id);
-    if (state.passage.alerts.length !== before) emit('update', state);
+    if (state.passage.alerts.length !== before) {
+      emit('alert:clear', { id });
+      emit('update', state);
+    }
   }
 
   function dismissAlert(id) {
     state.passage.alerts = state.passage.alerts.filter(a => a.id !== id);
+    emit('alert:clear', { id });
     emit('update', state);
   }
 
-  // External bilge alert (can be raised from relay server polling)
+  // Critical alert — triggers full-screen modal (Tier 1)
+  function raiseCritical(id, headline, instruction, icon) {
+    const existing = state.passage.alerts.find(a => a.id === id);
+    if (!existing) {
+      const alert = { id, level: 'urgent', message: headline, time: Date.now() };
+      state.passage.alerts.push(alert);
+      // Fire strip urgent event so tile state activates
+      emit('alert:urgent', alert);
+      // Fire critical event for the modal
+      emit('alert:critical', { id, headline, instruction, icon, time: alert.time });
+    }
+  }
+
+  // Bilge alert with 30s debounce — escalates to critical modal
+  let _bilgeDebounceTimer = null;
+  let _bilgeWet = false;
+
   function raiseBilgeAlert() {
-    raiseUrgent('bilge', '⚠ BILGE WATER DETECTED — check bilge pump');
+    if (_bilgeWet) return; // already tracking
+    _bilgeWet = true;
+    // Start 30s confirmation window before escalating to critical
+    _bilgeDebounceTimer = setTimeout(() => {
+      if (_bilgeWet) {
+        raiseCritical(
+          'bilge',
+          'BILGE WATER DETECTED',
+          'Bilge sensor has been wet for 30+ seconds. Check bilge pump and through-hulls.',
+          '💧'
+        );
+      }
+    }, 30000);
+    // Immediate advisory strip entry so skipper sees it right away
+    raiseAdvisory('bilge_advisory', 'BILGE — sensor reading wet, confirming…');
+  }
+
+  function clearBilgeAlert() {
+    _bilgeWet = false;
+    clearTimeout(_bilgeDebounceTimer);
+    clearAdvisory('bilge_advisory');
+    dismissAlert('bilge');
   }
 
   // ── DISPLAY HELPERS ───────────────────────────────────────
@@ -600,7 +641,7 @@ const SBSData = (() => {
     get solar()    { return state.solar; },
 
     // Events
-    on, off,
+    on, off, emit,
 
     // Actions
     toggleRelay,
@@ -609,6 +650,8 @@ const SBSData = (() => {
     advanceWaypoint,
     dismissAlert,
     raiseBilgeAlert,
+    clearBilgeAlert,
+    raiseCritical,
     raiseUrgent,
     toggleNight,
 

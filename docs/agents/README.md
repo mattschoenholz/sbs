@@ -21,7 +21,8 @@ Each agent file is an onboarding document for a specialized AI agent (Claude Cod
 
 | Agent | File | Domain |
 |-------|------|--------|
-| UX Designer | `ux-designer.md` | Three-interface UX, design system, HMI |
+| UX Designer | `ux-designer.md` | Three-interface UX, information hierarchy, HMI standards |
+| UI Designer | `ui-designer.md` | Design tokens, typography, components, night mode, mockups |
 | Marine Systems | `marine-systems.md` | NMEA, SignalK, GPIO, sensors, hardware |
 | Chart & Navigation | `chart-navigation.md` | MapServer, WMS, Leaflet, AIS, ENC charts |
 | Frontend | `frontend.md` | HTML/CSS/JS, design system, components |

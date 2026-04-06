@@ -24,6 +24,8 @@
   border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
   gap: var(--sp-sm);
+  position: relative;
+  z-index: 10000;
 }
 .crew-topbar-left {
   display: flex;

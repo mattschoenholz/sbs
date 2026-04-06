@@ -154,8 +154,8 @@ SBSData.on('update', () => {
   setVal('v-depth', SBSData.fmt(d, 1));
   const dt = document.getElementById('tile-depth');
   if (dt) {
-    dt.classList.toggle('critical', d != null && d < 1);
-    dt.classList.toggle('shallow',  d != null && d >= 1 && d < 3);
+    dt.classList.toggle('alert-urgent',   d != null && d < 1);
+    dt.classList.toggle('alert-advisory', d != null && d >= 1 && d < 3);
   }
 
   if (!apEngaged) {

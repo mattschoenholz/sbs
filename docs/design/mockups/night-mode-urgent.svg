@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" width="1024" height="768">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700&amp;family=Share+Tech+Mono&amp;family=Barlow:wght@300;400;500&amp;display=swap');
+    </style>
+    <!-- Red glow for urgent strip in night mode -->
+    <filter id="night-red-glow" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Tile urgent glow -->
+    <filter id="night-tile-glow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#ff3333" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Background — near-black red -->
+  <rect width="1024" height="768" fill="#0a0000"/>
+
+  <!-- ── NIGHT MODE ANNOTATION BAR ── -->
+  <rect x="0" y="0" width="1024" height="24" fill="#110303"/>
+  <!-- Night mode indicator dot (red) -->
+  <circle cx="488" cy="12" r="4" fill="#ff3333"/>
+  <text x="512" y="16" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.12em" fill="#882222" text-anchor="middle">NIGHT MODE ACTIVE — RED MONOCHROMATIC — SCOTOPIC SAFE</text>
+
+  <!-- ── TOP BAR ── -->
+  <rect x="0" y="24" width="1024" height="40" fill="#0d0202"/>
+  <line x1="0" y1="64" x2="1024" y2="64" stroke="#2a0a0a" stroke-width="1"/>
+  <text x="12" y="50" font-family="Barlow Condensed, sans-serif" font-size="13" font-weight="700" letter-spacing="0.12em" fill="#ff3333">HELM</text>
+  <text x="940" y="50" font-family="Share Tech Mono, monospace" font-size="11" fill="#662222">02:17 UTC</text>
+  <!-- Connection indicator: red in night mode -->
+  <circle cx="920" cy="46" r="4" fill="#ff3333"/>
+
+  <!-- ── TAB BAR ── -->
+  <rect x="0" y="64" width="1024" height="36" fill="#0d0202"/>
+  <line x1="0" y1="100" x2="1024" y2="100" stroke="#2a0a0a" stroke-width="1"/>
+  <text x="128" y="86" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#ff3333" text-anchor="middle">INSTRUMENTS</text>
+  <rect x="64" y="97" width="128" height="2" rx="1" fill="#cc2222"/>
+  <text x="384" y="86" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#3a1010" text-anchor="middle">CHART</text>
+  <text x="640" y="86" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#3a1010" text-anchor="middle">PASSAGE</text>
+  <text x="896" y="86" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#3a1010" text-anchor="middle">WEATHER</text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- INSTRUMENT GRID — Red monochromatic night palette         -->
+  <!-- Normal tiles: #ff3333 values, #551a1a labels, #2a0a0a border -->
+  <!-- Urgent tile: #ff3333 border+glow, #ff3333 value           -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <!-- ROW 1 -->
+  <!-- SOG (normal) -->
+  <g id="tile-sog-night">
+    <rect x="3" y="103" width="337" height="205" rx="8" fill="#110505" stroke="#2a0a0a" stroke-width="1"/>
+    <text x="171" y="122" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.12em" fill="#551a1a" text-anchor="middle">SOG</text>
+    <text x="171" y="219" font-family="Share Tech Mono, monospace" font-size="60" fill="#ff3333" text-anchor="middle" dominant-baseline="central">4.2</text>
+    <text x="171" y="289" font-family="Barlow Condensed, sans-serif" font-size="13" letter-spacing="0.1em" fill="#662222" text-anchor="middle">KN</text>
+  </g>
+
+  <!-- COG (normal) -->
+  <g id="tile-cog-night">
+    <rect x="343" y="103" width="338" height="205" rx="8" fill="#110505" stroke="#2a0a0a" stroke-width="1"/>
+    <text x="512" y="122" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.12em" fill="#551a1a" text-anchor="middle">COG</text>
+    <text x="512" y="219" font-family="Share Tech Mono, monospace" font-size="60" fill="#ff3333" text-anchor="middle" dominant-baseline="central">245</text>
+    <text x="512" y="289" font-family="Barlow Condensed, sans-serif" font-size="13" letter-spacing="0.1em" fill="#662222" text-anchor="middle">DEG T</text>
+  </g>
+
+  <!-- DEPTH — URGENT STATE -->
+  <g id="tile-depth-night-urgent" filter="url(#night-tile-glow)">
+    <rect x="684" y="103" width="337" height="205" rx="8" fill="#110505" stroke="#ff3333" stroke-width="2"/>
+    <text x="852" y="122" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.12em" fill="#551a1a" text-anchor="middle">DEPTH</text>
+    <text x="852" y="219" font-family="Share Tech Mono, monospace" font-size="60" fill="#ff3333" text-anchor="middle" dominant-baseline="central">0.8</text>
+    <text x="852" y="289" font-family="Barlow Condensed, sans-serif" font-size="13" letter-spacing="0.1em" fill="#662222" text-anchor="middle">M</text>
+  </g>
+
+  <!-- ROW 2 -->
+  <!-- TWS (normal) -->
+  <g id="tile-tws-night">
+    <rect x="3" y="311" width="337" height="205" rx="8" fill="#110505" stroke="#2a0a0a" stroke-width="1"/>
+    <text x="171" y="330" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.12em" fill="#551a1a" text-anchor="middle">TWS</text>
+    <text x="171" y="427" font-family="Share Tech Mono, monospace" font-size="60" fill="#ff3333" text-anchor="middle" dominant-baseline="central">12.4</text>
+    <text x="171" y="497" font-family="Barlow Condensed, sans-serif" font-size="13" letter-spacing="0.1em" fill="#662222" text-anchor="middle">KN</text>
+  </g>
+
+  <!-- TWD (normal) -->
+  <g id="tile-twd-night">
+    <rect x="343" y="311" width="338" height="205" rx="8" fill="#110505" stroke="#2a0a0a" stroke-width="1"/>
+    <text x="512" y="330" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.12em" fill="#551a1a" text-anchor="middle">TWD</text>
+    <text x="512" y="427" font-family="Share Tech Mono, monospace" font-size="60" fill="#ff3333" text-anchor="middle" dominant-baseline="central">195</text>
+    <text x="512" y="497" font-family="Barlow Condensed, sans-serif" font-size="13" letter-spacing="0.1em" fill="#662222" text-anchor="middle">DEG T</text>
+  </g>
+
+  <!-- STW (normal — no more cyan, just red like everything else) -->
+  <g id="tile-stw-night">
+    <rect x="684" y="311" width="337" height="205" rx="8" fill="#110505" stroke="#2a0a0a" stroke-width="1"/>
+    <text x="852" y="330" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.12em" fill="#551a1a" text-anchor="middle">STW</text>
+    <text x="852" y="427" font-family="Share Tech Mono, monospace" font-size="60" fill="#ff3333" text-anchor="middle" dominant-baseline="central">3.8</text>
+    <text x="852" y="497" font-family="Barlow Condensed, sans-serif" font-size="13" letter-spacing="0.1em" fill="#662222" text-anchor="middle">KN</text>
+  </g>
+
+  <!-- ROW 3: AUTOPILOT -->
+  <g id="tile-ap-night">
+    <rect x="3" y="519" width="1018" height="140" rx="8" fill="#110505" stroke="#2a0a0a" stroke-width="1"/>
+    <text x="120" y="542" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.12em" fill="#551a1a" text-anchor="middle">AUTOPILOT</text>
+    <text x="120" y="599" font-family="Share Tech Mono, monospace" font-size="48" fill="#ff3333" text-anchor="middle">247</text>
+    <text x="155" y="592" font-family="Share Tech Mono, monospace" font-size="20" fill="#ff3333">&#176;</text>
+    <text x="120" y="642" font-family="Barlow Condensed, sans-serif" font-size="9" letter-spacing="0.1em" fill="#551a1a" text-anchor="middle">STEER HDG</text>
+    <!-- Buttons: dim red borders and text -->
+    <rect x="280" y="564" width="100" height="50" rx="4" fill="#140606" stroke="#3a1212" stroke-width="1"/>
+    <text x="330" y="594" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="700" fill="#bb3333" text-anchor="middle">-10&#176;</text>
+    <rect x="390" y="564" width="100" height="50" rx="4" fill="#140606" stroke="#3a1212" stroke-width="1"/>
+    <text x="440" y="594" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="700" fill="#bb3333" text-anchor="middle">-1&#176;</text>
+    <!-- Engage/STBY: mid red (replaces green) -->
+    <rect x="500" y="554" width="160" height="60" rx="4" fill="#1a0808" stroke="#882222" stroke-width="1"/>
+    <text x="580" y="589" font-family="Barlow Condensed, sans-serif" font-size="15" font-weight="700" fill="#882222" text-anchor="middle">STBY</text>
+    <rect x="670" y="564" width="100" height="50" rx="4" fill="#140606" stroke="#3a1212" stroke-width="1"/>
+    <text x="720" y="594" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="700" fill="#bb3333" text-anchor="middle">+1&#176;</text>
+    <rect x="780" y="564" width="100" height="50" rx="4" fill="#140606" stroke="#3a1212" stroke-width="1"/>
+    <text x="830" y="594" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="700" fill="#bb3333" text-anchor="middle">+10&#176;</text>
+  </g>
+
+  <!-- ── MOB BUTTON — safety red, full intensity always ── -->
+  <g id="mob-button-night">
+    <circle cx="48" cy="724" r="32" fill="#ff2222" stroke="#ff4444" stroke-width="2"/>
+    <text x="48" y="717" font-size="20" fill="#0a0000" text-anchor="middle">&#9888;</text>
+    <text x="48" y="734" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.06em" fill="#0a0000" text-anchor="middle">MOB</text>
+    <circle cx="48" cy="724" r="34" fill="none" stroke="rgba(255,34,34,0.3)" stroke-width="6"/>
+  </g>
+
+  <!-- ── STATUS STRIP — URGENT MODE (night, red monochromatic) ── -->
+  <!-- Urgent: brightest red background + glow, full-intensity text -->
+  <g id="status-strip-night-urgent">
+    <!-- Red glow behind strip -->
+    <rect x="-4" y="750" width="1032" height="44" fill="#ff3333" opacity="0.1" filter="url(#night-red-glow)"/>
+    <!-- Urgent background: mid-dark red -->
+    <rect x="0" y="756" width="1024" height="36" fill="#3a0808"/>
+    <!-- Urgent border: full intensity red, 2px -->
+    <rect x="0" y="756" width="1024" height="2" fill="#ff3333"/>
+    <!-- Alert icon -->
+    <text x="92" y="779" font-family="Barlow Condensed, sans-serif" font-size="16" fill="#ff3333" text-anchor="middle">&#9888;</text>
+    <!-- Urgent message — brightest red -->
+    <text x="110" y="780" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="600" letter-spacing="0.06em" fill="#ff3333">CRITICAL DEPTH  &#183;  0.8 M BELOW KEEL</text>
+    <!-- Timestamp -->
+    <text x="960" y="780" font-family="Share Tech Mono, monospace" font-size="10" fill="#882222" text-anchor="end">02:17</text>
+  </g>
+</svg>

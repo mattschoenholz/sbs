@@ -19,6 +19,8 @@
   border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
   gap: var(--sp-md);
+  position: relative;
+  z-index: 10000;
 }
 .lib-topbar-left  { display: flex; align-items: center; gap: var(--sp-md); }
 .lib-topbar-right { display: flex; align-items: center; gap: var(--sp-sm); margin-left: auto; }

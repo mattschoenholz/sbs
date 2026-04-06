@@ -12,7 +12,8 @@
 <body>
 <div class="sbs-app">
 
-  <alert-banner></alert-banner>
+  <status-strip context="portal"></status-strip>
+  <div id="critical-modal"></div>
 
   <div class="sbs-statusbar">
     <span class="sbs-title">⚓ SV-Esperanza</span>
@@ -20,6 +21,7 @@
     <connection-status></connection-status>
     <span class="sbs-clock"></span>
     <night-toggle></night-toggle>
+    <button id="sbs-nav-toggle" class="sbs-nav-toggle" aria-label="Switch page" aria-expanded="false">☰</button>
   </div>
 
   <div class="sbs-tabs">

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" width="1024" height="768">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700&amp;family=Share+Tech+Mono&amp;family=Barlow:wght@300;400;500&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Background: the helm display is behind the modal, barely visible -->
+  <rect width="1024" height="768" fill="#080c10"/>
+
+  <!-- Faint ghost of instrument grid behind overlay (to show it's blocking) -->
+  <g opacity="0.08">
+    <!-- Row 1 tiles -->
+    <rect x="3" y="79" width="337" height="205" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <rect x="343" y="79" width="338" height="205" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <rect x="684" y="79" width="337" height="205" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <!-- Row 2 tiles -->
+    <rect x="3" y="287" width="337" height="205" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <rect x="343" y="287" width="338" height="205" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <rect x="684" y="287" width="337" height="205" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+    <!-- AP tile -->
+    <rect x="3" y="495" width="1018" height="140" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+  </g>
+
+  <!-- ── CRITICAL MODAL OVERLAY ── -->
+  <!-- Deep red overlay: rgba(100, 0, 0, 0.95) — same as MOB overlay -->
+  <rect width="1024" height="768" fill="#640000" opacity="0.95"/>
+
+  <!-- Centered content column -->
+  <g id="modal-content">
+    <!-- Water/droplet icon — large 64px area -->
+    <text x="512" y="230" font-size="64" fill="#ffffff" text-anchor="middle">&#128167;</text>
+
+    <!-- Headline -->
+    <text x="512" y="320" font-family="Barlow Condensed, sans-serif" font-size="36" font-weight="700" letter-spacing="0.08em" fill="#ffffff" text-anchor="middle">BILGE WATER DETECTED</text>
+
+    <!-- Instruction text -->
+    <text x="512" y="380" font-family="Barlow, sans-serif" font-size="17" font-weight="400" fill="#ffaaaa" text-anchor="middle">Bilge sensor has been wet for 45 seconds.</text>
+    <text x="512" y="405" font-family="Barlow, sans-serif" font-size="17" font-weight="400" fill="#ffaaaa" text-anchor="middle">Check bilge pump and through-hulls immediately.</text>
+
+    <!-- Timestamp -->
+    <text x="512" y="455" font-family="Share Tech Mono, monospace" font-size="13" fill="rgba(255,255,255,0.5)" text-anchor="middle">14:23:07 UTC</text>
+
+    <!-- Acknowledge button — DISABLED STATE (first 3 seconds) -->
+    <g id="ack-button-disabled" opacity="0.3">
+      <rect x="332" y="510" width="360" height="56" rx="8" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>
+      <text x="512" y="544" font-family="Barlow Condensed, sans-serif" font-size="17" font-weight="700" letter-spacing="0.1em" fill="#ffffff" text-anchor="middle">ACKNOWLEDGE ALARM</text>
+    </g>
+
+    <!-- Countdown hint below button -->
+    <text x="512" y="590" font-family="Share Tech Mono, monospace" font-size="12" fill="rgba(255,255,255,0.35)" text-anchor="middle">(hold 3s)</text>
+
+    <!-- Annotation: button becomes active after 3s delay -->
+    <!-- Shown here in disabled state per request -->
+  </g>
+
+  <!-- The MOB button is NOT visible during critical modal — modal is z-900, above MOB at z-850 -->
+</svg>

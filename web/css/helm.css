@@ -22,7 +22,8 @@ html, body { overflow: hidden; }
   border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
   gap: var(--sp-md);
-  z-index: 10;
+  position: relative;
+  z-index: 10000;
 }
 
 .back-btn {
@@ -775,7 +776,7 @@ html, body { overflow: hidden; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  z-index: 800;
+  z-index: 850;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -789,3 +790,14 @@ html, body { overflow: hidden; }
   box-shadow: 0 0 30px rgba(239,68,68,0.6);
 }
 .mob-btn .mob-icon { font-size: clamp(18px, 4vw, 24px); line-height: 1; }
+
+/* Night mode: MOB button flips to dark-on-bright to eliminate non-red light */
+:root.night .mob-btn {
+  background: #ff2222;
+  border-color: #ff4444;
+  color: #0a0000;
+  box-shadow: 0 0 20px rgba(255,34,34,0.4);
+}
+:root.night .mob-btn:hover {
+  box-shadow: 0 0 30px rgba(255,34,34,0.6);
+}

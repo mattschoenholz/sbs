@@ -10,7 +10,8 @@
 <body>
 <div class="crew-app" id="crew-app">
 
-  <alert-banner></alert-banner>
+  <status-strip context="portal"></status-strip>
+  <div id="critical-modal"></div>
 
   <!-- ── TOP BAR ─────────────────────────────────────────────── -->
   <header class="crew-topbar">
@@ -22,6 +23,7 @@
       <connection-status></connection-status>
       <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary);margin-left:var(--sp-sm)"></span>
       <night-toggle></night-toggle>
+      <button id="sbs-nav-toggle" class="sbs-nav-toggle" aria-label="Switch page" aria-expanded="false">☰</button>
     </div>
   </header>
 

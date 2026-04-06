@@ -11,7 +11,8 @@
 <body>
 <div class="helm-app">
 
-  <alert-banner></alert-banner>
+  <status-strip context="helm"></status-strip>
+  <div id="critical-modal"></div>
 
   <div class="helm-topbar">
     <span class="helm-title">HELM</span>
@@ -19,6 +20,7 @@
     <connection-status></connection-status>
     <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary);margin-left:var(--sp-sm)"></span>
     <night-toggle></night-toggle>
+    <button id="sbs-nav-toggle" class="sbs-nav-toggle" aria-label="Switch page" aria-expanded="false">☰</button>
   </div>
 
   <div class="helm-tabs">

@@ -1029,8 +1029,8 @@ function updateInstTiles() {
   if (depthEl) depthEl.textContent = d.depth != null ? d.fmt(d.depth, 1) : '---';
   if (depthTile) {
     const shallow = 3, critical = 1;
-    depthTile.classList.toggle('shallow',  d.depth != null && d.depth >= critical && d.depth < shallow);
-    depthTile.classList.toggle('critical', d.depth != null && d.depth < critical);
+    depthTile.classList.toggle('alert-advisory', d.depth != null && d.depth >= critical && d.depth < shallow);
+    depthTile.classList.toggle('alert-urgent',   d.depth != null && d.depth < critical);
   }
 
   // Wind
@@ -1060,8 +1060,14 @@ function updateInstTiles() {
   const wet = !!d.bilge;
   if (bilgeEl)   bilgeEl.textContent = wet ? 'WET' : 'DRY';
   if (bilgeTile) {
-    bilgeTile.classList.toggle('bilge-wet', wet);
-    bilgeTile.classList.toggle('green',    !wet);
+    bilgeTile.classList.toggle('alert-urgent', wet);
+    bilgeTile.classList.toggle('green',       !wet);
+  }
+  // Drive bilge alert system from live sensor state
+  if (wet) {
+    SBSData.raiseBilgeAlert();
+  } else {
+    SBSData.clearBilgeAlert();
   }
 }
 

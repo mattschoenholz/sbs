@@ -40,7 +40,7 @@ echo "   SSH OK"
 echo ""
 echo "[2/5] Deploying portal and helm to $REMOTE_WWW..."
 ssh -i "$SSH_KEY" "$PI_USER@$PI_HOST" "sudo mkdir -p $REMOTE_WWW/css $REMOTE_WWW/js $REMOTE_WWW/vendor/leaflet/images"
-scp -i "$SSH_KEY" -q "$WEB_DIR/index.html" "$WEB_DIR/helm.html" "$WEB_DIR/crew.html" "$WEB_DIR/chart.html" "$WEB_DIR/library.html" "$WEB_DIR/favicon.svg" "$WEB_DIR/warm.html" "$PI_USER@$PI_HOST:/tmp/"
+scp -i "$SSH_KEY" -q "$WEB_DIR/index.html" "$WEB_DIR/helm.html" "$WEB_DIR/crew.html" "$WEB_DIR/chart.html" "$WEB_DIR/library.html" "$WEB_DIR/favicon.svg" "$WEB_DIR/warm.html" "$WEB_DIR/chart-test.html" "$PI_USER@$PI_HOST:/tmp/"
 scp -i "$SSH_KEY" -q "$WEB_DIR/css/sbs-theme.css" "$WEB_DIR/css/helm.css" "$WEB_DIR/css/crew.css" "$WEB_DIR/css/library.css" "$PI_USER@$PI_HOST:/tmp/"
 scp -i "$SSH_KEY" -q "$WEB_DIR/js/sbs-data.js" "$WEB_DIR/js/sbs-components.js" \
       "$WEB_DIR/js/sbs-chart.js" "$WEB_DIR/js/portal.js" "$WEB_DIR/js/helm.js" "$WEB_DIR/js/crew.js" "$WEB_DIR/js/library.js" "$PI_USER@$PI_HOST:/tmp/"
@@ -54,7 +54,7 @@ scp -i "$SSH_KEY" -q "$WEB_DIR/vendor/leaflet/images/marker-icon.png" \
       "$WEB_DIR/vendor/leaflet/images/marker-shadow.png" "$PI_USER@$PI_HOST:/tmp/"
 V=$(date -u +%Y%m%d%H%M%S)
 ssh -i "$SSH_KEY" "$PI_USER@$PI_HOST" \
-  "sudo cp /tmp/index.html /tmp/helm.html /tmp/crew.html /tmp/chart.html /tmp/library.html /tmp/favicon.svg /tmp/warm.html $REMOTE_WWW/ && \
+  "sudo cp /tmp/index.html /tmp/helm.html /tmp/crew.html /tmp/chart.html /tmp/library.html /tmp/favicon.svg /tmp/warm.html /tmp/chart-test.html $REMOTE_WWW/ && \
    sudo cp /tmp/sbs-theme.css /tmp/helm.css /tmp/crew.css /tmp/library.css $REMOTE_WWW/css/ && \
    sudo cp /tmp/sbs-data.js /tmp/sbs-components.js /tmp/sbs-chart.js /tmp/portal.js /tmp/helm.js /tmp/crew.js /tmp/library.js $REMOTE_WWW/js/ && \
    sudo cp /tmp/leaflet.js /tmp/leaflet.css $REMOTE_WWW/vendor/leaflet/ && \

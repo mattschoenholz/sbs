@@ -1,7 +1,7 @@
 # Agent: UX Designer
 
 **Project:** SailboatServer — SV-Esperanza
-**Domain:** User experience, interface design, design system, HMI standards
+**Domain:** User experience, interaction design, information hierarchy, HMI standards
 
 ---
 
@@ -9,7 +9,7 @@
 
 Design and maintain the three-interface UX for the SailboatServer portal. Ensure all interfaces meet HMI standards for marine use: high contrast, large touch targets, night mode, glanceability under stress.
 
-This agent focuses on *design decisions and design system* — implementation is handed off to the Frontend agent.
+This agent focuses on *interaction design, information hierarchy, and UX decisions* — visual implementation details (tokens, typography, components) live in `agents/ui-designer.md`. Implementation is handed off to the Frontend agent.
 
 ---
 
@@ -37,64 +37,111 @@ This agent focuses on *design decisions and design system* — implementation is
 
 ---
 
-## Design System
+## Core UX Principles
 
-### Tokens (`css/sbs-theme.css`)
-```
---color-void:    #080c10   (page background)
---color-deep:    #0d1318   (panel background)
---color-surface: #111920   (card/tile background)
---color-amber:   #e8940a   (primary — active instruments, CTAs)
---color-cyan:    #06b6d4   (secondary — depth, chart elements)
---color-text:    #e2e8f0   (primary text)
---color-muted:   #64748b   (labels, secondary text)
-```
+### Gestalt Theory
+- **Proximity:** Group related elements with tight internal spacing, larger gaps between groups.
+- **Similarity:** Consistent treatment for same-type elements. Breaking similarity intentionally signals importance.
+- **Continuity:** Align on a consistent grid. Alignment directs scanning order.
+- **Common Region:** Containers (background + border radius) group related data — most powerful grouping for dashboards.
+- **Figure-Ground:** Interactive elements visually distinct from informational ones.
+- **Closure:** Partial borders or background differences are enough to imply grouping — full outlines waste space.
 
-### Typography
-- **Display/Labels:** Barlow Condensed (headings, nav, instrument labels)
-- **Values:** Share Tech Mono (instrument readouts — fixed-width for stability)
-- Sizes: `clamp()` for responsive scaling — never fixed px for critical values
+### Fitts' Law
+- Minimum touch target appropriate for use context — cockpit (gloves, spray, motion) demands larger targets than cabin.
+- Edges and center are fastest targets — place frequent actions there.
+- Primary action = largest target on the screen.
+- Sequential controls placed adjacent.
+- Adequate spacing between targets — cockpit use requires more than cabin.
+- Destructive actions: small, distant from primary actions, require confirmation.
+- Thumb zone varies by interface: Helm (mounted tablet, cockpit), Portal (seated cabin), Crew (handheld phone).
 
-### Night Mode
-- Toggled by `<night-toggle>` component
-- Replaces all color with amber-only palette (eliminates blue light)
-- State persisted in `localStorage`
-- Critical for cockpit use — blue light kills night vision
+### Information Hierarchy (ISA-101)
+- **L1 — Overview:** "Is everything OK?" answerable at a glance. Default screen.
+- **L2 — Subsystem:** Detail for one zone or function.
+- **L3 — Device/Control:** Full controls and data for a single item.
+- **L4 — Diagnostics/Settings:** Rarely accessed.
 
-### Component Library (`js/sbs-components.js`)
-| Component | Usage |
-|-----------|-------|
-| `<instrument-cell>` | Single instrument tile (label + value + unit) |
-| `<wind-gauge>` | Circular wind display (TWS/TWD or AWA/AWS) |
-| `<depth-display>` | Depth with alarm threshold visualization |
-| `<compass-rose>` | Heading/COG compass |
-| `<alert-banner>` | Advisory/urgent alerts |
-| `<night-toggle>` | Night mode button |
-| `<connection-status>` | SignalK connection indicator |
+Every screen reachable in ≤2 taps. Home screen communicates health at a glance.
+
+### Situational Awareness (EEMUA 201)
+- Normal state is calm and muted — the "dark cockpit" principle.
+- Color appears only for abnormals, never decoration.
+- Values more prominent than labels.
+- Show data in context (relative to range or setpoint), not raw numbers alone.
+
+### Alarm Philosophy (ISA-18.2)
+- Every alarm must be actionable. Non-actionable = notification.
+- Maximum 4 priority levels — define them explicitly per surface.
+- Alarm colors exclusively reserved — never decorative.
+- Color never the sole indicator — always pair with icon, text, or position.
+- Guard against alert fatigue — fewer, higher-quality alerts.
+
+### Interaction Patterns
+- Every tap has immediate visual response.
+- Always show why something is unavailable — never just blank or disabled.
+- Destructive actions require confirmation.
+- Navigation depth ≤2 taps from any screen to any other.
 
 ---
 
-## HMI Standards
+## Per-Interface Information Hierarchy
 
-- **Touch targets:** Minimum 44×44px (iOS HIG), prefer 60×80px for cockpit
-- **Contrast:** WCAG AA minimum, AAA preferred for outdoor use
-- **Glanceability:** Critical values must be readable in 1 second at arm's length
-- **Alert hierarchy:** Urgent (red) → Advisory (orange) → Info (cyan)
-- **Feedback:** Every tap has immediate visual response (active state)
-- **Error states:** Always show *why* something is unavailable (not just blank)
+### Helm — L1 (default screen)
+SOG, COG, DEPTH, TWS, TWD visible without any interaction. Alert banner visible at all times if active. Waypoint bearing/distance always visible when a passage is active.
+
+### Helm — L2
+Chart tab (passage overview, boat position), Passage tab (leg list, ETA), Weather tab (wind strip, barometer).
+
+### Portal — L1
+Instruments sub-tab (all live readings) as default landing. Systems health (relay/sensor status) visible in Controls Drawer accessible from any tab.
+
+### Portal — L2/L3
+Planning tabs (Windows, Tides, Fuel, Watches) — deeper detail, not time-critical.
+
+### Crew — L1
+Single screen: current instruments + passage progress + ETA. Read-only. No controls.
 
 ---
 
-## Files Owned / Influenced
+## Alert Hierarchy
 
-| File | Role |
-|------|------|
-| `css/sbs-theme.css` | Full design system — tokens, layout, all portal components |
-| `css/helm.css` | Helm-specific overrides |
-| `js/sbs-components.js` | Custom HTML elements — design contracts |
-| `index.html` | Portal structure, tab layout |
-| `helm.html` | Helm structure, tile grid |
-| `crew.html` | New — design from scratch |
+| Level | Color | When to use |
+|-------|-------|-------------|
+| Urgent | Red (`--color-alert-urgent`) | Immediate action required — collision risk, anchor drag, depth alarm |
+| Advisory | Orange (`--color-alert-advisory`) | Attention needed soon — weather deteriorating, fuel low |
+| Info | Cyan (`--color-alert-info`) | Situational awareness — waypoint approaching, AIS contact |
+| Notification | Muted | Non-actionable status — connection restored, GPS lock acquired |
+
+**Rules:**
+- Urgent and Advisory colors are exclusively reserved — never used decoratively elsewhere in the UI.
+- Color is never the sole indicator — always pair with icon + text.
+- Alert banner (`<alert-banner>`) visible at all times on Helm when active.
+- On Portal, alerts surface in Controls Drawer header and optionally as a toast.
+- Crew view: alerts displayed prominently, read-only.
+
+---
+
+## Per-Interface Interaction Constraints
+
+### Helm
+- Touch targets ≥ 80px for cockpit glove use.
+- No hover states — touch-only.
+- MOB button always visible and reachable with one hand.
+- Night mode toggle accessible without leaving current tab.
+- No modals that can obscure critical instrument values.
+
+### Portal
+- Touch targets ≥ 44px (iOS HIG minimum).
+- Hover states acceptable — desktop/tablet use.
+- Controls Drawer: relay toggles require a single deliberate tap; destructive actions (reboot) require confirmation dialog.
+- Tab depth: max two levels (tab → sub-tab).
+
+### Crew
+- Mobile-first: thumb-reachable primary content.
+- Single scroll or minimal tabs — no deep navigation.
+- No controls, no destructive actions.
+- Large readable values — crew may be in bright sun or spray.
 
 ---
 

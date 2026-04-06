@@ -4,6 +4,93 @@ Changes are recorded in reverse chronological order. Each session's changes are 
 
 ---
 
+## Session: 2026-04-06/07 — MapLibre Vector Charts, ENC Pipeline Overhaul
+
+### New: `web/chart-test.html` — MapLibre GL Vector Chart Page
+
+Full replacement of the WMS/Leaflet chart approach with a **MapLibre GL JS v4 + PMTiles** vector tile renderer.
+
+**Architecture:**
+- MapLibre GL JS v4 renders vector tiles directly from a single `enc.pmtiles` file on the Pi
+- PMTiles served via `pmtiles-worker.js` using HTTP range requests — no tile server needed
+- ESRI Ocean Basemap as raster underlay (`World_Ocean_Base`)
+- ESRI Ocean Reference labels overlay (fades out at zoom 10–13, gone by zoom 13) for water body names at low zoom
+- nginx proxy cache for ESRI tiles: `/tiles-esri/` prefix, 2GB cache, 90-day TTL — dramatically improves load time on slow boat internet
+
+**"Unimplemented type: 4" fix (MapLibre font/glyph system bypassed):**
+- Protomaps font PBFs contain wire type 4 (deprecated "End Group") which MapLibre v4 rejects
+- Solution: removed glyphs entirely from map style; all text/labels rendered via **canvas-drawn icon images** registered lazily via `map.on('styleimagemissing', ...)`
+- Depth soundings: `makeDepthImage()` draws each unique depth value on an HTML Canvas, converts metres → feet, returns raw pixel data — zero font dependency
+
+**Performance improvements:**
+- `maxTileCacheSize: 800` — keeps 800 tiles in GPU memory, prevents eviction when panning
+- `fadeDuration: 0` — tiles appear instantly, no fade-in flicker
+- `transformRequest` hook rewrites ESRI tile URLs to local nginx proxy
+- ESRI tiles now served from Pi LAN at LAN speed after first fetch
+
+**ENC layers rendered** (23 S-57 layers):
+| Layer | Display |
+|-------|---------|
+| DEPARE | Depth area fill (shallow=cyan, mid=blue, deep=navy) |
+| DEPCNT | Depth contour lines |
+| LNDARE | Land fill (transparent — ESRI basemap shows through) |
+| COALNE | Coastline |
+| WRECKS / OBSTRN / UWTROC | Colored point markers (red/orange/grey) |
+| SLCONS / DRGARE | Shoreline / dredged area |
+| BOYLAT | Port (red) / starboard (green) lateral buoys |
+| BOYCAR / BOYSAW / BCNLAT / BCNCAR | Cardinal, safewater, beacon markers |
+| TSSLPT / TSSRON / TRAFIC | Traffic separation — grey fill |
+| FAIRWY | Fairway — dashed blue line |
+| AIRARE | Seaplane area — amber outline |
+| ACHARE | Anchorage — purple outline |
+| RESARE | Restricted area — red outline |
+| SOUNDG | Depth soundings in feet (canvas icons, minzoom 10) |
+
+**Depth soundings in feet:**
+- Converted from metres (S-57 native) to feet at render time
+- Canvas icon: 28×16px, dark blue text with white stroke for contrast
+- `symbol-sort-key` on DEPTH ensures shallower soundings render on top
+- `icon-allow-overlap: false` — auto-spaced, not cluttered
+
+### Updated: `scripts/rebuild_pmtiles.sh`
+
+- **Root cause of 7-hour runaway**: `--extend-zooms-if-still-dropping` was overriding `--maximum-zoom=16`, causing tippecanoe to generate tiles to zoom 18+ and a 3.1GB mbtiles that never finished
+- **Fix**: Hard cap `--maximum-zoom=14`, removed `--extend-zooms-if-still-dropping`
+- Expanded from 9 layers to **23 S-57 layers** (added all buoy, beacon, traffic, fairway, seaplane, anchorage, restricted area layers)
+- Added `--no-tile-size-limit` to prevent feature dropping in dense polygon areas
+- Added `set -eo pipefail` with `|| true` on ogr2ogr calls — empty layers no longer abort the build
+
+### New: `scripts/overnight_enc_update.py`
+
+Automated overnight chart data pipeline:
+
+1. **Parses NOAA ENC product catalogs** (WA, OR, AK XML catalogs) — finds all chart IDs
+2. **Downloads missing NOAA ENC charts** — checks before downloading, skips already-installed
+3. **Attempts CHS Canadian charts** — list of BC coastal chart IDs hardcoded; all URL patterns tried (gc.ca endpoints are not publicly downloadable — manual download required from charts.gc.ca)
+4. **Rebuilds OGR VRT** — unions all installed .000 files per layer, now covers all 23 layers
+5. **Rebuilds soundings.geojson** — extracts SOUNDG MULTIPOINT geometries from each .000 file using GDAL Python bindings; each sub-point Z value = depth in metres
+6. **Runs rebuild_pmtiles.sh** — full PMTiles rebuild from extracted GeoJSONL
+
+### nginx — ESRI Tile Proxy Cache
+
+Added to `/etc/nginx/nginx.conf` and `/etc/nginx/sites-enabled/default`:
+- `proxy_cache_path /var/cache/nginx/esri_tiles levels=1:2 keys_zone=esri_tiles:10m max_size=2g inactive=90d`
+- Two location blocks: `/tiles-esri/Ocean/World_Ocean_Base/` and `/tiles-esri/Ocean/World_Ocean_Reference/`
+- `proxy_cache_valid 200 90d` — tiles cached 90 days
+- `add_header X-Tile-Cache "$upstream_cache_status"` — HIT/MISS visible in devtools
+- Key discovery: `sites-enabled/default` is a regular file (not a symlink to `sites-available/default`) — must be copied explicitly when updating
+
+### OGR VRT Layer Coverage Expanded
+
+Regenerated `/data/charts/enc_all.vrt` on Pi from 89 installed ENC files × 23 layers (was 10 layers). `overnight_enc_update.py` `rebuild_vrt()` updated to match rebuild_pmtiles.sh layer list.
+
+### Pending: Canadian (CHS) Charts
+
+CHS ENC charts for BC coastal waters (Strait of Georgia, Gulf Islands, Haro Strait, Vancouver Island) are not auto-downloadable. Manual download required from:
+https://www.charts.gc.ca/ → download ZIP per chart → extract to `/data/charts/noaa_enc/<chart_id>/ENC_ROOT/<chart_id>/<chart_id>.000` then run `overnight_enc_update.py`
+
+---
+
 ## Session: 2026-04-04 / 2026-04-05 — TP22 Autopilot, BME680 BSEC2, INA226 Shunt
 
 ### New: TP22 Autotiller NMEA Bridge (`server/tp22_nmea.py`)

@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 960" width="1024" height="960">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700&amp;family=Share+Tech+Mono&amp;family=Barlow:wght@300;400;500&amp;display=swap');
+    </style>
+    <filter id="red-glow-p" x="-10%" y="-50%" width="120%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="960" fill="#080c10"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PORTAL CONTEXT — showing nav tabs + partial instrument grid -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ── PORTAL TOP NAV ── -->
+  <rect x="0" y="0" width="1024" height="48" fill="#0d1318"/>
+  <line x1="0" y1="48" x2="1024" y2="48" stroke="#1e2e3a" stroke-width="1"/>
+  <!-- Logo / title -->
+  <text x="16" y="30" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="700" letter-spacing="0.1em" fill="#e8940a">SV-ESPERANZA</text>
+  <!-- Nav tabs -->
+  <text x="220" y="30" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#f5a820" text-anchor="middle">INSTRUMENTS</text>
+  <rect x="176" y="45" width="88" height="2" fill="#e8940a"/>
+  <text x="340" y="30" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#4a6070" text-anchor="middle">CHART</text>
+  <text x="440" y="30" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#4a6070" text-anchor="middle">SOLAR</text>
+  <text x="540" y="30" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#4a6070" text-anchor="middle">PLAN</text>
+  <text x="640" y="30" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#4a6070" text-anchor="middle">WEATHER</text>
+  <!-- Clock -->
+  <text x="940" y="30" font-family="Share Tech Mono, monospace" font-size="11" fill="#8fa3b3">14:32 UTC</text>
+  <circle cx="920" cy="26" r="4" fill="#22c55e"/>
+
+  <!-- ── INSTRUMENT GRID (partial, 3 columns x 2 rows visible) ── -->
+  <!-- Simplified representation of Portal instruments tab -->
+  <g id="portal-instruments">
+    <!-- Row 1 -->
+    <g id="itile-sog">
+      <rect x="12" y="60" width="328" height="110" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="28" y="80" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.1em" fill="#4a6070">SOG</text>
+      <text x="170" y="135" font-family="Share Tech Mono, monospace" font-size="44" fill="#f5a820" text-anchor="middle">4.2</text>
+      <text x="280" y="135" font-family="Barlow Condensed, sans-serif" font-size="12" letter-spacing="0.1em" fill="#8fa3b3">KN</text>
+    </g>
+    <g id="itile-cog">
+      <rect x="348" y="60" width="328" height="110" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="364" y="80" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.1em" fill="#4a6070">COG</text>
+      <text x="512" y="135" font-family="Share Tech Mono, monospace" font-size="44" fill="#f0f4f8" text-anchor="middle">245</text>
+      <text x="620" y="135" font-family="Barlow Condensed, sans-serif" font-size="12" letter-spacing="0.1em" fill="#8fa3b3">DEG T</text>
+    </g>
+    <g id="itile-depth">
+      <rect x="684" y="60" width="328" height="110" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="700" y="80" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.1em" fill="#4a6070">DEPTH</text>
+      <text x="848" y="135" font-family="Share Tech Mono, monospace" font-size="44" fill="#f0f4f8" text-anchor="middle">18.2</text>
+      <text x="960" y="135" font-family="Barlow Condensed, sans-serif" font-size="12" letter-spacing="0.1em" fill="#8fa3b3">FT</text>
+    </g>
+
+    <!-- Row 2 -->
+    <g id="itile-tws">
+      <rect x="12" y="178" width="328" height="110" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="28" y="198" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.1em" fill="#4a6070">TWS</text>
+      <text x="170" y="253" font-family="Share Tech Mono, monospace" font-size="44" fill="#f0f4f8" text-anchor="middle">12.4</text>
+      <text x="280" y="253" font-family="Barlow Condensed, sans-serif" font-size="12" letter-spacing="0.1em" fill="#8fa3b3">KN</text>
+    </g>
+    <g id="itile-twd">
+      <rect x="348" y="178" width="328" height="110" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="364" y="198" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.1em" fill="#4a6070">TWD</text>
+      <text x="512" y="253" font-family="Share Tech Mono, monospace" font-size="44" fill="#f0f4f8" text-anchor="middle">195</text>
+      <text x="620" y="253" font-family="Barlow Condensed, sans-serif" font-size="12" letter-spacing="0.1em" fill="#8fa3b3">DEG T</text>
+    </g>
+    <g id="itile-baro">
+      <rect x="684" y="178" width="328" height="110" rx="8" fill="#111920" stroke="#1e2e3a" stroke-width="1"/>
+      <text x="700" y="198" font-family="Barlow Condensed, sans-serif" font-size="10" font-weight="700" letter-spacing="0.1em" fill="#4a6070">BARO</text>
+      <text x="848" y="253" font-family="Share Tech Mono, monospace" font-size="44" fill="#f0f4f8" text-anchor="middle">1018</text>
+      <text x="960" y="253" font-family="Barlow Condensed, sans-serif" font-size="12" letter-spacing="0.1em" fill="#8fa3b3">HPA</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- STRIP STATE COMPARISON — three panels stacked vertically   -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Divider and section label -->
+  <line x1="0" y1="320" x2="1024" y2="320" stroke="#2a3f50" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- ── PANEL A: INFORMATIONAL STRIP ── -->
+  <g id="comparison-info">
+    <!-- Label -->
+    <text x="16" y="356" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.1em" fill="#4a6070">MODE A: INFORMATIONAL</text>
+
+    <!-- Context frame representing bottom of viewport -->
+    <rect x="12" y="370" width="1000" height="36" rx="0" fill="#0d1318" stroke="#1e2e3a" stroke-width="1"/>
+    <!-- Strip content -->
+    <text x="28" y="393" font-family="Share Tech Mono, monospace" font-size="14" fill="#4a6070" text-anchor="middle">&#9678;</text>
+    <text x="44" y="393" font-family="Share Tech Mono, monospace" font-size="12" letter-spacing="0.06em" fill="#8fa3b3">HDG 247 T  ·  ETA 14:32  ·  BATT 12.8V  SOC 87%</text>
+    <text x="970" y="393" font-family="Share Tech Mono, monospace" font-size="10" fill="#4a6070" text-anchor="end">14:31</text>
+
+    <!-- Annotations -->
+    <text x="16" y="430" font-family="Barlow, sans-serif" font-size="10" fill="#4a6070">
+      BG: --c-deep (#0d1318)  |  Border: 1px --c-border  |  Text: --t-secondary  |  Font: mono, --s-sm, uppercase, 0.06em tracking
+    </text>
+    <text x="16" y="445" font-family="Barlow, sans-serif" font-size="10" fill="#4a6070">
+      Rotates every 5s. Tap to advance. No dismiss. Calm baseline -- muted colors, no attention demand.
+    </text>
+  </g>
+
+  <!-- ── PANEL B: ADVISORY STRIP ── -->
+  <g id="comparison-advisory">
+    <line x1="12" y1="465" x2="1012" y2="465" stroke="#1e2e3a" stroke-width="0.5"/>
+    <text x="16" y="496" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.1em" fill="#eab308">MODE B: ADVISORY</text>
+
+    <!-- Strip -->
+    <rect x="12" y="510" width="1000" height="36" rx="0" fill="#713f12" stroke="#eab308" stroke-width="0"/>
+    <!-- Yellow top border 2px -->
+    <rect x="12" y="510" width="1000" height="2" fill="#eab308"/>
+    <!-- Icon -->
+    <text x="28" y="534" font-family="Barlow Condensed, sans-serif" font-size="16" fill="#eab308" text-anchor="middle">&#9650;</text>
+    <!-- Message -->
+    <text x="44" y="533" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="600" letter-spacing="0.06em" fill="#eab308">SHALLOW WATER  ·  2.1 M UNDER KEEL</text>
+    <!-- Page indicator -->
+    <text x="928" y="533" font-family="Share Tech Mono, monospace" font-size="11" fill="#eab308" text-anchor="middle">1/1</text>
+    <!-- Dismiss X -->
+    <rect x="960" y="516" width="36" height="22" rx="4" fill="rgba(234,179,8,0.15)"/>
+    <text x="978" y="532" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="700" fill="#eab308" text-anchor="middle">&#10005;</text>
+
+    <!-- Annotations -->
+    <text x="16" y="572" font-family="Barlow, sans-serif" font-size="10" fill="#4a6070">
+      BG: --c-yellow-dim (#713f12)  |  Border: 2px --c-yellow  |  Text: --c-yellow (#eab308)  |  Font: display, --s-md, weight 600
+    </text>
+    <text x="16" y="587" font-family="Barlow, sans-serif" font-size="10" fill="#4a6070">
+      Dismissible via X. Informational rotation suppressed. Tap strip to cycle if multiple advisories.
+    </text>
+  </g>
+
+  <!-- ── PANEL C: URGENT STRIP ── -->
+  <g id="comparison-urgent">
+    <line x1="12" y1="607" x2="1012" y2="607" stroke="#1e2e3a" stroke-width="0.5"/>
+    <text x="16" y="638" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.1em" fill="#ef4444">MODE C: URGENT</text>
+
+    <!-- Red glow behind -->
+    <rect x="8" y="646" width="1008" height="44" fill="#ef4444" opacity="0.08" filter="url(#red-glow-p)"/>
+    <!-- Strip -->
+    <rect x="12" y="652" width="1000" height="36" rx="0" fill="#7f1d1d"/>
+    <!-- Red top border 2px -->
+    <rect x="12" y="652" width="1000" height="2" fill="#ef4444"/>
+    <!-- Icon -->
+    <text x="28" y="676" font-family="Barlow Condensed, sans-serif" font-size="16" fill="#ef4444" text-anchor="middle">&#9888;</text>
+    <!-- Message -->
+    <text x="44" y="675" font-family="Barlow Condensed, sans-serif" font-size="14" font-weight="600" letter-spacing="0.06em" fill="#ef4444">BILGE WATER DETECTED  ·  WET 45 SECONDS</text>
+    <!-- Timestamp only, no dismiss -->
+    <text x="970" y="675" font-family="Share Tech Mono, monospace" font-size="10" fill="rgba(239,68,68,0.7)" text-anchor="end">14:23</text>
+
+    <!-- Annotations -->
+    <text x="16" y="714" font-family="Barlow, sans-serif" font-size="10" fill="#4a6070">
+      BG: --c-red-dim (#7f1d1d)  |  Border: 2px --c-red  |  Text: --c-red (#ef4444)  |  Glow: --shadow-red behind strip
+    </text>
+    <text x="16" y="729" font-family="Barlow, sans-serif" font-size="10" fill="#4a6070">
+      NOT dismissible -- clears only when condition clears. Pulses opacity 2x on entry then holds steady. No X button.
+    </text>
+  </g>
+
+  <!-- ── COMPARISON SUMMARY ── -->
+  <line x1="12" y1="750" x2="1012" y2="750" stroke="#1e2e3a" stroke-width="0.5"/>
+  <text x="16" y="775" font-family="Barlow Condensed, sans-serif" font-size="11" font-weight="700" letter-spacing="0.1em" fill="#8fa3b3">VISUAL HIERARCHY SUMMARY</text>
+  <text x="16" y="800" font-family="Barlow, sans-serif" font-size="11" fill="#4a6070">
+    Info: muted, blends into chrome. Advisory: warm yellow draws glance. Urgent: red glow demands attention.
+  </text>
+  <text x="16" y="820" font-family="Barlow, sans-serif" font-size="11" fill="#4a6070">
+    Escalation is conveyed by: background saturation, border weight (1px to 2px), font weight (400 to 600), and presence of glow.
+  </text>
+  <text x="16" y="840" font-family="Barlow, sans-serif" font-size="11" fill="#4a6070">
+    Strip is always 36px tall, full width, fixed to viewport bottom. On Portal there is no MOB button so no left padding needed.
+  </text>
+
+  <!-- Legend: color swatches -->
+  <g id="legend" transform="translate(16, 870)">
+    <rect x="0" y="0" width="16" height="16" rx="2" fill="#0d1318" stroke="#1e2e3a" stroke-width="1"/>
+    <text x="24" y="12" font-family="Barlow, sans-serif" font-size="10" fill="#8fa3b3">Info</text>
+    <rect x="80" y="0" width="16" height="16" rx="2" fill="#713f12" stroke="#eab308" stroke-width="1"/>
+    <text x="104" y="12" font-family="Barlow, sans-serif" font-size="10" fill="#eab308">Advisory</text>
+    <rect x="180" y="0" width="16" height="16" rx="2" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+    <text x="204" y="12" font-family="Barlow, sans-serif" font-size="10" fill="#ef4444">Urgent</text>
+  </g>
+</svg>

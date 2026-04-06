@@ -250,19 +250,11 @@ customElements.define('relay-button', class extends HTMLElement {
 customElements.define('bilge-status', class extends SBSComponent {
   render() {
     const wet = SBSData.bilge;
+    this.className = wet ? 'bilge-wet' : 'bilge-dry';
     this.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;
-        padding:6px 12px;border-radius:6px;
-        background:${wet ? 'rgba(127,29,29,0.4)' : 'rgba(20,83,45,0.3)'};
-        border:1px solid ${wet ? 'var(--c-red)' : 'var(--c-green-dim)'};
-        box-shadow:${wet ? 'var(--shadow-red)' : 'none'}">
+      <div class="bilge-pill ${wet ? 'bilge-pill--wet' : 'bilge-pill--dry'}">
         <span style="font-size:16px">${wet ? '💧' : '✓'}</span>
-        <span style="font-family:'Barlow Condensed',sans-serif;
-          font-size:12px;font-weight:600;letter-spacing:0.1em;
-          text-transform:uppercase;
-          color:${wet ? 'var(--c-red)' : 'var(--c-green)'}">
-          BILGE ${wet ? 'WET' : 'DRY'}
-        </span>
+        <span class="bilge-label">BILGE ${wet ? 'WET' : 'DRY'}</span>
       </div>`;
   }
 });
@@ -418,39 +410,231 @@ customElements.define('compass-rose', class extends SBSComponent {
 });
 
 // ── ALERT BANNER ──────────────────────────────────────────────
-// <alert-banner> — auto-shows when urgent/advisory alerts fire
+// ── STATUS STRIP ──────────────────────────────────────────────
+// <status-strip context="portal|helm">
+// Persistent bottom bar — shows rotating nav info when clear,
+// switches to advisory (yellow) or urgent (red) when alerts fire.
+// Never covers navigation content; replaces the old alert-banner.
 
-customElements.define('alert-banner', class extends HTMLElement {
+customElements.define('status-strip', class extends HTMLElement {
   connectedCallback() {
-    this.innerHTML = `
-      <div class="alert-banner" id="sbs-alert-banner">
-        <span id="sbs-alert-text"></span>
-        <button class="dismiss" onclick="this.closest('.alert-banner').classList.remove('show')">✕</button>
-      </div>`;
+    this._ctx    = this.getAttribute('context') || 'portal';
+    this._queue  = [];   // active alerts: [{id, level, message, time}]
+    this._idx    = 0;    // current position in queue
+    this._infoIdx = 0;   // current info provider index
+    this._infoTimer = null;
 
-    SBSData.on('alert:urgent', (alert) => {
-      this._show(alert.message, 'urgent');
+    this.innerHTML = `<div class="ss-bar" id="ss-bar">
+      <span class="ss-icon" id="ss-icon"></span>
+      <span class="ss-msg"  id="ss-msg"></span>
+      <span class="ss-time" id="ss-time"></span>
+      <span class="ss-page" id="ss-page"></span>
+      <button class="ss-dismiss" id="ss-dismiss" style="display:none" title="Dismiss">✕</button>
+    </div>`;
+
+    const bar = this.querySelector('#ss-bar');
+    bar.addEventListener('click', (e) => {
+      if (e.target.closest('#ss-dismiss')) return;
+      if (this._queue.length > 1) {
+        this._idx = (this._idx + 1) % this._queue.length;
+        this._render();
+      }
+    });
+    this.querySelector('#ss-dismiss').addEventListener('click', () => {
+      const cur = this._queue[this._idx];
+      if (cur) SBSData.dismissAlert(cur.id);
     });
 
-    SBSData.on('alert:advisory', (alert) => {
-      this._show(alert.message, 'advisory');
+    SBSData.on('alert:urgent',   (a) => this._addAlert(a));
+    SBSData.on('alert:advisory', (a) => this._addAlert(a));
+    SBSData.on('alert:clear',    (a) => this._removeAlert(a.id));
+    SBSData.on('update',         ()  => {
+      if (this._queue.length === 0) this._renderInfo();
     });
+
+    this._startInfoRotation();
+    this._renderInfo();
   }
 
-  _show(message, level) {
-    const banner = this.querySelector('.alert-banner');
-    const text   = this.querySelector('#sbs-alert-text');
-    if (!banner || !text) return;
-    banner.className = `alert-banner ${level}`;
-    text.textContent = message;
-    // Force reflow then add show
-    banner.offsetHeight;
-    banner.classList.add('show');
-    if (level === 'advisory') {
-      setTimeout(() => banner.classList.remove('show'), 8000);
+  disconnectedCallback() {
+    clearInterval(this._infoTimer);
+  }
+
+  _addAlert(alert) {
+    if (this._queue.find(a => a.id === alert.id)) return;
+    this._queue.push(alert);
+    // Sort: urgent first, then chronological
+    this._queue.sort((a, b) => {
+      if (a.level !== b.level) return a.level === 'urgent' ? -1 : 1;
+      return a.time - b.time;
+    });
+    this._idx = 0;
+    clearInterval(this._infoTimer);
+    this._render();
+    // Entry pulse animation on urgent
+    if (alert.level === 'urgent') {
+      const bar = this.querySelector('#ss-bar');
+      bar.classList.remove('ss-entry');
+      bar.offsetHeight; // reflow
+      bar.classList.add('ss-entry');
+      setTimeout(() => bar.classList.remove('ss-entry'), 1300);
     }
   }
+
+  _removeAlert(id) {
+    const before = this._queue.length;
+    this._queue = this._queue.filter(a => a.id !== id);
+    if (this._queue.length !== before) {
+      if (this._idx >= this._queue.length) this._idx = 0;
+      if (this._queue.length === 0) {
+        this._startInfoRotation();
+        this._renderInfo();
+      } else {
+        this._render();
+      }
+    }
+  }
+
+  _render() {
+    const bar     = this.querySelector('#ss-bar');
+    const iconEl  = this.querySelector('#ss-icon');
+    const msgEl   = this.querySelector('#ss-msg');
+    const timeEl  = this.querySelector('#ss-time');
+    const pageEl  = this.querySelector('#ss-page');
+    const dismissEl = this.querySelector('#ss-dismiss');
+    const cur = this._queue[this._idx];
+    if (!cur) { this._renderInfo(); return; }
+
+    bar.className = `ss-bar ${cur.level}`;
+    iconEl.textContent = cur.level === 'urgent' ? '⚠' : '▲';
+    msgEl.textContent  = cur.message;
+    timeEl.textContent = _fmtTime(cur.time);
+    pageEl.textContent = this._queue.length > 1
+      ? `${this._idx + 1}/${this._queue.length}` : '';
+    // Advisory gets dismiss; urgent is condition-driven only
+    dismissEl.style.display = cur.level === 'advisory' ? '' : 'none';
+  }
+
+  _startInfoRotation() {
+    clearInterval(this._infoTimer);
+    this._infoTimer = setInterval(() => {
+      if (this._queue.length > 0) return;
+      this._infoIdx = (this._infoIdx + 1) % _INFO_PROVIDERS.length;
+      this._renderInfo();
+    }, 5000);
+  }
+
+  _renderInfo() {
+    const bar     = this.querySelector('#ss-bar');
+    const iconEl  = this.querySelector('#ss-icon');
+    const msgEl   = this.querySelector('#ss-msg');
+    const timeEl  = this.querySelector('#ss-time');
+    const pageEl  = this.querySelector('#ss-page');
+    const dismissEl = this.querySelector('#ss-dismiss');
+
+    // Find a non-null provider starting at current index
+    const providers = this._ctx === 'helm' ? _HELM_INFO_PROVIDERS : _INFO_PROVIDERS;
+    let found = null;
+    for (let i = 0; i < providers.length; i++) {
+      const idx = (this._infoIdx + i) % providers.length;
+      const val = providers[idx]();
+      if (val) { found = val; break; }
+    }
+
+    bar.className = 'ss-bar';
+    iconEl.textContent = found ? found.icon : '·';
+    msgEl.textContent  = found ? found.text : '';
+    timeEl.textContent = '';
+    pageEl.textContent = '';
+    dismissEl.style.display = 'none';
+  }
 });
+
+// ── INFO PROVIDERS ────────────────────────────────────────────
+// Each returns {icon, text} or null. Add new providers here.
+
+function _fmtTime(ts) {
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0') + ':' +
+         d.getMinutes().toString().padStart(2,'0');
+}
+
+const _INFO_PROVIDERS = [
+  () => {
+    const h = SBSData.heading;
+    return h != null ? { icon: '◎', text: `HDG  ${Math.round(h)}° T` } : null;
+  },
+  () => {
+    const p = SBSData.position;
+    if (!p) return null;
+    const lat = p.latitude, lon = p.longitude;
+    const la = `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}`;
+    const lo = `${Math.abs(lon).toFixed(1)}° ${lon >= 0 ? 'E' : 'W'}`;
+    return { icon: '⊕', text: `${la}   ${lo}` };
+  },
+  () => {
+    const v = SBSData.batteryVoltage;
+    return v != null ? { icon: '⚡', text: `BATT  ${v.toFixed(1)} V` } : null;
+  },
+  () => {
+    const p = SBSData.pressure;
+    return p != null ? { icon: '⬡', text: `BARO  ${p.toFixed(0)} hPa` } : null;
+  },
+  () => {
+    const pass = SBSData.passage;
+    if (!pass || !pass.waypoints || pass.waypoints.length < 2) return null;
+    const nxt = pass.waypoints.find(w => !w.reached);
+    if (!nxt) return null;
+    return { icon: '→', text: `NXT WP  ${nxt.name || 'WP'}` };
+  },
+];
+
+// Helm shows a navigation-focused subset
+const _HELM_INFO_PROVIDERS = [
+  _INFO_PROVIDERS[0], // heading
+  _INFO_PROVIDERS[4], // next waypoint
+  _INFO_PROVIDERS[2], // battery
+];
+
+// ── CRITICAL MODAL ────────────────────────────────────────────
+// showCriticalModal({icon, headline, instruction, alarmId})
+// Creates a full-screen red overlay with mandatory acknowledge.
+
+window.showCriticalModal = function({ icon, headline, instruction, alarmId }) {
+  const container = document.getElementById('critical-modal');
+  if (!container) return;
+  // Don't stack modals for same alarm
+  if (container.dataset.alarmId === alarmId) return;
+  container.dataset.alarmId = alarmId;
+
+  const ts = new Date().toISOString().replace('T', '  ').substring(0, 19) + ' UTC';
+
+  container.innerHTML = `
+    <div class="critical-modal-overlay">
+      <div class="cm-icon">${icon}</div>
+      <div class="cm-headline">${headline}</div>
+      <div class="cm-instruction">${instruction}</div>
+      <div class="cm-timestamp">${ts}</div>
+      <div class="cm-ack-wrap">
+        <button class="cm-ack" id="cm-ack-btn" disabled>ACKNOWLEDGE ALARM</button>
+        <span class="cm-hint" id="cm-hint">(activates in 3s)</span>
+      </div>
+    </div>`;
+
+  // Enable button after 3 seconds
+  setTimeout(() => {
+    const btn  = container.querySelector('#cm-ack-btn');
+    const hint = container.querySelector('#cm-hint');
+    if (btn)  { btn.disabled = false; }
+    if (hint) { hint.style.display = 'none'; }
+  }, 3000);
+
+  container.querySelector('#cm-ack-btn').addEventListener('click', () => {
+    delete container.dataset.alarmId;
+    container.innerHTML = '';
+    SBSData.emit && SBSData.emit('alert:acknowledged', { id: alarmId });
+  });
+};
 
 // ── NIGHT TOGGLE ──────────────────────────────────────────────
 // <night-toggle> — single button, toggles night mode
@@ -540,8 +724,9 @@ customElements.define('next-waypoint', class extends SBSComponent {
 });
 
 // ── SBS NAV ───────────────────────────────────────────────────
-// Scroll-reveal bottom navigation bar — shared across all three screens.
-// Shows when the user scrolls (or swipes on touch), auto-hides after 3s.
+// Page-switcher dropdown triggered by the ☰ button in the topbar.
+// Drops below the topbar edge; dismisses on link tap or tap outside.
+// Works identically on touch and desktop — no gesture discovery needed.
 // Call SBSNav.init() once per page after DOM ready.
 
 const SBSNav = (() => {
@@ -551,14 +736,32 @@ const SBSNav = (() => {
     { label: 'CREW',        href: '/crew.html',    matches: ['/crew.html'] },
     { label: 'LIBRARY',     href: '/library.html', matches: ['/library.html'] },
   ];
-  const HIDE_DELAY = 3000;
-  let nav = null, hideTimer = null;
+  let nav = null, toggleBtn = null, _open = false;
 
-  function show() {
-    if (!nav) return;
+  function positionNav() {
+    const topbar = document.querySelector(
+      '.sbs-statusbar, .helm-topbar, .crew-topbar, .lib-topbar'
+    );
+    if (topbar) nav.style.top = topbar.getBoundingClientRect().bottom + 'px';
+  }
+
+  function open() {
+    _open = true;
+    positionNav();
     nav.classList.add('sbs-nav--visible');
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => nav.classList.remove('sbs-nav--visible'), HIDE_DELAY);
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', 'true');
+      toggleBtn.classList.add('sbs-nav-toggle--active');
+    }
+  }
+
+  function close() {
+    _open = false;
+    nav.classList.remove('sbs-nav--visible');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.classList.remove('sbs-nav-toggle--active');
+    }
   }
 
   function init() {
@@ -567,7 +770,7 @@ const SBSNav = (() => {
 
     nav = document.createElement('nav');
     nav.id = 'sbs-nav';
-    nav.setAttribute('aria-label', 'Main navigation');
+    nav.setAttribute('aria-label', 'Page navigation');
     nav.innerHTML = PAGES.map(p => {
       const active = p.matches.includes(path) || (path === '/' && p.matches.includes('/index.html'));
       return `<a href="${p.href}" class="sbs-nav-item${active ? ' sbs-nav-item--active' : ''}"
@@ -575,22 +778,40 @@ const SBSNav = (() => {
     }).join('');
     document.body.appendChild(nav);
 
-    // Scroll / touch / click reveal — covers fixed-height layouts (portal, helm)
-    // that never fire window scroll events
-    window.addEventListener('scroll',     show, { passive: true });
-    window.addEventListener('touchstart', show, { passive: true });
-    document.addEventListener('click',    show);
+    // Wire toggle button (added to each page's topbar HTML)
+    toggleBtn = document.getElementById('sbs-nav-toggle');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        _open ? close() : open();
+      });
+    }
 
-    // Mouse near top edge — desktop trigger
-    document.addEventListener('mousemove', e => {
-      if (e.clientY < 80) show();
+    // Dismiss on tap/click outside nav and toggle button
+    document.addEventListener('click', e => {
+      if (_open && !nav.contains(e.target) && e.target !== toggleBtn) close();
+    });
+    document.addEventListener('touchstart', e => {
+      if (_open && !nav.contains(e.target) && e.target !== toggleBtn) close();
     }, { passive: true });
 
-    // Show briefly on first load so users know it exists
-    show();
+    // Reposition if viewport resizes (e.g. phone rotation)
+    window.addEventListener('resize', () => { if (_open) positionNav(); }, { passive: true });
   }
 
-  return { init, show };
+  return { init, open, close };
 })();
+
+// ── CRITICAL ALERT BRIDGE ─────────────────────────────────────
+// Wire SBSData critical events to the modal overlay.
+// Must be registered after SBSData is loaded (it is — sbs-data.js loads first).
+SBSData.on('alert:critical', function(a) {
+  showCriticalModal({
+    icon:        a.icon        || '⚠',
+    headline:    a.headline    || a.message || 'CRITICAL ALARM',
+    instruction: a.instruction || 'Check vessel immediately.',
+    alarmId:     a.id,
+  });
+});
 
 console.log('SBS Components loaded ✓');

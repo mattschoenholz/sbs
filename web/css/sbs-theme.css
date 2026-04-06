@@ -83,18 +83,71 @@
   --shadow-amber: 0 0 12px var(--c-amber-glow);
   --shadow-green: 0 0 12px var(--c-green-glow);
   --shadow-red:   0 0 16px var(--c-red-glow);
+
+  /* Status strip */
+  --strip-h:           36px;
+  --strip-bg-info:     var(--c-deep);
+  --strip-bg-adv:      var(--c-yellow-dim);
+  --strip-bg-urg:      var(--c-red-dim);
+  --strip-border-adv:  var(--c-yellow);
+  --strip-border-urg:  var(--c-red);
+
+  /* Critical modal text (day mode) */
+  --modal-headline:    #ffffff;
+  --modal-instruction: #ffaaaa;
+  --modal-timestamp:   rgba(255,255,255,0.5);
+  --modal-btn-text:    #ffffff;
+  --modal-btn-border:  rgba(255,255,255,0.6);
+  --modal-btn-bg:      rgba(255,255,255,0.15);
 }
 
-/* Night mode — full amber, no white light */
+/* Night mode — red monochromatic, preserves scotopic vision */
 :root.night {
-  --t-primary:   #d4820a;
-  --t-secondary: #8a5506;
-  --t-muted:     #4a3002;
-  --t-value:     #e8940a;
-  --c-green:     #c47a00;
-  --c-blue:      #b36a00;
-  --c-cyan:      #c47a00;
-  --c-red:       #cc3300;
+  /* Backgrounds */
+  --c-void:       #0a0000;
+  --c-deep:       #0d0202;
+  --c-surface:    #110505;
+  --c-border:     #2a0a0a;
+
+  /* Text hierarchy */
+  --t-primary:    #ff3333;
+  --t-secondary:  #882222;
+  --t-muted:      #551a1a;
+  --t-value:      #ff3333;
+
+  /* Accent / UI chrome */
+  --c-accent:     #ff3333;
+  --c-accent-dim: #cc2222;
+  --c-inactive:   #3a1010;
+
+  /* Semantic colors → red equivalents */
+  --c-green:      #882222;
+  --c-blue:       #441111;
+  --c-cyan:       #ff3333;
+  --c-yellow:     #cc2222;
+  --c-yellow-dim: #220808;
+  --c-red:        #ff3333;
+  --c-red-dim:    #3a0808;
+  --c-red-glow:   rgba(255, 51, 51, 0.2);
+
+  /* Buttons */
+  --c-raised:      #140606;
+  --c-border-hi:   #3a1212;
+
+  /* Strip-specific night overrides */
+  --strip-bg-info:    #0d0202;
+  --strip-bg-adv:     #220808;
+  --strip-bg-urg:     #3a0808;
+  --strip-border-adv: #aa2020;
+  --strip-border-urg: #ff3333;
+
+  /* Critical modal text (night — red monochromatic) */
+  --modal-headline:    #ff4444;
+  --modal-instruction: #cc4444;
+  --modal-timestamp:   #882222;
+  --modal-btn-text:    #ff4444;
+  --modal-btn-border:  rgba(255,68,68,0.6);
+  --modal-btn-bg:      rgba(255,68,68,0.15);
 }
 
 /* ── RESET & BASE ───────────────────────────────────────────── */
@@ -133,6 +186,8 @@ html, body {
   border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
   height: 36px;
+  position: relative;
+  z-index: 10000; /* always above sbs-nav overlay (z-index: 9000) */
 }
 
 .sbs-statusbar .sbs-title {
@@ -183,6 +238,51 @@ html, body {
 .status-dot.ok::before   { background: var(--c-green); box-shadow: 0 0 6px var(--c-green); }
 .status-dot.warn::before { background: var(--c-yellow); box-shadow: 0 0 6px var(--c-yellow); }
 .status-dot.err::before  { background: var(--c-red); box-shadow: 0 0 6px var(--c-red); }
+
+/* Night mode: brightness-as-signal — bright=good, dim=fault (no green/yellow) */
+:root.night .status-dot.ok::before   { background: #ff3333; box-shadow: 0 0 6px #ff3333; }
+:root.night .status-dot.warn::before { background: #882222; box-shadow: 0 0 4px #882222; }
+:root.night .status-dot.err::before  { background: #330808; box-shadow: none; }
+
+/* ── BILGE PILL ─────────────────────────────────────────────── */
+.bilge-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+.bilge-pill--dry {
+  background: rgba(20,83,45,0.3);
+  border: 1px solid var(--c-green-dim, #166534);
+}
+.bilge-pill--wet {
+  background: rgba(127,29,29,0.4);
+  border: 1px solid var(--c-red);
+  box-shadow: var(--shadow-red, 0 0 8px rgba(239,68,68,0.4));
+}
+.bilge-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.bilge-pill--dry .bilge-label { color: var(--c-green); }
+.bilge-pill--wet .bilge-label { color: var(--c-red); }
+
+/* Night mode bilge: dry=dim/quiet (no alarm), wet=bright+glow (active alarm) */
+:root.night .bilge-pill--dry {
+  background: rgba(20,4,4,0.6);
+  border-color: #441111;
+}
+:root.night .bilge-pill--dry .bilge-label { color: #882222; }
+:root.night .bilge-pill--wet {
+  background: rgba(80,5,5,0.8);
+  border-color: #ff3333;
+  box-shadow: 0 0 10px rgba(255,51,51,0.5);
+}
+:root.night .bilge-pill--wet .bilge-label { color: #ff3333; }
 
 /* ── TAB NAV ────────────────────────────────────────────────── */
 .sbs-tabs {
@@ -243,6 +343,7 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--sp-lg);
+  padding-bottom: calc(var(--strip-h) + var(--sp-lg));
   gap: var(--sp-md);
 }
 
@@ -1627,48 +1728,212 @@ relay-button { display: contents; } /* transparent to grid — inner .relay-btn 
 .watch-block .wb-time { color: var(--t-muted); }
 .watch-block .wb-name { font-weight: 600; color: var(--t-primary); }
 
-/* ── ALERT BANNER ───────────────────────────────────────────── */
-.alert-banner {
+/* ── STATUS STRIP ────────────────────────────────────────────── */
+/* Persistent bottom bar — info when clear, alerts when active.
+   Always visible on every tab; never covers content above it.    */
+
+status-strip {
+  display: block;
   position: fixed;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
-  z-index: 1000;
-  padding: var(--sp-md) var(--sp-xl);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-md);
-  font-family: var(--font-display);
-  font-size: var(--s-md);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  transform: translateY(-100%);
-  transition: transform var(--tx-normal);
+  height: var(--strip-h);
+  z-index: 800;
 }
 
-.alert-banner.show { transform: translateY(0); }
+.ss-bar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 0 var(--sp-md);
+  background: var(--strip-bg-info);
+  border-top: 1px solid var(--c-border);
+  transition: background var(--tx-normal), border-color var(--tx-normal);
+  overflow: hidden;
+}
 
-.alert-banner.urgent {
-  background: var(--c-red-dim);
-  border-bottom: 2px solid var(--c-red);
+.ss-bar.advisory {
+  background: var(--strip-bg-adv);
+  border-top: 2px solid var(--strip-border-adv);
+  color: var(--c-yellow);
+}
+
+.ss-bar.urgent {
+  background: var(--strip-bg-urg);
+  border-top: 2px solid var(--strip-border-urg);
   color: var(--c-red);
   box-shadow: var(--shadow-red);
 }
 
-.alert-banner.advisory {
-  background: var(--c-yellow-dim);
-  border-bottom: 2px solid var(--c-yellow);
-  color: var(--c-yellow);
+@keyframes ss-pulse {
+  0%,100% { opacity: 1; }
+  35%,65% { opacity: 0.65; }
+}
+.ss-bar.urgent.ss-entry {
+  animation: ss-pulse 0.6s ease 2;
 }
 
-.alert-banner .dismiss {
-  margin-left: auto;
+.ss-icon {
+  flex-shrink: 0;
+  font-size: var(--s-md);
+  opacity: 0.85;
+  color: inherit;
+}
+
+.ss-msg {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--s-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-bar:not(.advisory):not(.urgent) .ss-msg {
+  color: var(--t-secondary);
+}
+
+.ss-time {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--s-xs);
+  color: inherit;
+  opacity: 0.6;
+}
+
+.ss-page {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--s-xs);
+  opacity: 0.7;
+}
+
+.ss-dismiss {
+  flex-shrink: 0;
   background: none;
   border: none;
   color: inherit;
   cursor: pointer;
-  font-size: var(--s-lg);
+  font-size: var(--s-md);
   opacity: 0.7;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.ss-dismiss:hover { opacity: 1; }
+
+/* Helm-specific: content clears the MOB button */
+status-strip[context="helm"] .ss-bar {
+  padding-left: 80px;
+}
+
+/* ── TILE ALERT STATES ───────────────────────────────────────── */
+/* Unified classes replacing .shallow / .critical / .bilge-wet   */
+
+.inst-tile.alert-advisory,
+.helm-tile.alert-advisory {
+  border-color: var(--c-yellow) !important;
+  box-shadow: 0 0 0 1px var(--c-yellow) inset;
+}
+
+.inst-tile.alert-urgent,
+.helm-tile.alert-urgent {
+  border-color: var(--c-red) !important;
+  box-shadow: var(--shadow-red);
+}
+.inst-tile.alert-urgent .it-value,
+.helm-tile.alert-urgent .h-value {
+  color: var(--c-red) !important;
+}
+
+/* Legacy aliases — keep working during migration */
+.inst-tile.shallow  { border-color: var(--c-yellow) !important; box-shadow: 0 0 0 1px var(--c-yellow) inset; }
+.inst-tile.critical { border-color: var(--c-red) !important; box-shadow: var(--shadow-red); }
+.inst-tile.critical .it-value { color: var(--c-red) !important; }
+.inst-tile.bilge-wet { border-color: var(--c-red) !important; box-shadow: var(--shadow-red); }
+.inst-tile.bilge-wet .it-value { color: var(--c-red) !important; }
+
+/* ── CRITICAL MODAL ──────────────────────────────────────────── */
+.critical-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(100, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-xl);
+  padding: var(--sp-2xl);
+  text-align: center;
+}
+
+.cm-icon {
+  font-size: 64px;
+  line-height: 1;
+  color: var(--modal-headline);
+}
+
+.cm-headline {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 6vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--modal-headline);
+  max-width: 600px;
+}
+
+.cm-instruction {
+  font-family: var(--font-body);
+  font-size: clamp(14px, 3vw, 18px);
+  color: var(--modal-instruction);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.cm-timestamp {
+  font-family: var(--font-mono);
+  font-size: var(--s-sm);
+  color: var(--modal-timestamp);
+}
+
+.cm-ack-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+}
+
+.cm-ack {
+  width: min(80%, 360px);
+  height: 56px;
+  background: var(--modal-btn-bg);
+  border: 2px solid var(--modal-btn-border);
+  border-radius: var(--r-md);
+  color: var(--modal-btn-text);
+  font-family: var(--font-display);
+  font-size: clamp(14px, 3vw, 18px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity var(--tx-fast);
+}
+
+.cm-ack:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.cm-hint {
+  font-family: var(--font-mono);
+  font-size: var(--s-xs);
+  color: var(--modal-timestamp);
 }
 
 /* ── HELM BUTTON ────────────────────────────────────────────── */
@@ -1954,21 +2219,45 @@ night-toggle .sbs-btn {
 .hidden     { display: none !important; }
 
 /* ── SBS NAV — scroll-reveal bottom navigation ──────────────── */
+/* ── SBS NAV TOGGLE BUTTON ──────────────────────────────────── */
+.sbs-nav-toggle {
+  background: none;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--t-muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: color var(--tx-fast), border-color var(--tx-fast), background var(--tx-fast);
+  flex-shrink: 0;
+}
+.sbs-nav-toggle:hover,
+.sbs-nav-toggle--active {
+  color: var(--t-primary);
+  border-color: var(--c-amber);
+  background: rgba(255,255,255,0.04);
+}
+:root.night .sbs-nav-toggle { border-color: var(--c-border); color: var(--t-muted); }
+:root.night .sbs-nav-toggle:hover,
+:root.night .sbs-nav-toggle--active { color: var(--t-primary); border-color: var(--c-accent); }
+
+/* ── SBS NAV DROPDOWN ───────────────────────────────────────── */
 #sbs-nav {
   position: fixed;
-  top: 0;
+  top: 36px; /* JS overrides with actual topbar.getBoundingClientRect().bottom */
   left: 0;
   right: 0;
-  height: 40px;
+  height: 44px;
   background: rgba(13, 19, 24, 0.97);
   border-bottom: 1px solid var(--c-border);
   display: flex;
   align-items: stretch;
-  z-index: 9000;
+  z-index: 9500; /* above content, below nothing (topbars at 10000 remain on top) */
   transform: translateY(-100%);
-  transition: transform 0.22s ease;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  transition: transform 0.18s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 #sbs-nav.sbs-nav--visible {
   transform: translateY(0);

@@ -11,7 +11,8 @@
 <body>
 <div class="lib-app">
 
-  <alert-banner></alert-banner>
+  <status-strip context="portal"></status-strip>
+  <div id="critical-modal"></div>
 
   <header class="lib-topbar">
     <div class="lib-topbar-left">
@@ -22,6 +23,7 @@
       <connection-status></connection-status>
       <span class="sbs-clock" style="font-family:var(--font-mono);font-size:var(--s-xs);color:var(--t-secondary)"></span>
       <night-toggle></night-toggle>
+      <button id="sbs-nav-toggle" class="sbs-nav-toggle" aria-label="Switch page" aria-expanded="false">☰</button>
     </div>
   </header>
 
