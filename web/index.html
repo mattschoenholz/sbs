@@ -6,8 +6,7 @@
 <title>SV-Esperanza — Portal</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/sbs-theme.css?v=2">
-<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="vendor/leaflet-velocity/leaflet-velocity.min.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
 </head>
 <body>
 <div class="sbs-app">
@@ -37,6 +36,7 @@
     <div class="chart-screen">
       <div class="chart-map-wrap" id="chart-map-wrap">
         <div id="chart-map" class="chart-map"></div>
+        <div id="chart-status" style="display:none;position:absolute;bottom:56px;left:12px;background:rgba(13,17,23,0.85);border:1px solid #2a3a4a;border-radius:6px;padding:6px 10px;color:#8b949e;font-size:10px;z-index:10;pointer-events:none"></div>
       </div>
       <button class="chart-mob-btn" id="chart-mob-btn" onclick="triggerChartMOB()" title="Man Overboard">
         <span class="chart-mob-icon">👤</span>MOB
@@ -62,17 +62,7 @@
         <div class="chart-ndc"><span class="chart-ndc-lbl">BTW</span><div class="chart-ndc-val" id="chart-btw">---°</div></div>
         <div class="chart-ndc"><span class="chart-ndc-lbl">DTW</span><div class="chart-ndc-val" id="chart-dtw">--.-<span class="chart-ndc-unit">nm</span></div></div>
       </div>
-      <button class="chart-center-btn" onclick="SBSChart.centerOnBoat()" title="Center on boat">⊕</button>
-      <button class="chart-base-btn" id="chart-base-btn" onclick="SBSChart.cycleBaseLayer()" title="Switch chart source — LOCAL / ESRI / NOAA">LOCAL</button>
-      <button class="chart-grib-btn" id="chart-grib-btn" onclick="SBSChart.toggleGrib()" title="GFS wind forecast (NOAA)">🌬</button>
-      <button class="chart-wx-btn" id="chart-wx-btn" onclick="SBSChart.toggleWeather()" title="Toggle weather overlay">☁</button>
-      <div class="chart-wx-picker" id="chart-wx-picker" style="display:none">
-        <button class="chart-wxl active" onclick="SBSChart.selectWxLayer(0)">WIND</button>
-        <button class="chart-wxl" onclick="SBSChart.selectWxLayer(1)">RAIN</button>
-        <button class="chart-wxl" onclick="SBSChart.selectWxLayer(2)">PRES</button>
-        <button class="chart-wxl" onclick="SBSChart.selectWxLayer(3)">CLDS</button>
-        <button class="chart-wxl chart-wxl-key" onclick="SBSChart.setWeatherApiKey()" title="Set OWM API key">🔑</button>
-      </div>
+      <button class="chart-center-btn" onclick="SBSChartML.centerOnBoat()" title="Center on boat">⊕</button>
       <div class="chart-inst-strip">
         <div class="chart-sg chart-sg-hi"><div class="chart-sg-lbl">TWS</div><div class="chart-sg-val" id="chart-tws">--</div><div class="chart-sg-unit">KT</div></div>
         <div class="chart-sg chart-sg-hi"><div class="chart-sg-lbl">TWD</div><div class="chart-sg-val" id="chart-twd">---°</div><div class="chart-sg-unit">--</div></div>
@@ -505,11 +495,11 @@
 </div>
 <div id="toast"></div>
 
-<script src="vendor/leaflet/leaflet.js?v=1"></script>
-<script src="vendor/leaflet-velocity/leaflet-velocity.min.js?v=1"></script>
+<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
 <script src="js/sbs-data.js?v=1"></script>
 <script src="js/sbs-components.js?v=1"></script>
-<script src="js/sbs-chart.js?v=1"></script>
+<script src="js/sbs-chart-maplibre.js?v=1"></script>
 <script src="js/portal.js?v=1"></script>
 </body>
 </html>

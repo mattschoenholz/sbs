@@ -263,29 +263,30 @@ const map = new maplibregl.Map({
                  'circle-stroke-color': '#fff', 'circle-stroke-width': 1 } },
 
       // Buoys & beacons — color-coded by type
-      // BOYLAT: lateral marks (port=red, starboard=green by IALA-B)
+      // BOYLAT: lateral marks — filter on CATLAM (scalar int) not COLOUR (array, unreliable in MVT)
+      // IALA-B: CATLAM=2 → port → red; CATLAM=1 → starboard → green
       { id: 'boylat-port', type: 'circle', source: 'enc', 'source-layer': 'BOYLAT',
-        minzoom: 11,
-        filter: ['in', ['get', 'COLOUR'], ['literal', ['3', '3,1', '1,3']]],  // red variants
+        minzoom: 12,
+        filter: ['==', ['to-number', ['get', 'CATLAM']], 2],
         paint: { 'circle-color': '#e74c3c', 'circle-radius': 5, 'circle-opacity': 1,
                  'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } },
       { id: 'boylat-stbd', type: 'circle', source: 'enc', 'source-layer': 'BOYLAT',
-        minzoom: 11,
-        filter: ['in', ['get', 'COLOUR'], ['literal', ['4', '4,2', '2,4']]],  // green variants
+        minzoom: 12,
+        filter: ['==', ['to-number', ['get', 'CATLAM']], 1],
         paint: { 'circle-color': '#27ae60', 'circle-radius': 5, 'circle-opacity': 1,
                  'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } },
       { id: 'boylat-other', type: 'circle', source: 'enc', 'source-layer': 'BOYLAT',
-        minzoom: 11,
-        filter: ['!', ['in', ['get', 'COLOUR'], ['literal', ['3', '3,1', '1,3', '4', '4,2', '2,4']]]],
+        minzoom: 12,
+        filter: ['!', ['in', ['to-number', ['get', 'CATLAM']], ['literal', [1, 2]]]],
         paint: { 'circle-color': '#f1c40f', 'circle-radius': 4, 'circle-opacity': 1,
                  'circle-stroke-color': '#333', 'circle-stroke-width': 1 } },
       // Cardinal/safe water buoys
       { id: 'boycar', type: 'circle', source: 'enc', 'source-layer': 'BOYCAR',
-        minzoom: 11,
+        minzoom: 12,
         paint: { 'circle-color': '#f1c40f', 'circle-radius': 5, 'circle-opacity': 1,
                  'circle-stroke-color': '#1a1a1a', 'circle-stroke-width': 1.5 } },
       { id: 'boysaw', type: 'circle', source: 'enc', 'source-layer': 'BOYSAW',
-        minzoom: 11,
+        minzoom: 12,
         paint: { 'circle-color': '#e74c3c', 'circle-radius': 5, 'circle-opacity': 1,
                  'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } },
       // Beacons
@@ -297,6 +298,20 @@ const map = new maplibregl.Map({
         minzoom: 12,
         paint: { 'circle-color': '#f1c40f', 'circle-radius': 4, 'circle-opacity': 1,
                  'circle-stroke-color': '#333', 'circle-stroke-width': 1 } },
+      // Special purpose buoys (e.g., Lake Union channel markers, mooring buoys)
+      { id: 'boyspp', type: 'circle', source: 'enc', 'source-layer': 'BOYSPP',
+        minzoom: 12,
+        paint: { 'circle-color': '#f39c12', 'circle-radius': 4, 'circle-opacity': 0.9,
+                 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 } },
+      // Lights — rendered as small amber dot at zoom 11+, bigger at 13+
+      { id: 'lights', type: 'circle', source: 'enc', 'source-layer': 'LIGHTS',
+        minzoom: 11,
+        paint: {
+          'circle-color': '#ffd700',
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 4],
+          'circle-opacity': 0.9,
+          'circle-stroke-color': '#000', 'circle-stroke-width': 0.5
+        } },
 
       // Water body / place name labels — ESRI Ocean Reference transparent overlay
       // Full opacity at low zoom, fades out as soundings take over at zoom 10+
@@ -334,6 +349,105 @@ map.addControl(new maplibregl.NavigationControl(), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'nautical' }), 'bottom-right');
 
 map.on('error', e => console.warn('Map error:', e.sourceId, e.error?.message));
+
+// ── Startup: fetch GPS position from SignalK, center map, pre-warm tile cache ──
+
+const SK_POSITION_URL = '/signalk/v1/api/vessels/self/navigation/position';
+const PREWARM_ZOOMS_NEAR = [8, 9, 10, 11, 12, 13]; // 20nm radius
+const PREWARM_ZOOMS_FAR  = [8, 9, 10, 11];          // 20-30nm ring
+const NM_TO_DEG = 1 / 60;  // 1 nautical mile ≈ 1/60 degree latitude
+
+function lngLatToTile(lng, lat, z) {
+  const n = Math.pow(2, z);
+  const x = Math.floor((lng + 180) / 360 * n);
+  const latRad = lat * Math.PI / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+  return { x, y, z };
+}
+
+function tilesInBbox(sw, ne, z) {
+  const tMin = lngLatToTile(sw[0], ne[1], z); // NW corner
+  const tMax = lngLatToTile(ne[0], sw[1], z); // SE corner
+  const tiles = [];
+  for (let x = tMin.x; x <= tMax.x; x++)
+    for (let y = tMin.y; y <= tMax.y; y++)
+      tiles.push({ x, y, z });
+  return tiles;
+}
+
+async function prewarmEsriTiles(lat, lng, radiusNm, zooms, statusEl) {
+  const dLat = radiusNm * NM_TO_DEG;
+  const dLng = dLat / Math.cos(lat * Math.PI / 180);
+  const sw = [lng - dLng, lat - dLat];
+  const ne = [lng + dLng, lat + dLat];
+
+  const layers = ['Ocean/World_Ocean_Base', 'Ocean/World_Ocean_Reference'];
+  let total = 0, done = 0;
+
+  // Count tiles first
+  for (const z of zooms) total += tilesInBbox(sw, ne, z).length * layers.length;
+
+  for (const layer of layers) {
+    for (const z of zooms) {
+      for (const { x, y } of tilesInBbox(sw, ne, z)) {
+        fetch(`/tiles-esri/${layer}/${z}/${y}/${x}`, { priority: 'low' })
+          .catch(() => {})
+          .finally(() => {
+            done++;
+            if (statusEl && done % 10 === 0)
+              statusEl.textContent = `Pre-warming tiles… ${done}/${total}`;
+            if (done === total && statusEl) {
+              statusEl.textContent = `Tile cache warm — ${total} ESRI tiles fetched`;
+              setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+            }
+          });
+        // Pace requests: 8 concurrent max — yield every 8
+        if (done % 8 === 0) await new Promise(r => setTimeout(r, 50));
+      }
+    }
+  }
+}
+
+async function initPosition() {
+  const statusEl = document.getElementById('status');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Fetching GPS position from SignalK…';
+
+  let lat, lng;
+  try {
+    const res = await fetch(SK_POSITION_URL, { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      const data = await res.json();
+      lat = data.value?.latitude;
+      lng = data.value?.longitude;
+    }
+  } catch (e) { /* SignalK not reachable — stay on default center */ }
+
+  if (lat && lng) {
+    statusEl.textContent = `Position: ${lat.toFixed(4)}°, ${lng.toFixed(4)}° — centering map…`;
+    map.flyTo({ center: [lng, lat], zoom: map.getZoom(), duration: 1000 });
+
+    // Add boat marker
+    new maplibregl.Marker({ color: '#e8940a', scale: 0.9 })
+      .setLngLat([lng, lat])
+      .setPopup(new maplibregl.Popup().setHTML('<strong>Vessel position</strong>'))
+      .addTo(map);
+
+    // Pre-warm: 20nm radius first, then 30nm ring
+    statusEl.textContent = 'Pre-warming 20nm tile cache…';
+    await prewarmEsriTiles(lat, lng, 20, PREWARM_ZOOMS_NEAR, statusEl);
+    // 30nm ring (outer only — inner already done)
+    await prewarmEsriTiles(lat, lng, 30, PREWARM_ZOOMS_FAR, statusEl);
+  } else {
+    statusEl.textContent = 'SignalK unavailable — using default chart center';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+    // Still pre-warm around default center
+    const [defLng, defLat] = map.getCenter().toArray();
+    await prewarmEsriTiles(defLat, defLng, 20, PREWARM_ZOOMS_NEAR, statusEl);
+  }
+}
+
+map.on('load', () => { initPosition(); });
 
 // Generate depth icons lazily — only when MapLibre asks for one it hasn't seen yet.
 // This replaces the up-front GeoJSON load and avoids blocking the initial render.

@@ -177,9 +177,11 @@ def rebuild_vrt():
     layers = [
         "DEPARE", "DEPCNT", "LNDARE", "COALNE",
         "WRECKS", "OBSTRN", "UWTROC", "SLCONS", "DRGARE", "SBDARE",
-        "BOYCAR", "BOYLAT", "BOYSAW", "BCNLAT", "BCNCAR", "BCNISD",
+        "BOYCAR", "BOYLAT", "BOYSAW", "BOYSPP",
+        "BCNLAT", "BCNCAR", "BCNISD", "BCNSPP",
         "TSSLPT", "TSSRON", "TRAFIC", "FAIRWY",
         "AIRARE", "ACHARE", "RESARE",
+        "LIGHTS",
     ]
 
     lines = ['<OGRVRTDataSource>']

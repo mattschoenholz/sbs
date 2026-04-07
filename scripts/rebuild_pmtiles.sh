@@ -19,9 +19,10 @@ echo "[1/4] Extracting layers from VRT..."
 for layer in \
   DEPARE DEPCNT LNDARE COALNE \
   WRECKS OBSTRN UWTROC SLCONS DRGARE \
-  BOYCAR BOYLAT BOYSAW BCNLAT BCNCAR BCNISD \
+  BOYCAR BOYLAT BOYSAW BOYSPP BCNLAT BCNCAR BCNISD BCNSPP \
   TSSLPT TSSRON TRAFIC FAIRWY \
-  AIRARE ACHARE RESARE; do
+  AIRARE ACHARE RESARE \
+  LIGHTS; do
   echo "  $layer..."
   ogr2ogr -f GeoJSONSeq -dim XY -explodecollections -skipfailures \
     $TMP/${layer}.geojsonl $VRT $layer 2>&1 | grep -v "^$" | head -3 || true
@@ -63,9 +64,11 @@ tippecanoe \
   -L BOYCAR:$TMP/BOYCAR.geojsonl \
   -L BOYLAT:$TMP/BOYLAT.geojsonl \
   -L BOYSAW:$TMP/BOYSAW.geojsonl \
+  -L BOYSPP:$TMP/BOYSPP.geojsonl \
   -L BCNLAT:$TMP/BCNLAT.geojsonl \
   -L BCNCAR:$TMP/BCNCAR.geojsonl \
   -L BCNISD:$TMP/BCNISD.geojsonl \
+  -L BCNSPP:$TMP/BCNSPP.geojsonl \
   -L TSSLPT:$TMP/TSSLPT.geojsonl \
   -L TSSRON:$TMP/TSSRON.geojsonl \
   -L TRAFIC:$TMP/TRAFIC.geojsonl \
@@ -73,6 +76,7 @@ tippecanoe \
   -L AIRARE:$TMP/AIRARE.geojsonl \
   -L ACHARE:$TMP/ACHARE.geojsonl \
   -L RESARE:$TMP/RESARE.geojsonl \
+  -L LIGHTS:$TMP/LIGHTS.geojsonl \
   -L SOUNDG:$TMP/SOUNDG.geojsonl
 
 echo "[4/4] Converting to PMTiles..."

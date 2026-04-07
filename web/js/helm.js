@@ -1,119 +1,74 @@
-/* Helm-specific logic — runs after sbs-data.js and sbs-components.js */
+/* Helm-specific logic — runs after sbs-data.js, sbs-components.js, sbs-chart-maplibre.js */
 
-// ── HELM CHART ─────────────────────────────────────────────
+// ── HELM CHART — overlays (AIS, passage) on top of SBSChartML ──
 const HelmChart = (() => {
-  const HOST = window.location.hostname || '192.168.42.201';
+  let _overlaysAdded = false;
 
-  // Keep in sync with warm.html and sbs-chart.js LOCAL_WMS_LAYERS
-  const LOCAL_WMS_LAYERS = [
-    'DEPARE_verydeep','DEPARE_deep','DEPARE_mid',
-    'DEPARE_shallow','DEPARE_vshallow','DEPARE_drying','DEPARE_neg',
-    'SBDARE','LNDARE','DRGARE',
-    'DEPCNT','COALNE','SLCONS',
-    'WRECKS','OBSTRN','UWTROC','SOUNDG',
-  ].join(',');
+  function emptyFC() {
+    return { type: 'FeatureCollection', features: [] };
+  }
 
-  let map = null, boatMarker = null, aisMarkers = {}, passageLayer = null;
-  let initialized = false, lastCog = null;
+  function addOverlays(mlMap) {
+    if (_overlaysAdded) return;
+    _overlaysAdded = true;
 
-  function makeBoatIcon(cog) {
-    const a = cog != null ? cog : 0;
-    return L.divIcon({
-      className: '',
-      html: `<svg width="24" height="24" viewBox="-12 -12 24 24" style="transform:rotate(${a}deg);overflow:visible">
-        <polygon points="0,-10 7,8 0,4 -7,8" fill="#e8940a" stroke="#080c10" stroke-width="1.5"/>
-      </svg>`,
-      iconSize: [24, 24], iconAnchor: [12, 12],
+    // AIS targets — cyan circles
+    mlMap.addSource('helm-ais', { type: 'geojson', data: emptyFC() });
+    mlMap.addLayer({
+      id: 'helm-ais-circle', type: 'circle', source: 'helm-ais',
+      paint: { 'circle-color': '#06b6d4', 'circle-radius': 6, 'circle-opacity': 0.8,
+               'circle-stroke-color': '#fff', 'circle-stroke-width': 1 }
     });
-  }
 
-  function init() {
-    if (initialized) return;
-    initialized = true;
-
-    const pos = SBSData.position;
-    const center = pos ? [pos.latitude, pos.longitude] : [47.6, -122.3];
-
-    map = L.map('helm-map', { center, zoom: 13, zoomControl: true, attributionControl: false });
-
-    map.createPane('hBasePane'); map.getPane('hBasePane').style.zIndex = 200;
-    map.createPane('hWmsPane');  map.getPane('hWmsPane').style.zIndex  = 250;
-    map.createPane('hOverPane'); map.getPane('hOverPane').style.zIndex = 300;
-
-    // ESRI underlay — always on
-    L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-      { maxNativeZoom: 13, maxZoom: 18, pane: 'hBasePane' }
-    ).addTo(map);
-
-    // Local NOAA ENC WMS
-    L.tileLayer.wms(`http://${HOST}/cgi-bin/mapserv`, {
-      layers: LOCAL_WMS_LAYERS, styles: '', format: 'image/png',
-      transparent: true, version: '1.1.1', pane: 'hWmsPane',
-    }).addTo(map);
-
-    passageLayer = L.layerGroup().addTo(map);
-    boatMarker = L.marker(center, { icon: makeBoatIcon(SBSData.cog), pane: 'hOverPane', zIndexOffset: 1000 }).addTo(map);
-
-    update();
-  }
-
-  function invalidate() {
-    if (map) setTimeout(() => map.invalidateSize(), 100);
+    // Passage route line — amber dashed
+    mlMap.addSource('helm-passage', { type: 'geojson', data: emptyFC() });
+    mlMap.addLayer({
+      id: 'helm-passage-line', type: 'line', source: 'helm-passage',
+      paint: { 'line-color': '#e8940a', 'line-width': 2, 'line-opacity': 0.7,
+               'line-dasharray': [4, 3] }
+    });
+    mlMap.addLayer({
+      id: 'helm-passage-wpt', type: 'circle', source: 'helm-passage',
+      filter: ['==', ['geometry-type'], 'Point'],
+      paint: { 'circle-color': 'transparent', 'circle-stroke-color': '#e8940a',
+               'circle-stroke-width': 2, 'circle-radius': 7 }
+    });
   }
 
   function update() {
-    if (!map) return;
+    const mlMap = typeof SBSChartML !== 'undefined' ? SBSChartML.getMap() : null;
+    if (!mlMap || !mlMap.isStyleLoaded()) return;
 
-    // Boat position and heading icon
-    const pos = SBSData.position;
-    if (pos) {
-      const ll = [pos.latitude, pos.longitude];
-      boatMarker.setLatLng(ll);
-      if (SBSData.cog !== lastCog) {
-        boatMarker.setIcon(makeBoatIcon(SBSData.cog));
-        lastCog = SBSData.cog;
-      }
-    }
+    // Add overlay layers once map is ready
+    addOverlays(mlMap);
 
-    // AIS targets
-    const vessels = SBSData.aisVessels;
-    const seen = new Set();
-    Object.entries(vessels).forEach(([ctx, v]) => {
+    // AIS
+    const aisFeatures = [];
+    Object.entries(SBSData.aisVessels || {}).forEach(([ctx, v]) => {
       if (v.lat == null || v.lon == null) return;
-      seen.add(ctx);
-      const ll = [v.lat, v.lon];
-      if (aisMarkers[ctx]) {
-        aisMarkers[ctx].setLatLng(ll);
-      } else {
-        aisMarkers[ctx] = L.circleMarker(ll, {
-          radius: 5, color: '#06b6d4', fillColor: '#06b6d4',
-          fillOpacity: 0.7, weight: 1, pane: 'hOverPane',
-        }).bindPopup(`<b>${v.name || ctx.split(':').pop()}</b><br>SOG: ${v.sog != null ? v.sog.toFixed(1) : '—'} kn`)
-          .addTo(map);
-      }
+      aisFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [v.lon, v.lat] },
+        properties: { name: v.name || ctx.split(':').pop(), sog: v.sog }
+      });
     });
-    Object.keys(aisMarkers).forEach(ctx => {
-      if (!seen.has(ctx)) { map.removeLayer(aisMarkers[ctx]); delete aisMarkers[ctx]; }
-    });
+    const aisSrc = mlMap.getSource('helm-ais');
+    if (aisSrc) aisSrc.setData({ type: 'FeatureCollection', features: aisFeatures });
 
-    // Passage route line
-    passageLayer.clearLayers();
+    // Passage
+    const passageFeatures = [];
     const p = SBSData.passage;
-    if (p.active && p.waypoints.length >= 2) {
-      const lls = p.waypoints.map(wp => [wp.lat, wp.lon]);
-      L.polyline(lls, { color: '#e8940a', weight: 2, opacity: 0.6, dashArray: '6 4', pane: 'hOverPane' })
-        .addTo(passageLayer);
+    if (p && p.active && p.waypoints && p.waypoints.length >= 2) {
+      const coords = p.waypoints.map(wp => [wp.lon, wp.lat]);
+      passageFeatures.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} });
       const nwp = p.waypoints[p.nextWPIndex];
-      if (nwp) {
-        L.circleMarker([nwp.lat, nwp.lon], {
-          radius: 7, color: '#e8940a', fillColor: 'transparent', weight: 2, pane: 'hOverPane',
-        }).addTo(passageLayer);
-      }
+      if (nwp) passageFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [nwp.lon, nwp.lat] }, properties: {} });
     }
+    const passSrc = mlMap.getSource('helm-passage');
+    if (passSrc) passSrc.setData({ type: 'FeatureCollection', features: passageFeatures });
   }
 
-  return { init, invalidate, update };
+  return { update };
 })();
 
 // ── TAB SWITCHING ─────────────────────────────────────────
@@ -124,10 +79,12 @@ document.querySelectorAll('.helm-tab').forEach(tab => {
     tab.classList.add('active');
     document.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.add('active');
     if (tab.dataset.tab === 'chart') {
-      // rAF x2 ensures browser has laid out the panel before Leaflet reads container size
+      // rAF x2 ensures browser has laid out the panel before MapLibre reads container size
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        HelmChart.init();
-        HelmChart.invalidate();
+        if (typeof SBSChartML !== 'undefined') {
+          SBSChartML.init({ containerId: 'helm-map' });
+          SBSChartML.invalidateSize();
+        }
       }));
     }
   });

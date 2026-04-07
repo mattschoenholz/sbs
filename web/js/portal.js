@@ -29,7 +29,10 @@ document.querySelectorAll('.sbs-tab').forEach(tab => {
 
 function onTabShow(id) {
   if (id === 'charts') {
-    if (typeof SBSChart !== 'undefined') { SBSChart.init(); SBSChart.update(); }
+    if (typeof SBSChartML !== 'undefined') {
+      SBSChartML.init({ containerId: 'chart-map', statusId: 'chart-status' });
+      SBSChartML.invalidateSize();
+    }
   } else if (id === 'instruments') {
     updateInstTiles(); updateSkDiag();
   } else if (id === 'weather') {
@@ -1108,8 +1111,8 @@ function updateSkDiag() {
 }
 
 SBSData.on('update', () => {
-  if (typeof SBSChart !== 'undefined' && document.querySelector('[data-panel="charts"]')?.classList.contains('active')) {
-    SBSChart.update();
+  if (typeof SBSChartML !== 'undefined' && document.querySelector('[data-panel="charts"]')?.classList.contains('active')) {
+    // chart updates via SignalK WebSocket already — no manual update needed
   }
   const pos = SBSData.position;
   const el  = document.getElementById('header-coords');
@@ -1546,9 +1549,8 @@ if (window.location.hash === '#plan') {
 }
 
 // Init chart on default active panel
-if (document.querySelector('[data-panel="charts"]')?.classList.contains('active') && typeof SBSChart !== 'undefined') {
-  SBSChart.init();
-  SBSChart.update();
+if (document.querySelector('[data-panel="charts"]')?.classList.contains('active') && typeof SBSChartML !== 'undefined') {
+  SBSChartML.init({ containerId: 'chart-map', statusId: 'chart-status' });
 }
 
 // Bottom nav
