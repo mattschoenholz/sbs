@@ -20,6 +20,22 @@ const HelmChart = (() => {
                'circle-stroke-color': '#fff', 'circle-stroke-width': 1 }
     });
 
+    // AIS click popup — name + MMSI
+    mlMap.on('click', 'helm-ais-circle', e => {
+      const p = e.features[0].properties;
+      const name = p.name || 'Unknown vessel';
+      const mmsi = p.mmsi || '—';
+      const sog  = p.sog != null ? parseFloat(p.sog).toFixed(1) + ' kn' : '—';
+      const cog  = p.cog != null ? Math.round(parseFloat(p.cog)) + '°' : '—';
+      new maplibregl.Popup({ offset: 8 })
+        .setLngLat(e.lngLat)
+        .setHTML(`<strong>${name}</strong><br>MMSI: ${mmsi}<br>SOG: ${sog} &nbsp; COG: ${cog}`)
+        .addTo(mlMap);
+      e.originalEvent.stopPropagation();
+    });
+    mlMap.on('mouseenter', 'helm-ais-circle', () => mlMap.getCanvas().style.cursor = 'pointer');
+    mlMap.on('mouseleave', 'helm-ais-circle', () => mlMap.getCanvas().style.cursor = '');
+
     // Passage route line — amber dashed
     mlMap.addSource('helm-passage', { type: 'geojson', data: emptyFC() });
     mlMap.addLayer({
@@ -46,10 +62,11 @@ const HelmChart = (() => {
     const aisFeatures = [];
     Object.entries(SBSData.aisVessels || {}).forEach(([ctx, v]) => {
       if (v.lat == null || v.lon == null) return;
+      const mmsi = ctx.match(/mmsi:(\d+)/)?.[1] || ctx.split('.').pop();
       aisFeatures.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [v.lon, v.lat] },
-        properties: { name: v.name || ctx.split(':').pop(), sog: v.sog }
+        properties: { name: v.name || null, mmsi, sog: v.sog, cog: v.cog }
       });
     });
     const aisSrc = mlMap.getSource('helm-ais');

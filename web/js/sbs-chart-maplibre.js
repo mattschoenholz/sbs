@@ -306,6 +306,24 @@ const SBSChartML = (() => {
     });
 
     _map.on('load', async () => {
+      // AIS layer — cyan circles, updated via SBSData events
+      _map.addSource('ais', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      _map.addLayer({
+        id: 'ais-vessels', type: 'circle', source: 'ais',
+        paint: {
+          'circle-color': '#06b6d4',
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 13, 7],
+          'circle-opacity': 0.85,
+          'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5
+        }
+      });
+
+      // Update AIS source whenever SBSData fires an ais:update event
+      if (typeof SBSData !== 'undefined') {
+        SBSData.on('ais:update', vessels => _updateAis(vessels));
+        _updateAis(SBSData.aisVessels);  // populate immediately if data already present
+      }
+
       setStatus('Fetching GPS position…');
       const pos = await fetchAndCenterBoat();
       const lat = pos?.lat || center[1];
@@ -316,6 +334,22 @@ const SBSChartML = (() => {
       await prewarmEsri(lat, lng, 20, PREWARM_ZOOMS_NEAR);
       await prewarmEsri(lat, lng, 30, PREWARM_ZOOMS_FAR);
     });
+
+    // AIS click popup — name + MMSI
+    _map.on('click', 'ais-vessels', e => {
+      const p = e.features[0].properties;
+      const name = p.name || 'Unknown vessel';
+      const mmsi = p.mmsi || '—';
+      const sog  = p.sog != null ? parseFloat(p.sog).toFixed(1) + ' kn' : '—';
+      const cog  = p.cog != null ? Math.round(parseFloat(p.cog)) + '°' : '—';
+      new maplibregl.Popup({ offset: 8 })
+        .setLngLat(e.lngLat)
+        .setHTML(`<strong>${name}</strong><br>MMSI: ${mmsi}<br>SOG: ${sog} &nbsp; COG: ${cog}`)
+        .addTo(_map);
+      e.originalEvent.stopPropagation();
+    });
+    _map.on('mouseenter', 'ais-vessels', () => _map.getCanvas().style.cursor = 'pointer');
+    _map.on('mouseleave', 'ais-vessels', () => _map.getCanvas().style.cursor = '');
 
     // Sounding click popup
     _map.on('click', 'soundings', e => {
@@ -330,6 +364,20 @@ const SBSChartML = (() => {
     _map.on('mouseleave', 'soundings', () => _map.getCanvas().style.cursor = '');
 
     _initialized = true;
+  }
+
+  function _updateAis(vessels) {
+    if (!_map || !_map.getSource('ais')) return;
+    const features = Object.entries(vessels || {}).map(([ctx, v]) => {
+      if (v.lat == null || v.lon == null) return null;
+      const mmsi = ctx.match(/mmsi:(\d+)/)?.[1] || ctx.split('.').pop();
+      return {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [v.lon, v.lat] },
+        properties: { name: v.name || null, mmsi, sog: v.sog, cog: v.cog }
+      };
+    }).filter(Boolean);
+    _map.getSource('ais').setData({ type: 'FeatureCollection', features });
   }
 
   function centerOnBoat() {
