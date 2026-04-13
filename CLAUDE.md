@@ -29,6 +29,50 @@ Develop on macOS; deploy with `scripts/deploy.sh`.
 
 ---
 
+## Feature Definition Protocol (Required — Outcome-First)
+
+When starting work on any new feature, capability, or UI component — **before writing code, before designing architecture** — define what success looks like.
+
+### The five steps (always in order)
+
+**1. Restate the goal**
+One sentence. What does this do for the sailor? Not how it works — what it achieves.
+
+**2. Define acceptance criteria**
+3–8 specific, testable boolean conditions that must ALL be true for feature-complete. Each either passes or it doesn't.
+
+**3. Name what's out of scope**
+Explicit list of what is NOT tested here. Keeps the feature bounded.
+
+**4. Identify dependencies**
+What must be true before testing can begin?
+
+**5. Write the test file**
+Create or append to `docs/acceptance-criteria.md`:
+
+~~~markdown
+## Feature: <name>
+
+**Goal:** <one sentence>
+
+### Acceptance Criteria
+- [ ] <specific, testable boolean condition>
+- [ ] ...
+
+### Out of Scope
+- <item>
+
+### Dependencies
+- <prerequisite>
+
+### How to Test
+<step-by-step procedure>
+~~~
+
+**Feature complete = every criterion checked off.**
+
+---
+
 ## Lessons learned / hard-won rules
 
 ### 1. WMS tile cache keys = browser floating-point math (non-negotiable)
