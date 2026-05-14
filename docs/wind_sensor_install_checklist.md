@@ -40,11 +40,11 @@ Pre-flight reading: see [intel_vault: ST60 Wind Transducer ESP32](../../intel_va
                   Masthead Red                  ESP32 5V & ADS1115 VCC
                                                           │
                                                           ▼
-   ST60 masthead colours (5-conductor)         I²C bus
-   ────────────────────────────────────         ───────────────────
-   Grey   ──→ GND (common bus)                 ESP32 GPIO21 (SDA) ──→ ADS1115 SDA
-   Yellow ──→ ESP32 GPIO15  (10kΩ pull-up      ESP32 GPIO22 (SCL) ──→ ADS1115 SCL
-                            to 3.3V)
+   ST60 masthead colours (5-conductor)         I²C bus (XIAO ESP32-S3)
+   ────────────────────────────────────         ───────────────────────
+   Grey   ──→ GND (common bus)                 XIAO GPIO5/D4 (SDA) ──→ ADS1115 SDA
+   Yellow ──→ XIAO GPIO4/D3  (10kΩ pull-up     XIAO GPIO6/D5 (SCL) ──→ ADS1115 SCL
+                             to 3.3V)
    Blue   ──→ ADS1115 ch0 (cosine)             ADS1115 ADDR ──→ GND  (I²C 0x48)
    Green  ──→ ADS1115 ch1 (sine)
    Red    ──→ L7808 +8 V output
@@ -66,7 +66,7 @@ Validate each subsystem in isolation. Do **not** combine until a tier passes.
 - [ ] No part of the L7808 case is too hot to touch after 5 min run
 
 ### 2b. ESP32 + I²C tier (no masthead connected yet)
-- [ ] First USB flash with `esphome upload sv_esperanza_wind.yaml` (USB, NOT OTA)
+- [ ] First USB flash with `esphome run sv_esperanza_wind.yaml --device /dev/cu.usbmodem*` (USB, NOT OTA; use `--no-logs` to avoid hang)
 - [ ] Logs show: `i2c: Found device at 0x48` (ADS1115 detected)
 - [ ] `Wind Cos Raw` and `Wind Sin Raw` log values float around mid-rail (not pegged 0V or 5V)
 - [ ] WiFi connects, static IP `192.168.42.51` reachable from bearclaw (`ping`)
