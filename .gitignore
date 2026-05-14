@@ -6,6 +6,7 @@
 # ESPHome secrets and build artifacts — NEVER commit
 secrets.yaml
 **/secrets.yaml
+*.secret
 .esphome/
 esphome/.esphome/
 
@@ -23,6 +24,11 @@ __pycache__/
 .env
 .venv
 venv/
+
+# Compiled binaries
+*.bin
+*.o
+*.so
 
 # Node
 node_modules/

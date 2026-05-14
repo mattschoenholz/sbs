@@ -1,0 +1,515 @@
+# ============================================================
+# SV-Esperanza Wind Sensor Node
+# Device: ESP32-WROOM
+#
+# Reads a Raymarine ST60 masthead transducer (sin/cos vane + hall-effect
+# anemometer) and publishes apparent wind to SignalK as $IIMWV.
+#
+# ALL CONFIGURABLE VALUES ARE IN THE SUBSTITUTIONS BLOCK BELOW.
+#
+# Companion files (in this directory):
+#   nmea_client.h     — TCP client → SignalK port 10110 (shared with sensor node)
+#   wind_math.h       — pure-C++ math (header-only, host-testable)
+#   wind_math.cpp     — translation unit (no-op for ESPHome; needed by host harness)
+#   wind_math.py      — Python reference for unit tests
+#   test_wind_math.py — unittest/pytest suite
+#
+# OUTPUT to SignalK on TCP port 10110 (mirrors sv_esperanza_sensors.yaml; the
+# spec note "UDP" is shorthand — the actual SK provider is tcpserver):
+#   $IIMWV — apparent wind angle (R) and speed (N)
+#
+# WIRING (Raymarine masthead → ESP32 side):
+#   Grey   → GND (common with ESP32 GND, ADS1115 GND, supply ground)
+#   Yellow → ESP32 ${pin_anemometer}  (10kΩ pull-up to 3.3V + internal pull-up)
+#   Blue   → ADS1115 ch0 (cosine direction)
+#   Green  → ADS1115 ch1 (sine direction)
+#   Red    → +8V from L7808 output
+#
+#   ADS1115:
+#     VCC → 5V; GND → GND
+#     SDA → ${pin_i2c_sda}; SCL → ${pin_i2c_scl}
+#     ADDR → GND (I2C address 0x48)
+#
+#   Power chain:
+#     12V boat bus (fused 10A) → L7808 → masthead Red (+8V, ~25mA)
+#                              → 12V→5V buck → ESP32 5V → ADS1115 5V
+#
+# HARDWARE CAVEAT:
+#   L7808 substituted for the spec'd LM2940-8 (parts availability). L7808 is
+#   NOT low-dropout — needs ~2V headroom and loses regulation below ~10V input.
+#   Acceptable for boat use; one frame may glitch during engine cranking.
+#
+# OTA Flash (after first USB flash):
+#   ssh boat 'cd ~/esphome && python3 -m esphome run sv_esperanza_wind.yaml --no-logs'
+#   --no-logs is REQUIRED — without it ESPHome hangs on serial after flash.
+#   ESPHome on the Pi: 2026.2.4 (uses request_headers, NOT headers).
+# ============================================================
+
+substitutions:
+
+  # ── DEVICE IDENTITY ────────────────────────────────────────
+  device_name:                  "sv-esperanza-wind"
+  friendly_name:                "SV-Esperanza Wind Node"
+  device_comment:               "ST60 masthead → ESP32 → SignalK MWV"
+
+  # ── WIFI ───────────────────────────────────────────────────
+  wifi_ssid:                    !secret wifi_ssid
+  wifi_password:                !secret wifi_password
+  fallback_ssid:                !secret fallback_ssid
+  fallback_password:            !secret fallback_password
+
+  # ── NETWORK ────────────────────────────────────────────────
+  device_ip:                    "192.168.42.51"
+  gateway_ip:                   "192.168.42.1"
+  subnet_mask:                  "255.255.255.0"
+
+  # ── SIGNALK + RELAY/EVENT SERVER ───────────────────────────
+  signalk_host:                 "sailboatserver.local"
+  signalk_port:                 "10110"
+  relay_base_url:               "http://sailboatserver.local/api"
+
+  # ── OTA UPDATE PASSWORD ────────────────────────────────────
+  ota_password:                 !secret ota_password
+
+  # ── GPIO ───────────────────────────────────────────────────
+  pin_i2c_sda:                  "GPIO21"
+  pin_i2c_scl:                  "GPIO22"
+  pin_anemometer:               "GPIO15"  # digital pulse — Yellow line
+
+  # ── ADS1115 (gain 2/3 → FSR ±6.144V) ───────────────────────
+  ads1115_address:              "0x48"
+
+  # ── BENCH-CALIBRATED FACTORY DEFAULTS (2026-04-25) ─────────
+  factory_cos_offset:           "4.05"
+  factory_cos_gain:             "1.75"
+  factory_sin_offset:           "4.10"
+  factory_sin_gain:             "1.80"
+  factory_heading_offset:       "0.0"
+  factory_knots_per_hz:         "1.04"
+
+  # ── HEALTH MONITOR THRESHOLDS ──────────────────────────────
+  health_min_variance_v:        "0.05"
+  health_adc_low_v:             "0.05"
+  health_adc_high_v:            "5.95"
+  cal_duration_ms:              "300000"  # 5 minutes
+
+
+# ════════════════════════════════════════════════════════════
+# NOTHING BELOW THIS LINE SHOULD NEED EDITING
+# ════════════════════════════════════════════════════════════
+
+esphome:
+  name:           "${device_name}"
+  friendly_name:  "${friendly_name}"
+  comment:        "${device_comment}"
+  includes:
+    - nmea_client.h
+    - wind_math.h
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+
+wifi:
+  ssid:     "${wifi_ssid}"
+  password: "${wifi_password}"
+  ap:
+    ssid:     "${fallback_ssid}"
+    password: "${fallback_password}"
+  manual_ip:
+    static_ip: "${device_ip}"
+    gateway:   "${gateway_ip}"
+    subnet:    "${subnet_mask}"
+
+captive_portal:
+
+ota:
+  platform: esphome
+  password: "${ota_password}"
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+  services:
+    # Direction calibration: enter cal mode, log raw ADC for cal_duration_ms,
+    # compute new offsets/gains on exit, persist to NVS.
+    - service: calibrate_direction
+      then:
+        - lambda: |-
+            id(g_cal_active)  = true;
+            id(g_cal_started) = (uint32_t) millis();
+            id(g_cos_min) =  1e9f; id(g_cos_max) = -1e9f;
+            id(g_sin_min) =  1e9f; id(g_sin_max) = -1e9f;
+            ESP_LOGI("cal", "Direction calibration ENTERED — rotate the vane through several full turns");
+    # Heading offset: snapshot current AWA, store as heading_offset (so current = 0°).
+    - service: set_heading_zero
+      then:
+        - lambda: |-
+            wind_math::WindCal cal{
+              id(g_cos_offset), id(g_cos_gain),
+              id(g_sin_offset), id(g_sin_gain),
+              0.0f, id(g_knots_per_hz)};
+            float current = wind_math::compute_awa(id(g_raw_cos), id(g_raw_sin), cal);
+            if (!std::isnan(current)) {
+              id(g_heading_offset) = -current;
+              ESP_LOGI("cal", "Heading zeroed — heading_offset=%.2f", id(g_heading_offset));
+            } else {
+              ESP_LOGW("cal", "set_heading_zero ignored — current AWA is NaN");
+            }
+    # Restore bench-measured factory defaults.
+    - service: reset_to_factory
+      then:
+        - lambda: |-
+            id(g_cos_offset)     = ${factory_cos_offset};
+            id(g_cos_gain)       = ${factory_cos_gain};
+            id(g_sin_offset)     = ${factory_sin_offset};
+            id(g_sin_gain)       = ${factory_sin_gain};
+            id(g_heading_offset) = ${factory_heading_offset};
+            id(g_knots_per_hz)   = ${factory_knots_per_hz};
+            ESP_LOGW("cal", "Calibration RESET to factory defaults");
+
+http_request:
+  useragent: esphome/sv-esperanza-wind
+  timeout: 2s
+
+i2c:
+  sda: "${pin_i2c_sda}"
+  scl: "${pin_i2c_scl}"
+  scan: true
+  frequency: 400khz
+
+ads1115:
+  - address: "${ads1115_address}"
+    continuous_mode: false
+
+# ── GLOBALS — calibration constants (NVS-persisted) + runtime state ───────
+globals:
+  # Persisted calibration
+  - id: g_cos_offset
+    type: float
+    restore_value: yes
+    initial_value: "${factory_cos_offset}"
+  - id: g_cos_gain
+    type: float
+    restore_value: yes
+    initial_value: "${factory_cos_gain}"
+  - id: g_sin_offset
+    type: float
+    restore_value: yes
+    initial_value: "${factory_sin_offset}"
+  - id: g_sin_gain
+    type: float
+    restore_value: yes
+    initial_value: "${factory_sin_gain}"
+  - id: g_heading_offset
+    type: float
+    restore_value: yes
+    initial_value: "${factory_heading_offset}"
+  - id: g_knots_per_hz
+    type: float
+    restore_value: yes
+    initial_value: "${factory_knots_per_hz}"
+
+  # Latest ADS1115 reads (refreshed at 50 Hz) and computed values
+  - id: g_raw_cos
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_raw_sin
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_awa
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_aws
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+
+  # 60s health window
+  - id: g_health_cos_min
+    type: float
+    restore_value: no
+    initial_value: '1e9'
+  - id: g_health_cos_max
+    type: float
+    restore_value: no
+    initial_value: '-1e9'
+  - id: g_health_sin_min
+    type: float
+    restore_value: no
+    initial_value: '1e9'
+  - id: g_health_sin_max
+    type: float
+    restore_value: no
+    initial_value: '-1e9'
+  - id: g_pulse_total_window
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  # 0 healthy, 1 warn, 2 fault
+  - id: g_health_state
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_health_event_pending
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # Reason code for the last health transition (kept simple — index into a table
+  # in the HTTP-POST lambda, no string juggling).
+  #   0=ok, 1=adc_saturated, 2=vane_frozen_with_wind, 3=no_pulses_with_vane_motion
+  - id: g_health_reason
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  # Calibration mode state
+  - id: g_cal_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_cal_started
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: g_cos_min
+    type: float
+    restore_value: no
+    initial_value: '1e9'
+  - id: g_cos_max
+    type: float
+    restore_value: no
+    initial_value: '-1e9'
+  - id: g_sin_min
+    type: float
+    restore_value: no
+    initial_value: '1e9'
+  - id: g_sin_max
+    type: float
+    restore_value: no
+    initial_value: '-1e9'
+
+sensor:
+
+  # ── ADS1115 — cosine (Blue) and sine (Green) at ~50 Hz internal ────────
+  - platform: ads1115
+    multiplexer: 'A0_GND'
+    gain: 6.144
+    name: "Wind Cos Raw"
+    id: ads_cos
+    update_interval: 20ms
+    accuracy_decimals: 4
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(g_raw_cos) = x;
+            if (x < id(g_health_cos_min)) id(g_health_cos_min) = x;
+            if (x > id(g_health_cos_max)) id(g_health_cos_max) = x;
+            if (id(g_cal_active)) {
+              if (x < id(g_cos_min)) id(g_cos_min) = x;
+              if (x > id(g_cos_max)) id(g_cos_max) = x;
+            }
+
+  - platform: ads1115
+    multiplexer: 'A1_GND'
+    gain: 6.144
+    name: "Wind Sin Raw"
+    id: ads_sin
+    update_interval: 20ms
+    accuracy_decimals: 4
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(g_raw_sin) = x;
+            if (x < id(g_health_sin_min)) id(g_health_sin_min) = x;
+            if (x > id(g_health_sin_max)) id(g_health_sin_max) = x;
+            if (id(g_cal_active)) {
+              if (x < id(g_sin_min)) id(g_sin_min) = x;
+              if (x > id(g_sin_max)) id(g_sin_max) = x;
+            }
+
+  # ── Anemometer pulse counter — internal pull-up satisfies open-collector hall.
+  - platform: pulse_counter
+    pin:
+      number: "${pin_anemometer}"
+      mode:
+        input: true
+        pullup: true
+    id: anemometer_hz
+    name: "Wind Pulse Hz"
+    unit_of_measurement: "Hz"
+    accuracy_decimals: 2
+    update_interval: 1s
+    internal: true
+    filters:
+      # ESPHome reports counts/min by default — divide for Hz.
+      - multiply: 0.01666666667
+    on_value:
+      then:
+        - lambda: |-
+            id(g_pulse_total_window) += (uint32_t)(x + 0.5f);
+
+  # ── PUBLISHED SENSORS (HA-visible + value cache) ──────────────────────
+  - platform: template
+    name: "Apparent Wind Angle"
+    id: awa
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    update_interval: 200ms   # 5 Hz publish to HA
+    lambda: |-
+      wind_math::WindCal cal{
+        id(g_cos_offset), id(g_cos_gain),
+        id(g_sin_offset), id(g_sin_gain),
+        id(g_heading_offset), id(g_knots_per_hz)};
+      float v = wind_math::compute_awa(id(g_raw_cos), id(g_raw_sin), cal);
+      id(g_awa) = v;
+      return v;
+
+  - platform: template
+    name: "Apparent Wind Speed"
+    id: aws
+    unit_of_measurement: "kn"
+    accuracy_decimals: 1
+    update_interval: 200ms
+    lambda: |-
+      wind_math::WindCal cal{
+        id(g_cos_offset), id(g_cos_gain),
+        id(g_sin_offset), id(g_sin_gain),
+        id(g_heading_offset), id(g_knots_per_hz)};
+      float hz = id(anemometer_hz).state;
+      float v  = wind_math::compute_aws_from_pulses((int)(hz + 0.5f), 1.0f, cal);
+      id(g_aws) = v;
+      return v;
+
+text_sensor:
+  - platform: template
+    name: "Wind Sensor Health"
+    id: wind_health_text
+    update_interval: 5s
+    lambda: |-
+      switch (id(g_health_state)) {
+        case 0:  return {std::string("ok")};
+        case 1:  return {std::string("warn")};
+        default: return {std::string("fault")};
+      }
+
+# ── 5 Hz NMEA MWV PUBLISH + health monitor ─────────────────────────────
+interval:
+
+  # 5 Hz: build $IIMWV and push over TCP via shared nmea_push().
+  - interval: 200ms
+    then:
+      - lambda: |-
+          char sentence[80];
+          bool valid = (id(g_health_state) < 2) &&
+                       !std::isnan(id(g_awa)) && !std::isnan(id(g_aws));
+          wind_math::format_mwv_sentence(id(g_awa), id(g_aws), valid,
+                                         sentence, sizeof(sentence));
+          nmea_push(sentence);
+
+  # 60s health window evaluator + sensor_event POST on transitions.
+  - interval: 60s
+    then:
+      - lambda: |-
+          float cos_var = id(g_health_cos_max) - id(g_health_cos_min);
+          float sin_var = id(g_health_sin_max) - id(g_health_sin_min);
+          float v_cos   = id(g_raw_cos);
+          float v_sin   = id(g_raw_sin);
+          uint32_t pulses = id(g_pulse_total_window);
+
+          int prev = id(g_health_state);
+          int next = 0, reason = 0;
+
+          if (v_cos <= ${health_adc_low_v} || v_cos >= ${health_adc_high_v} ||
+              v_sin <= ${health_adc_low_v} || v_sin >= ${health_adc_high_v}) {
+            next = 2; reason = 1;          // adc_saturated
+          } else if (cos_var < ${health_min_variance_v}
+                     && sin_var < ${health_min_variance_v}
+                     && pulses > 5) {
+            next = 2; reason = 2;          // vane_frozen_with_wind
+          } else if (pulses == 0 && (cos_var > 0.20f || sin_var > 0.20f)) {
+            next = 1; reason = 3;          // no_pulses_with_vane_motion
+          }
+
+          id(g_health_state)  = next;
+          id(g_health_reason) = reason;
+
+          // Reset window
+          id(g_health_cos_min) =  1e9f; id(g_health_cos_max) = -1e9f;
+          id(g_health_sin_min) =  1e9f; id(g_health_sin_max) = -1e9f;
+          id(g_pulse_total_window) = 0;
+
+          if (next != prev) {
+            ESP_LOGW("health", "Wind health %d → %d (reason %d)", prev, next, reason);
+            id(g_health_event_pending) = true;
+          }
+
+  # Drain pending health event with an HTTP POST.
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_health_event_pending);'
+          then:
+            - lambda: 'id(g_health_event_pending) = false;'
+            - http_request.post:
+                url: "${relay_base_url}/sensor_event"
+                request_headers:
+                  Content-Type: application/json
+                body: !lambda |-
+                  static const char *REASONS[] = {
+                    "ok", "adc_saturated", "vane_frozen_with_wind",
+                    "no_pulses_with_vane_motion"
+                  };
+                  static const char *SEVS[] = {"info", "warn", "fault"};
+                  int s = id(g_health_state);
+                  int r = id(g_health_reason);
+                  if (s < 0 || s > 2) s = 0;
+                  if (r < 0 || r > 3) r = 0;
+                  char body[192];
+                  snprintf(body, sizeof(body),
+                    "{\"node_id\":\"sv-esperanza-wind\","
+                     "\"event_type\":\"health\","
+                     "\"severity\":\"%s\","
+                     "\"message\":\"%s\","
+                     "\"timestamp\":%lu}",
+                    SEVS[s], REASONS[r],
+                    (unsigned long) (millis() / 1000));
+                  return std::string(body);
+
+  # Calibration timeout: when cal_duration_ms elapses, store new offsets/gains.
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(g_cal_active) &&
+                     (millis() - id(g_cal_started)) >= ${cal_duration_ms};
+          then:
+            - lambda: |-
+                float new_cos_offset = (id(g_cos_max) + id(g_cos_min)) * 0.5f;
+                float new_cos_gain   = (id(g_cos_max) - id(g_cos_min)) * 0.5f;
+                float new_sin_offset = (id(g_sin_max) + id(g_sin_min)) * 0.5f;
+                float new_sin_gain   = (id(g_sin_max) - id(g_sin_min)) * 0.5f;
+                if (new_cos_gain > 0.5f && new_sin_gain > 0.5f) {
+                  id(g_cos_offset) = new_cos_offset;
+                  id(g_cos_gain)   = new_cos_gain;
+                  id(g_sin_offset) = new_sin_offset;
+                  id(g_sin_gain)   = new_sin_gain;
+                  ESP_LOGI("cal", "Direction cal STORED: cos=(%.3f,%.3f) sin=(%.3f,%.3f)",
+                           new_cos_offset, new_cos_gain, new_sin_offset, new_sin_gain);
+                } else {
+                  ESP_LOGW("cal", "Direction cal IGNORED — gain too small "
+                                  "(cos_gain=%.3f sin_gain=%.3f). Did the vane rotate?",
+                           new_cos_gain, new_sin_gain);
+                }
+                id(g_cal_active) = false;

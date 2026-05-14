@@ -10,7 +10,7 @@
 #   - BME680 + AHT20 weather  (I2C GPIO21/22, 0x77 + 0x38)  — BME680 via BSEC2 (IAQ)
 #   - BH1750FVI light sensor  (I2C GPIO21/22, 0x23)
 #   - DS18B20 engine bay temps(GPIO25)  — engine coolant + exhaust
-#   - Bilge water sensor      (GPIO26)
+#   - Bilge water sensor      (GPIO19)  — base unit T5
 #   - Engine RPM              (GPIO18)  — optocoupler on alternator W terminal
 #   - Battery monitor         (I2C GPIO21/22, INA226 @ 0x40)
 #   - AC shore power          (GPIO34)  — ZMPT101B
@@ -87,7 +87,7 @@
 #     SW11 spare input:  Wire 1 → GPIO19  Wire 2 → GND
 #
 #   Bilge water sensor (binary float/contact):
-#     Wire 1  → GPIO26  (internal pull-up enabled)
+#     Wire 1  → GPIO19  (internal pull-up enabled) — base unit T5
 #     Wire 2  → GND
 #
 #   INA226 battery monitor:
@@ -111,6 +111,34 @@
 #     GND     → GND
 #     OUT     → GPIO34  (ADC1 — safe with Wi-Fi)
 #     AC in   → shore power hot + neutral (fused, use caution)
+#
+# ── SCREW TERMINAL MAP ──────────────────────────────────────
+#
+#   BASE UNIT (12-terminal block):
+#     T1  → 3.3V
+#     T2  → GND
+#     T3  → GND
+#     T4  → D5  / GPIO5   — SW6 Water Pump toggle
+#     T5  → D19 / GPIO19  — Bilge/leak detector
+#     T6  → D39 / GPIO39  — Fuel level sender
+#     T7  → D14 / GPIO14  — SW8 Starlink toggle
+#     T8  → D33 / GPIO33  — SW5 Vent Fan toggle
+#     T9  → D32 / GPIO32  — SW4 Cabin Lights toggle
+#     T10 → D13 / GPIO13  — SW7 Instruments toggle
+#     T11 → D22 / GPIO22  — I2C SCL (shared bus)
+#     T12 → D21 / GPIO21  — I2C SDA (shared bus)
+#
+#   REMOTE UNIT (ethernet cable — used as multi-conductor):
+#     Pin 1      → 3.3V
+#     Pin 2      → D4  / GPIO4   — Paddlewheel STW
+#     Pin 3      → D25 / GPIO25  — DS18B20 engine bay temps (1-Wire)
+#     Pin 4      → D35 / GPIO35  — Starter battery voltage divider
+#     Pin 5      → D34 / GPIO34  — Shore power AC (ZMPT101B)
+#     Pin 6      → D2  / GPIO2   — unassigned
+#     Pin 7      → D18 / GPIO18  — Engine RPM (optocoupler)
+#     Pin 8      → GND
+#     Shield     → GND
+#
 # ============================================================
 
 substitutions:
@@ -152,11 +180,11 @@ substitutions:
   pin_i2c_sda:                  "GPIO21"
   pin_i2c_scl:                  "GPIO22"
   pin_rpm:                      "GPIO18"  # digital interrupt — optocoupler (ADC2, safe for digital)
-  pin_bilge:                    "GPIO26"  # digital input
+  pin_bilge:                    "GPIO19"  # digital input
   pin_shore_power:              "GPIO34"  # ADC1 ✅ safe with Wi-Fi — ZMPT101B
   pin_spare_adc_1:              "GPIO36"  # ADC1 ✅ reserved
-  pin_fuel_sender:              "GPIO35"  # ADC1 ✅ resistive fuel sender via 100Ω sense resistor
-  pin_starter_batt:             "GPIO39"  # ADC1 ✅ starter battery via 100kΩ+20kΩ voltage divider
+  pin_fuel_sender:              "GPIO39"  # ADC1 ✅ resistive fuel sender via 100Ω sense resistor
+  pin_starter_batt:             "GPIO35"  # ADC1 ✅ starter battery via 100kΩ+20kΩ voltage divider
   pin_sw_cabin:                 "GPIO32"  # SW4 → CH1 Cabin Lights toggle (non-critical)
   pin_sw_vent:                  "GPIO33"  # SW5 → CH6 Vent Fan toggle (non-critical)
   pin_sw_water:                 "GPIO5"   # SW6 → CH5 Water Pump toggle (non-critical)
@@ -164,7 +192,6 @@ substitutions:
   pin_sw_starlink:              "GPIO14"  # SW8 → CH8 Starlink Power toggle (non-critical)
   pin_sw_spare_9:               "GPIO16"  # SW9 spare input — no relay assigned yet
   pin_sw_spare_10:              "GPIO17"  # SW10 spare input — no relay assigned yet
-  pin_sw_spare_11:              "GPIO19"  # SW11 spare input — no relay assigned yet
   pin_ds18b20:                  "GPIO25"  # 1-Wire bus — DS18B20 engine bay temps (4.7kΩ pull-up to 3.3V required)
 
   # ── RELAY SERVER ───────────────────────────────────────────
@@ -289,6 +316,10 @@ captive_portal:
 ota:
   platform: esphome
   password: "${ota_password}"
+
+api:
+  encryption:
+    key: !secret api_encryption_key
 
 http_request:
   useragent: esphome/sv-esperanza
@@ -540,18 +571,6 @@ binary_sensor:
       inverted: true
     id: sw_spare_10
     name: "SW10 Spare"
-    filters:
-      - delayed_on: 50ms
-
-  - platform: gpio
-    pin:
-      number: "${pin_sw_spare_11}"
-      mode:
-        input: true
-        pullup: true
-      inverted: true
-    id: sw_spare_11
-    name: "SW11 Spare"
     filters:
       - delayed_on: 50ms
 
